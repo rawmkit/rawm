@@ -1,5 +1,5 @@
 // This file is a part of dwm.
-// See COPYING and COPYRIGHT files for corresponding information.
+// See LICENSE file for copyright and license details.
 //
 // dynamic window manager is designed like any other X client as well.
 // It is driven through handling X events.  In contrast to other X
