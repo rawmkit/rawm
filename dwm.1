@@ -1,4 +1,4 @@
-.TH DWM 1 dwm\-6.0zpln
+.TH DWM 1 dwm\-@VERSION@
 .SH NAME
 dwm \- dynamic window manager
 .SH SYNOPSIS
@@ -6,27 +6,86 @@ dwm \- dynamic window manager
 .RB [ \-v ]
 .SH DESCRIPTION
 dwm is a dynamic window manager for X. It manages windows in tiled, monocle
-and floating layouts. Either layout can be applied dynamically, optimising the
-environment for the application in use and the task performed.
+bottom stack, bottom stack horizontal and floating layouts. Either layout
+can be applied dynamically, optimising the environment for the application
+in use and the task performed.
 .P
 In tiled layouts windows are managed in a master and stacking area. The master
 area contains the window which currently needs most attention, whereas the
-stacking area contains all other windows. In monocle layout all windows are
-maximised to the screen size. In floating layout windows can be resized and
-moved freely. Dialog windows are always managed floating, regardless of the
-layout applied.
+stacking area contains all other windows.
+.P
+.nf
+tile          ([]=)
++---------+-------+     Tiled layout is selected by default. Also,
+|         |   2   |     it can be selected manually by Meta-t.
+|         |       |
+|    1    +-------+
+|         |   3   |
+|         |       |
++---------+-------+
+ master    stacking
+  area       area
+.fi
+.P
+Gapless grid layout arranges the windows in a grid.
+.P
+.nf
+gaplessgrid   (###)
++-----+-----+-----+     NO MASTER AREA!
+|     |     |     |
+|  1  |  3  |  5  |     Layout can be selected by Meta-g
+|     |     +-----+
+|     |     |     |
++-----+-----|  6  |
+|     |     +-----+
+|  2  |  4  |     |
+|     |     |  7  |
++-----+-----+-----+
+.fi
+.P
+In monocle layout all windows are maximised to the screen size.
+.P
+.nf
+monocle       ([M])
++-----------------+     NO MASTER AREA!
+|                 |
+|                 |     Layout can be selected by Meta-m
+|   1/2/3/4...    |
+|                 |
+|                 |
++-----------------+
+.fi
+.P
+Bottom stack (TTT) and bottom stack horizontal (===) are two
+stack layouts for dwm.
+.P
+.nf
+bstack        (TTT)                 bstackhoriz   (===)
++-----------------+                 +-----------------+
+|                 |     master      |                 |
+|        1        |   <- area ->    |        1        |
+|                 |                 |                 |
++-----+-----+-----+                 +-----------------+
+|  2  |  3  |  4  |    stacking     +--------2--------+
+|     |     |     |   <- area ->    +--------3--------+
++-----+-----+-----+                 +--------4--------+
+.fi
+.P
+In floating layout windows can be resized and moved freely. Dialog windows
+are always managed floating, regardless of the layout applied.
 .P
 Windows are grouped by tags. Each window can be tagged with one or multiple
 tags. Selecting certain tags displays all windows with these tags.
 .P
-Each screen contains a small status bar which displays all available tags, the
-layout, the title of the focused window, and the text read from the root window
-name property, if the screen is focused. A floating window is indicated with an
-empty square and a maximised floating window is indicated with a filled square
-before the windows title.  The selected tags are indicated with a different
-color. The tags of the focused window are indicated with a filled square in the
-top left corner.  The tags which are applied to one or more windows are
-indicated with an empty square in the top left corner.
+Each screen contains a small status bar which displays all used tags, the
+layout, the title (if compiled with WIN_TITLE) of the focused window, and the
+text read from the root window name property, if the screen is focused.
+A floating window is indicated with an empty square and a maximised floating
+window is indicated with a filled square before the windows title.
+The selected tags are indicated with a different color. The tags of the
+focused window are indicated with a filled square in the top left corner.
+The tags which are applied to one or more windows are indicated with an empty
+square in the top left corner.
 .P
 dwm draws a small border around windows to indicate the focus state.
 .SH OPTIONS
@@ -48,103 +107,119 @@ label toggles between tiled and floating layout.
 .B Button3
 click on a tag label adds/removes all windows with that tag to/from the view.
 .TP
-.B Mod1\-Button1
+.B Meta\-Button1
 click on a tag label applies that tag to the focused window.
 .TP
-.B Mod1\-Button3
+.B Meta\-Button3
 click on a tag label adds/removes that tag to/from the focused window.
 .SS Keyboard commands
 .TP
-.B Mod1\-Shift\-Return
+.B Meta\-Shift\-Return
 Start
-.BR uxterm (1).
+.B terminal\ emulator
+(defined in config.h).
 .TP
-.B Mod1\-,
+.B Meta\-,
 Focus previous screen, if any.
 .TP
-.B Mod1\-.
+.B Meta\-.
 Focus next screen, if any.
 .TP
-.B Mod1\-Shift\-,
+.B Meta\-Shift\-,
 Send focused window to previous screen, if any.
 .TP
-.B Mod1\-Shift\-.
+.B Meta\-Shift\-.
 Send focused window to next screen, if any.
 .TP
-.B Mod1\-b
+.B Meta\-b
 Toggles bar on and off.
 .TP
-.B Mod1\-t
+.B Meta\-t
 Sets tiled layout.
 .TP
-.B Mod1\-f
+.B Meta\-f
 Sets floating layout.
 .TP
-.B Mod1\-m
+.B Meta\-m
 Sets monocle layout.
 .TP
-.B Mod1\-space
+.B Meta\-s
+Sets bstack layout.
+.TP
+.B Meta\-h
+Sets bstackhoriz layout.
+.TP
+.B Meta\-space
 Toggles between current and previous layout.
 .TP
-.B Mod1\-j
+.B Meta\-j
 Focus next window.
 .TP
-.B Mod1\-k
+.B Meta\-k
 Focus previous window.
 .TP
-.B Mod1\-i
+.B Meta\-i
 Increase clients in master area.
 .TP
-.B Mod1\-d
+.B Meta\-d
 Decrease clients in master area.
 .TP
-.B Mod1\-l
+.B Meta\-l
 Increase master area size.
 .TP
-.B Mod1\-h
+.B Meta\-h
 Decrease master area size.
 .TP
-.B Mod1\-Return
+.B Meta\-Return
 Zooms/cycles focused window to/from master area (tiled layouts only).
 .TP
-.B Mod1\-Shift\-c
+.B Meta\-n
+Set current tag name (dmenu(1) required).
+.TP
+.B Meta\-c
 Close focused window.
 .TP
-.B Mod1\-Shift\-space
+.B Meta\-Shift\-space
 Toggle focused window between tiled and floating state.
 .TP
-.B Mod1\-Tab
+.B Meta\-Shift\-f
+Toggle focused window between fullscreen and tiled state. 
+.TP
+.B Meta\-Tab
 Toggles to the previously selected tags.
 .TP
-.B Mod1\-Shift\-[1..n]
+.B Meta\-Shift\-[1..n]
 Apply nth tag to focused window.
 .TP
-.B Mod1\-Shift\-0
+.B Meta\-Shift\-0
 Apply all tags to focused window.
 .TP
-.B Mod1\-Control\-Shift\-[1..n]
+.B Meta\-Control\-Shift\-[1..n]
 Add/remove nth tag to/from focused window.
 .TP
-.B Mod1\-[1..n]
+.B Meta\-[1..n]
 View all windows with nth tag.
 .TP
-.B Mod1\-0
+.B Meta\-0
 View all windows with any tag.
 .TP
-.B Mod1\-Control\-[1..n]
+.B Meta\-o
+Jump on the selected window in the 'all windows with any tag' view.
+.TP
+.B Meta\-Control\-[1..n]
 Add/remove all windows with nth tag to/from the view.
 .TP
-.B Mod1\-Shift\-q
+.B Meta\-Shift\-q
 Quit dwm.
 .SS Mouse commands
 .TP
-.B Mod1\-Button1
+.B Meta\-Button1
 Move focused window while dragging. Tiled windows will be toggled to the floating state.
 .TP
-.B Mod1\-Button2
+.B Meta\-Button2
 Toggles focused window between floating and tiled state.
 .TP
-.B Mod1\-Button3
+.B Meta\-Button3
 Resize focused window while dragging. Tiled windows will be toggled to the floating state.
 .SH CUSTOMIZATION
 dwm is customized by creating a custom config.h and (re)compiling the source
