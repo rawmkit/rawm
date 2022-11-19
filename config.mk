@@ -1,3 +1,6 @@
+# This file is a part of dwm.
+# See LICENSE file for copyright and license details.
+
 # dwm version
 VERSION = 6.0zpln
 
@@ -39,11 +42,13 @@ LIBS = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS}
 
 # flags
 CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
-	   -DVERSION=\"${VERSION}\" \
-	   ${XINERAMAFLAGS} ${PWKL} ${WINTITLE} \
-	   ${INCS}
-CFLAGS   = -std=c99 -pedantic -Wall -Wextra -Wformat
-LDFLAGS  = ${LIBS}
+	   -DVERSION=\"${VERSION}\" ${INCS} \
+	   ${XINERAMAFLAGS} ${PWKL} ${WINTITLE}
+CFLAGS = -std=c99 -pedantic -Wall -Wextra -Wformat
+LDFLAGS = ${LIBS}
 
 # compiler and linker
 CC = cc
+
+# vim:cc=72:tw=70
+# End of file.
