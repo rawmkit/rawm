@@ -1,8 +1,25 @@
 This directory contains dwm, dynamic window manager for X.
 
-It is a fork of suckless' dwm v6.0, and unless the original version it
-depends on: freetype2 and xinerama.  The original sources can be
-downloaded from:
+It is a fork of suckless' dwm v6.0 with the following patches:
+
+ * bstack
+ * gapless grid
+ * pertag
+ * systray (removed)
+ * WM_WINDOW_ROLE
+ * hide vacant tags
+ * nametag
+ * multi-monitor configuration
+ * freetype2 support
+ * optional per-window keyboard layout (-DPWKL)
+ * optional window title (-DWINTITLE)
+ * optional xinerama support
+ * counted monocle windows in bar
+ * "iscentered" rule for float windows
+ * configure layout pertag at startup
+
+Unless the original version it depends on: freetype2 and xinerama.
+The original sources can be downloaded from:
 
   1. https://dl.suckless.org/dwm/dwm-6.0.tar.gz
   2. https://git.suckless.org/dwm
