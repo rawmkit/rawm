@@ -8,11 +8,13 @@ all: dwm
 	${CC} -c ${CFLAGS} ${CPPFLAGS} $<
 
 dwm: dwm.o
-	${CC} -o $@ ${LDFLAGS} dwm.o
+	${LD} dwm.o ${LDFLAGS} -o $@
 
 install: all
-	install -m 0755 -Dt ${DESTDIR}${PREFIX}/bin/     dwm
-	install -m 0644 -Dt ${DESTDIR}${MANPREFIX}/man1/ dwm.1
+	mkdir -p ${DESTDIR}${PREFIX}/bin
+	mkdir -p ${DESTDIR}${MANPREFIX}/man1
+	cp -f dwm   ${DESTDIR}${PREFIX}/bin/
+	cp -f dwm.1 ${DESTDIR}${MANPREFIX}/man1/
 
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/bin/dwm
