@@ -11,138 +11,161 @@
 // 2. use specified color for urgent tag background/foreground
 //
 
-// appearance
-//static const char               font[]                  = "Sans Mono:size=9";
-//static const char               font[]                  = "xos4 terminus:size=9";
-static const char               font[]                  = "Iosevka Term:style=Regular:size=10";
+//////////////////////////////////////////////////////////////////////
+// Appearance.
+//////////////////////////////////////////////////////////////////////
 
-// trinity colorscheme
-static const char               normbordercolor[]       = "#112314";            // window borders color
-static const char               normbgcolor[]           = "#000000";            // background color
-static const char               normfgcolor[]           = "#2e5e37";            // text color in status bar
-static const char               selbordercolor[]        = "#2e5e37";            // active window border color
-static const char               selbgcolor[]            = "#2e5e37";            // window title/tags background color
-static const char               selfgcolor[]            = "#55af66";            // window title/tags foreground color
+//static const char        font[]             = "Sans Mono:size=9";
+static const char          font[]             = "xos4 Terminus:style=Regular:size=9";
+//static const char        font[]             = "Iosevka Term:style=Regular:size=10";
 
-static const unsigned int       borderpx                = 2;                    // border pixel of windows
-static const unsigned int       snap                    = 32;                   // snap pixel
-static const bool               showbar                 = true;                 // False means no bar
-static const bool               topbar                  = false;                // False means bottom bar
-static const double             defaultopacity          = 0.89;                 // transparency (also, edit transset_cmd)
+// Trinity colorscheme.
+static const char          normbordercolor[]  = "#112314";  // window borders color
+static const char          normbgcolor[]      = "#000000";  // background color
+static const char          normfgcolor[]      = "#2e5e37";  // text color in status bar
+static const char          selbordercolor[]   = "#2e5e37";  // active window border color
+static const char          selbgcolor[]       = "#2e5e37";  // window title/tags background color
+static const char          selfgcolor[]       = "#55af66";  // window title/tags foreground color
+#if 0
+// Default colorscheme.
+static const char          normbordercolor[]  = "#444444";  // window borders color
+static const char          normbgcolor[]      = "#222222";  // background color
+static const char          normfgcolor[]      = "#bbbbbb";  // text color in status bar
+static const char          selbordercolor[]   = "#005577";  // active window border color
+static const char          selbgcolor[]       = "#005577";  // window title/tags background color
+static const char          selfgcolor[]       = "#eeeeee";  // window title/tags foreground color
+#endif
 
-// layout(s)
-static const float              mfact                   = 0.55;                 // factor of master area size [0.05..0.95]
-static const int                nmaster                 = 1;                    // number of clients in master area
-static const bool               resizehints             = false;                // True means respect size hints in tiled resizals
+static const unsigned int  borderpx           = 2;          // border pixel of windows
+static const unsigned int  snap               = 32;         // snap pixel
+static const bool          showbar            = true;       // False means no bar
+static const bool          topbar             = false;      // False means bottom bar
+static const double        defaultopacity     = 0.80;       // transparency (also, edit transset_cmd)
+
+//////////////////////////////////////////////////////////////////////
+// Layout(s).
+//////////////////////////////////////////////////////////////////////
+
+static const float         mfact              = 0.55;       // factor of master area size [0.05..0.95]
+static const int           nmaster            = 1;          // number of clients in master area
+static const bool          resizehints        = false;      // True means respect size hints in tiled resizals
 
 static const Layout layouts[] = {
-// symbol       arrange function
- { "[]=",       tile            }, // idx:0  key:Mod+t                          // first entry is default
-
- { "<1/1>",     NULL            }, // idx:1  key:Mod+f                          // no layout function means floating behaviour
-
+// Symbol       Arrange function
+ { "[]=",       tile            }, // idx:0  key:Mod+t      // first entry is default
+ { "<1/1>",     NULL            }, // idx:1  key:Mod+f      // no layout function means floating behaviour
  { "[1/1]",     monocle         }, // idx:2  key:Mod+m
-
  { "TTT",       bstack          }, // idx:3  key:Mod+s
-
  { "===",       bstackhoriz     }, // idx:4  key:Mod+h
-
  { "###",       gaplessgrid     }, // idx:5  key:Mod+g
 };
 
-// number of tags per monitor
+//////////////////////////////////////////////////////////////////////
+// Tags.
+//////////////////////////////////////////////////////////////////////
+
+// Number of tags per monitor.
 #define TAGS    9
 
-// Max tag length is 22 (excludes tag number with semicolon)
-// If you want to change it, look at struct definition in dwm.c
+// Max tag length is 22 (excludes tag number with semicolon).
+// If you want to change it, look at struct definition in dwm.c.
 static CustomTagLayout tags[][TAGS] = {
-// monitor 0
-// tag name,    layout idx (see layouts)
-{{"1/",                 2}, // monocle
- {"2/",                 0},
- {"3/",                 5}, // gaplessgrid
- {"4/",                 0},
- {"5",                   0},
- {"6",                   0},
- {"7",                   0},
- {"8",                   0},
- {"9/",                 2}},
-
-// monitor 1
-// ...
+  // Monitor 0.
+  // Tag name              Layout idx (see "layouts" above)
+  {{"1/web",               2}, // monocle
+   {"2/mail",              0},
+   {"3/chat",              5}, // gaplessgrid
+   {"4/rss",               0},
+   {"5",                   0},
+   {"6",                   0},
+   {"7",                   0},
+   {"8/qemu",              0},
+   {"9/jukebox",           2}, // monocle
+  }
+  // Monitor 1.
+  // ...
 };
 
 static const Rule rules[] = {
-// class                instance          title               role                                tag mask  isfloating  iscentered  monitor
-//
-// fixed monitor
-//
- { "Firefox",           NULL,             NULL,               NULL,                               0,        false,      false,      0  },
- { "Navigator",         NULL,             NULL,               NULL,                               0,        false,      false,      0  },
+  //
+  // Fixed Monitor.
+  //
+  // class                 instance          title                     role                      tag mask  isfloating  iscentered  monitor
+  { "Firefox",             NULL,             NULL,                     NULL,                     0,        false,      false,      0  },
+  { "Navigator",           NULL,             NULL,                     NULL,                     0,        false,      false,      0  },
 
- { "Claws-mail",        NULL,             NULL,               NULL,                               2,        false,      false,      0  },
- { "Claws-mail",        "claws-mail",     "Input password",   NULL,                               2,        true,       true,       0  },
- { "Sylpheed",          NULL,             NULL,               NULL,                               2,        false,      false,      0  },
- { "Sylpheed",          "sylpheed",       "Input password",   NULL,                               2,        true,       true,       0  },
- { "Sylpheed",          "sylpheed",       "Warning",          NULL,                               2,        true,       true,       0  },
- { "Sylpheed",          "sylpheed",       "About",            NULL,                               2,        true,       true,       0  },
- { "Sylpheed",          "sylpheed",       "Command line options", NULL,                           2,        true,       true,       0  },
- { "Sylpheed",          "sylpheed",       "Plug-in manager",  NULL,                               2,        true,       true,       0  },
+  { "Claws-mail",          NULL,             NULL,                     NULL,                     2,        false,      false,      0  },
+  { "Claws-mail",          "claws-mail",     "Input password",         NULL,                     2,        true,       true,       0  },
 
- { "tox",               "tox",            NULL,               NULL,                               4,        false,      false,      0  },
- { "irc",               "tox",            NULL,               NULL,                               4,        false,      false,      0  },
+  { "Sylpheed",            NULL,             NULL,                     NULL,                     2,        false,      false,      0  },
+  { "Sylpheed",            "sylpheed",       "Input password",         NULL,                     2,        true,       true,       0  },
+  { "Sylpheed",            "sylpheed",       "Warning",                NULL,                     2,        true,       true,       0  },
+  { "Sylpheed",            "sylpheed",       "About",                  NULL,                     2,        true,       true,       0  },
+  { "Sylpheed",            "sylpheed",       "Command line options",   NULL,                     2,        true,       true,       0  },
+  { "Sylpheed",            "sylpheed",       "Plug-in manager",        NULL,                     2,        true,       true,       0  },
 
- { "rss_zeppelin",      "st",             "newsboat",         NULL,                               8,        false,      false,      0  },
- { "rss_infosec",       "st",             "newsboat",         NULL,                               8,        false,      false,      0  },
+  { "tox",                 "tox",            NULL,                     NULL,                     4,        false,      false,      0  },
+  { "irc",                 "tox",            NULL,                     NULL,                     4,        false,      false,      0  },
 
- { "moc",               "moc",            "mocp",             NULL,                               256,      false,      false,      0  },
+  { "rss_zeppelin",        "st",             "newsboat",               NULL,                     8,        false,      false,      0  },
+  { "rss_infosec",         "st",             "newsboat",               NULL,                     8,        false,      false,      0  },
 
-// class                instance          title               role                                tag mask  isfloating  iscentered  monitor
-//
-// current active monitor
-//
- { "Ktsuss",            "ktsuss",         NULL,               NULL,                               0,        true,       true,       -1 },
- { "Zim",               "zim",            "Zim - Web Server", NULL,                               0,        true,       true,       -1 },
- { "todo.txt",          "todo.txt",       NULL,               NULL,                               0,        true,       true,       -1 },
- { "notes.txt",         "notes.txt",      NULL,               NULL,                               0,        true,       true,       -1 },
- { "mixer",             "mixer",          NULL,               NULL,                               0,        true,       true,       -1 },
- { "Sxiv",              "background-wallpapers", "sxiv",      NULL,                               0,        true,       true,       -1 },
+  { "Qemu-system-x86_64",  "qemu",           "QEMU",                   NULL,                     128,      false,      false,      0  },
+
+  { "moc",                 "moc",            "mocp",                   NULL,                     256,      false,      false,      0  },
+  { "Jukebox",             "jukebox",        NULL,                     NULL,                     256,      false,      false,      0  },
+
+
+  //
+  // Current active monitor.
+  //
+  // class                 instance          title                     role                      tag mask  isfloating  iscentered  monitor
+  { "Ktsuss",              "ktsuss",         NULL,                     NULL,                     0,        true,       true,       -1 },
+  { "Zim",                 "zim",            "Zim - Web Server",       NULL,                     0,        true,       true,       -1 },
+  { "todo.txt",            "todo.txt",       NULL,                     NULL,                     0,        true,       true,       -1 },
+  { "notes.txt",           "notes.txt",      NULL,                     NULL,                     0,        true,       true,       -1 },
+  { "mixer",               "mixer",          "mixer",                  NULL,                     0,        true,       true,       -1 },
+  { "Sxiv",                "xbackground-w",  "sxiv",                   NULL,                     0,        true,       true,       -1 },
 };
 
-// key definitions
+//////////////////////////////////////////////////////////////////////
+// Command and Key definitions.
+//////////////////////////////////////////////////////////////////////
+
 // Mod4Mask - Windows key, Mod1Mask - Alt
 #define MODKEY Mod4Mask
-// helper for spawning shell commands in the pre dwm-5.0 fashion
+
+// Helper for spawning shell commands in the pre dwm-5.0 fashion.
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
-// Multimedia keyboard definitions
+// Multimedia keyboard definitions.
 #include <X11/XF86keysym.h>
 
 static const char *drun_cmd[] = {
- "dmenu_run",
-        "-p", "Run:",
-        "-fn", font,
-        "-nb", normbgcolor,
-        "-nf", normfgcolor,
-        "-sb", selbgcolor,
-        "-sf", selfgcolor,
-        NULL,
+  "dmenu_run",
+    "-p", "Run:",
+    "-fn", font,
+    "-nb", normbgcolor,
+    "-nf", normfgcolor,
+    "-sb", selbgcolor,
+    "-sf", selfgcolor,
+    NULL,
 };
 static const char *pass_cmd[] = {
- "passmenu",
-        "-p", "Password:",
-        "-fn", font,
-        "-nb", normbgcolor,
-        "-nf", normfgcolor,
-        "-sb", selbgcolor,
-        "-sf", selfgcolor,
-        NULL
+  "passmenu",
+    "-p", "Password:",
+    "-fn", font,
+    "-nb", normbgcolor,
+    "-nf", normfgcolor,
+    "-sb", selbgcolor,
+    "-sf", selfgcolor,
+    NULL
 };
 static const char *lock_cmd[] = { "scrlock", NULL };
 static const char *term_cmd[] = { "st", NULL };
-static const char *transset_cmd[] = { "transset-df", "-a", "-t", "0.89",  NULL }; // default opacity
+static const char *transset_cmd[] = { "transset-df", "-a", "-t", "0.80",  NULL }; // default opacity
 
-// music player settings
+// Music player settings.
 static const char *player_play_cmd[]  = { "jukebox", "-cmd", "PlayPause", NULL };
 static const char *player_stop_cmd[]  = { "jukebox", "-cmd", "Stop",      NULL };
 static const char *player_prev_cmd[]  = { "jukebox", "-cmd", "PrevSong",  NULL };
@@ -151,6 +174,7 @@ static const char *player_vol_inc[]   = { "jukebox", "-cmd", "IncVolume", NULL }
 static const char *player_vol_dec[]   = { "jukebox", "-cmd", "DecVolume", NULL };
 static const char *player_vol_mute[]  = { "jukebox", "-cmd", "TogMute",   NULL };
 
+// Mixer settings.
 #ifdef __DragonFly__
 static const char *mixer_vol_mute[]   = { "mixer", "vol", "0",   NULL };
 static const char *mixer_vol_inc[]    = { "mixer", "vol", "+10", NULL };
@@ -161,14 +185,14 @@ static const char *master_decv_cmd[]  = { "amixer", "sset", "Master", "1-",     
 static const char *master_incv_cmd[]  = { "amixer", "sset", "Master", "1+",     NULL };
 #endif
 
-// Notebooks settings
+// Notebook's backlight settings.
 static const char *xbacklight_i_cmd[] = { "xbacklight", "-inc", "10", NULL };
 static const char *xbacklight_d_cmd[] = { "xbacklight", "-dec", "10", NULL };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static Key keys[] = {
-// modifier                     key                             function                argument
+// Modifier                     Key                             Function                argument
  { MODKEY,                      XK_r,                           spawn,                  {.v = drun_cmd}         },
  { MODKEY,                      XK_p,                           spawn,                  {.v = pass_cmd}         },
 
@@ -235,7 +259,7 @@ static Key keys[] = {
         TAGKEYS(                XK_8,                                                                   7)
         TAGKEYS(                XK_9,                                                                   8)
 
-// Multimedia keyboard shortcuts
+// Multimedia keyboard shortcuts.
 // Media player
  { 0,                           XF86XK_AudioPlay,               spawn,                  {.v = player_play_cmd}  },
  { 0,                           XF86XK_AudioStop,               spawn,                  {.v = player_stop_cmd}  },
@@ -262,10 +286,10 @@ static Key keys[] = {
  { ControlMask|Mod4Mask,        XK_t,                           spawn,                  {.v = transset_cmd}     },
 };
 
-// button definitions
+// Button definitions.
 // click can be ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin
 static Button buttons[] = {
-// click                event mask      button          function                argument
+// Click                Event mask      Button          Function                Argument
  { ClkLtSymbol,         0,              Button1,        setlayout,              {0}                     },
  { ClkLtSymbol,         0,              Button3,        setlayout,              {.v = &layouts[2]}      },
 #ifdef WINTITLE
@@ -282,4 +306,4 @@ static Button buttons[] = {
 };
 
 // vim:sw=2:ts=2:sts=2:et:cc=140
-// End of file
+// End of file.
