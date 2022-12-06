@@ -1,4 +1,3 @@
-# This file is a part of dwm.
 # See LICENSE file for copyright and license details.
 
 # dwm version
