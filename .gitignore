@@ -1,3 +1,7 @@
+# build artefacts
 config.h
 dwm
 dwm.o
+
+# vim undo
+.*.un~
