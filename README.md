@@ -13,9 +13,9 @@ following patches:
  * nametag
  * multi-monitor configuration
  * freetype2 support
- * optional per-window keyboard layout (-DPWKL)
- * optional window title (-DWINTITLE)
- * optional xinerama support
+ * optional per-window keyboard layout (`-DPWKL`)
+ * optional window title (`-DWINTITLE`)
+ * optional xinerama support (`-DXINERAMA`)
  * counted monocle windows in bar
  * "iscentered" rule for float windows
  * configure layout pertag at startup
