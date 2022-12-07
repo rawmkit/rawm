@@ -1,14 +1,6 @@
 // See LICENSE file for copyright and license details.
 //
-// TODO:
-//
-// 1. add to man:
-//
-// +.B Mod1\-o
-// +Select view of the window in focus. The list of tags to be displayed is matched to the window tag list.
-// +.TP
-//
-// 2. use specified color for urgent tag background/foreground
+// TODO: use specified color for urgent tag background/foreground ?
 //
 
 //////////////////////////////////////////////////////////////////////
