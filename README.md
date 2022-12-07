@@ -46,8 +46,8 @@ Install
 The shell commands `make; make install` should build and install this
 package.  See `config.mk` file for configuration parameters.
 
-dwm can be customized by editing `config.h` and (re)compiling the
-source code.
+dwm can be customized by creating a custom `config.h` and
+(re)compiling the source code.  This keeps it fast, secure and simple.
 
 
 License and Copyright
