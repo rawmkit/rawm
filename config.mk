@@ -3,8 +3,6 @@
 # dwm version
 VERSION = 6.0zpln
 
-# Customize below to fit your system
-
 # optional xinerama support (comment to disable)
 XINERAMAFLAGS = -DXINERAMA
 XINERAMALIBS = -lXinerama
