@@ -289,6 +289,8 @@ static void           setmfact(const Arg *arg);
 static void           setup(void);
 static void           showhide(Client *c);
 static void           sigchld(int sig);
+static void           sighup(int sig);
+static void           sigterm(int sig);
 static void           spawn(const Arg *arg);
 static void           tag(const Arg *arg);
 static void           tagmon(const Arg *arg);
@@ -345,6 +347,7 @@ static void          (*handler[LASTEvent]) (XEvent *) = {
   [UnmapNotify]       = unmapnotify
 };
 static Atom           wmatom[WMLast], netatom[NetLast];
+static bool           restart = false;
 static bool           running = true;
 static Cursor         cursor[CurLast];
 static Display       *dpy;
@@ -2138,6 +2141,7 @@ propertynotify(XEvent *e)
 static void
 quit(__attribute__((unused)) const Arg *arg)
 {
+  if (arg->i) restart = true;
   running = false;
 }
 
@@ -2529,6 +2533,9 @@ setup(void)
   // clean up any zombies immediately
   sigchld(0);
 
+  signal(SIGHUP,  sighup);
+  signal(SIGTERM, sigterm);
+
   // init screen
   screen  = DefaultScreen(dpy);
   root    = RootWindow(dpy, screen);
@@ -2642,6 +2649,20 @@ sigchld(__attribute__((unused)) int sig)
 
   while (0 < waitpid(-1, NULL, WNOHANG))
     ;
+}
+
+static void
+sighup(__attribute__((unused)) int sig)
+{
+  Arg a = {.i = 1};
+  quit(&a);
+}
+
+static void
+sigterm(__attribute__((unused)) int sig)
+{
+  Arg a = {.i = 0};
+  quit(&a);
 }
 
 static void
@@ -3406,6 +3427,7 @@ main(int argc, char *argv[])
   setup();
   scan();
   run();
+  if (restart) execvp(argv[0], argv);
   cleanup();
   XCloseDisplay(dpy);
 

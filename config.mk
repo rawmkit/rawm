@@ -1,7 +1,7 @@
 # See LICENSE file for copyright and license details.
 
 # dwm version
-VERSION = 6.0zpln
+VERSION = 6.1zpln
 
 # optional xinerama support (comment to disable)
 XINERAMAFLAGS = -DXINERAMA

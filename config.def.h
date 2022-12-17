@@ -193,6 +193,7 @@ static Key keys[] = {
  { MODKEY|ShiftMask,            XK_period,                tagmon,           {.i = +1}               },
 
  { MODKEY|ShiftMask,            XK_q,                     quit,             {0}                     },
+ { MODKEY|ControlMask|ShiftMask,XK_q,                     quit,             {1}                     },
 
 #define TAGKEYS(KEY,TAG) \
  { MODKEY,                      KEY,                      view,             {.ui = 1 << TAG}        }, \
