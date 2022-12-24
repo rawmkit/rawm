@@ -16,7 +16,8 @@ dwm: dwm.o
 	${LD} dwm.o ${LDFLAGS} -o $@
 
 install: all
-	mkdir -p ${DESTDIR}${PREFIX}/bin ${DESTDIR}${MANPREFIX}/man1
+	mkdir -p    ${DESTDIR}${PREFIX}/bin
+	mkdir -p    ${DESTDIR}${MANPREFIX}/man1
 	cp -f dwm   ${DESTDIR}${PREFIX}/bin/
 	cp -f dwm.1 ${DESTDIR}${MANPREFIX}/man1/
 
