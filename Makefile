@@ -2,7 +2,7 @@
 
 include config.mk
 
-all: dwm
+all: dwm dwm.1
 
 .c.o:
 	${CC} -c ${CFLAGS} ${CPPFLAGS} $<
@@ -11,6 +11,9 @@ config.h:
 	cp config.def.h $@
 
 dwm.o: config.h
+
+dwm.1: dwm.1.in
+	sed "s/@VERSION@/${VERSION}/g" $< > $@
 
 dwm: dwm.o
 	${LD} dwm.o ${LDFLAGS} -o $@
@@ -26,6 +29,6 @@ uninstall:
 	rm -f ${DESTDIR}${MANPREFIX}/man1/dwm.1
 
 clean:
-	rm -f dwm dwm.o
+	rm -f dwm dwm.o dwm.1
 
 .PHONY: all install uninstall clean
