@@ -41,8 +41,8 @@ LIBS = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS}
 CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
 	   -DVERSION=\"${VERSION}\" ${INCS} \
 	   ${XINERAMAFLAGS} ${PWKL} ${WINTITLE}
-CFLAGS = -std=c99 -pedantic -Wall -Wextra -Wformat
-LDFLAGS = ${LIBS}
+CFLAGS   = -std=c99 -pedantic -Wall -Wextra -Wformat
+LDFLAGS  = ${LIBS}
 
 # compiler and linker
 CC = cc
