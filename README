@@ -1,33 +1,33 @@
-ABOUT dwm
+ABOUT
 
     This directory contains dwm.
     dwm is a dynamic window manager for X.
 
     This dwm distribution is a fork of suckless' dwm version 6.0 with
     the following patches:
-    * bstack
-    * gapless grid
-    * pertag
-    * systray (removed)
-    * WM_WINDOW_ROLE
-    * hide vacant tags
-    * nametag
-    * multi-monitor configuration
-    * freetype2 support
-    * optional per-window keyboard layout (-DPWKL)
-    * optional window title (-DWINTITLE)
-    * optional xinerama support (-DXINERAMA)
-    * counted monocle windows in bar
-    * "iscentered" rule for float windows
-    * configure layout pertag at startup
+      * bstack
+      * gapless grid
+      * pertag
+      * systray (removed)
+      * WM_WINDOW_ROLE
+      * hide vacant tags
+      * nametag
+      * multi-monitor configuration
+      * freetype2 support
+      * optional per-window keyboard layout (-DPWKL)
+      * optional window title (-DWINTITLE)
+      * optional xinerama support (-DXINERAMA)
+      * counted monocle windows in bar
+      * "iscentered" rule for float windows
+      * configure layout pertag at startup
 
-    Unless original dwm 6.0 this dwm distribution depends on:
-    freetype2 and xinerama.
+    Unless original dwm 6.0 this dwm distribution depends on freetype2
+    and xinerama.
 
     The original sources can be downloaded from:
-    1. https://git.suckless.org/dwm                 (git)
-    2. https://dl.suckless.org/dwm/dwm-6.0.tar.gz   (tarball)
-    3. https://dwm.suckless.org/patches/            (applied patches)
+      1. https://git.suckless.org/dwm                (git)
+      2. https://dl.suckless.org/dwm/dwm-6.0.tar.gz  (tarball)
+      3. https://dwm.suckless.org/patches/           (applied patches)
 
 REQUIREMENTS
 
