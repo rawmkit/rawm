@@ -1,7 +1,4 @@
 // See LICENSE file for copyright and license details.
-//
-// TODO: use specified color for urgent tag background/foreground ?
-//
 
 //////////////////////////////////////////////////////////////////////
 // Appearance.
