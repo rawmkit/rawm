@@ -15,12 +15,12 @@ WINTITLE = -DWINTITLE
 PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 
-# DragonFlyBSD, FreeBSD (uncomment to disable)
+# DragonFlyBSD, FreeBSD (uncomment to enable)
 #X11INC = /usr/local/include
 #X11LIB = /usr/local/lib
 #FT2INC = /usr/local/include/freetype2
 
-# NetBSD, OpenBSD (uncomment do enable)
+# NetBSD, OpenBSD (uncomment to enable)
 #X11INC = /usr/X11R6/include
 #X11LIB = /usr/X11R6/lib
 
