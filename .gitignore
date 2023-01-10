@@ -2,6 +2,7 @@
 config.h
 dwm
 dwm.o
+dwm.1
 
 # vim undo
 .*.un~
