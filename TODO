@@ -1,7 +1,5 @@
 TODO dwm
 
-    * Use specified color for urgent tag background/foreground?
+        [ ] Use specified color for urgent tag background/foreground?
 
-
-vim:sw=2:ts=2:sts=2:et:cc=72:tw=70
 End of file.
