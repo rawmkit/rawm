@@ -1,8 +1,8 @@
 ABOUT
 -----
-This directory contains *dwm*, a dynamic window manager for X.
+This directory contains _dwm_, a dynamic window manager for X.
 
-This *dwm* distribution is a fork of suckless' *dwm* version 6.0 with
+This _dwm_ distribution is a fork of suckless' _dwm_ version 6.0 with
 the following applied patches:
   * bstack
   * gapless grid
@@ -20,8 +20,8 @@ the following applied patches:
   * configure layout pertag at startup
   * restartsig
 
-Unless original *dwm* 6.0 this *dwm* distribution depends on
-*freetype2* and *xinerama*.
+Unless original _dwm_ 6.0 this _dwm_ distribution depends on
+_freetype2_ and _xinerama_.
 
 The original sources can be downloaded from:
   1. https://git.suckless.org/dwm                (git)
@@ -31,25 +31,25 @@ The original sources can be downloaded from:
 REQUIREMENTS
 ------------
 Build time:
-* c99 compiler
-* POSIX sh(1p), make(1p) and "mandatory utilities"
-* libX11
-* freetype2
-* fontconfig
-* xinerama (optional)
+  * c99 compiler
+  * POSIX sh(1p), make(1p) and "mandatory utilities"
+  * libX11
+  * freetype2
+  * fontconfig
+  * xinerama (optional)
 
 INSTALL
 -------
 The shell commands `make && make install` should build and install
-this package.  See *config.mk* file for configuration parameters.
+this package.  See _config.mk_ file for configuration parameters.
 
-*dwm* can be customized by creating a custom *config.h* file and
+_dwm_ can be customized by creating a custom _config.h_ file and
 (re)compiling the source code.
 
 LICENSE
 -------
-*dwm* is licensed through MIT/X Consortium License.
-See *LICENSE* file for copyright and license details.
+_dwm_ is licensed through MIT/X Consortium License.
+See _LICENSE_ file for copyright and license details.
 
 <!-- vim:sw=2:ts=2:sts=2:et:cc=72:tw=70
 End of file. -->
