@@ -1,7 +1,7 @@
 // See LICENSE file for copyright and license details.
 
 //////////////////////////////////////////////////////////////////////
-// Appearance.
+// Appearance.                                                      //
 //////////////////////////////////////////////////////////////////////
 
 static const char          font[]             = "Sans Mono:size=9";
@@ -22,7 +22,7 @@ static const bool          topbar             = false;      // false means botto
 static const double        defaultopacity     = 0.80;       // transparency
 
 //////////////////////////////////////////////////////////////////////
-// Layout(s).
+// Layout(s).                                                       //
 //////////////////////////////////////////////////////////////////////
 
 static const float         mfact              = 0.55;       // factor of master area size [0.05..0.95]
@@ -40,7 +40,7 @@ static const Layout layouts[] = {
 };
 
 //////////////////////////////////////////////////////////////////////
-// Tags.
+// Tags.                                                            //
 //////////////////////////////////////////////////////////////////////
 
 // Number of tags per monitor.
@@ -87,7 +87,7 @@ static const Rule rules[] = {
 };
 
 //////////////////////////////////////////////////////////////////////
-// Commands definition.
+// Commands definition.                                             //
 //////////////////////////////////////////////////////////////////////
 
 // Helper for spawning shell commands in the pre dwm-5.0 fashion.
@@ -131,7 +131,7 @@ static const char *backlight_inc_cmd[] = { "xbacklight", "-inc", "10", NULL };
 static const char *backlight_dec_cmd[] = { "xbacklight", "-dec", "10", NULL };
 
 /////////////////////////////////////////////////////////////////////
-// Keys definition.
+// Keys definition.                                                //
 /////////////////////////////////////////////////////////////////////
 
 // Mod4Mask - Windows key, Mod1Mask - Alt.
