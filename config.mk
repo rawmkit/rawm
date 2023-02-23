@@ -24,7 +24,7 @@ MANPREFIX = ${PREFIX}/share/man
 #X11INC = /usr/X11R6/include
 #X11LIB = /usr/X11R6/lib
 
-# Linux
+# Linux (comment to disable)
 X11INC = /usr/include
 X11LIB = /usr/lib
 FT2INC = /usr/include/freetype2
