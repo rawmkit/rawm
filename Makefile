@@ -10,13 +10,13 @@ all: dwm dwm.1
 config.h:
 	cp config.def.h $@
 
+dwm.1:
+	sed "s/@VERSION@/${VERSION}/g" dwm.1.in > $@
+
 dwm.o: config.h
 
 dwm: dwm.o
 	${LD} dwm.o ${LDFLAGS} -o $@
-
-dwm.1: dwm.1.in
-	sed "s/@VERSION@/${VERSION}/g" $< > $@
 
 install: all
 	mkdir -p    ${DESTDIR}${PREFIX}/bin
