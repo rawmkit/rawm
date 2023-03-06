@@ -1554,7 +1554,7 @@ gaplessgrid(Monitor *m)
 static Atom
 getatomprop(Client *c, Atom prop)
 {
-  int            di, i;
+  int            di;
   unsigned long  dl;
   unsigned char *p = NULL;
   Atom           da, atom = None;
