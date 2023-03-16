@@ -27,7 +27,7 @@ OVERVIEW
 	The original sources can be downloaded from:
 	1. https://git.suckless.org/dwm                (git)
 	2. https://dl.suckless.org/dwm/dwm-6.0.tar.gz  (tarball)
-	3. https://dwm.suckless.org/patches/           (applied patches)
+	3. https://dwm.suckless.org/patches/           (patches)
 
 REQUIREMENTS
 
@@ -38,7 +38,7 @@ REQUIREMENTS
 		* libX11
 		* freetype2
 		* fontconfig
-		* xinerama (optional)
+		* xinerama is optional, for Xinerama Extension support
 
 INSTALL
 
