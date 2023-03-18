@@ -435,7 +435,7 @@ applyrules(Client *c)
       c->tags       |= r->tags;
 
       for (m = mons; m && m->num != r->monitor; m = m->next)
-        ;
+        /* NOTHING */;
 
       if (m)
         c->mon = m;
@@ -554,7 +554,7 @@ arrangemon(Monitor *m)
   for (n = 0, c = nexttiled(m->clients);
        c;
        c = nexttiled(c->next), n++)
-    ;
+    /* NOTHING */;
 
   if (  (   m->lt[m->sellt]->arrange != monocle
          && n > 1)
@@ -610,7 +610,7 @@ bstack(Monitor *m)
   for (n = 0, c = nexttiled(m->clients);
        c;
        c = nexttiled(c->next), n++)
-    ;
+    /* NOTHING */;
 
   if (n == 0)
     return;
@@ -668,7 +668,7 @@ bstackhoriz(Monitor *m)
   for (n = 0, c = nexttiled(m->clients);
        c;
        c = nexttiled(c->next), n++)
-    ;
+    /* NOTHING */;
 
   if (n == 0)
     return;
@@ -810,8 +810,10 @@ cleanup(void)
   selmon->lt[selmon->sellt] = &foo;
 
   for (m = mons; m; m = m->next)
+  {
     while (m->stack)
       unmanage(m->stack, false);
+  }
 
   XUngrabKey(dpy, AnyKey, AnyModifier, root);
   XFreePixmap(dpy, dc.drawable);
@@ -838,7 +840,7 @@ cleanupmon(Monitor *mon)
   else
   {
     for (m = mons;  m && m->next != mon;  m = m->next)
-      ;
+      /* NOTHING */;
     m->next = mon->next;
   }
 
@@ -1084,7 +1086,7 @@ detach(Client *c)
   for (tc = &c->mon->clients;
       *tc && (*tc != c);
        tc = &(*tc)->next)
-    ;
+    /* NOTHING */;
 
   *tc = c->next;
 }
@@ -1097,7 +1099,7 @@ detachstack(Client *c)
   for (tc = &c->mon->stack;
       *tc && (*tc != c);
        tc = &(*tc)->snext)
-    ;
+    /* NOTHING */;
 
   *tc = c->snext;
 
@@ -1106,7 +1108,8 @@ detachstack(Client *c)
     for (t = c->mon->stack;
          t && !ISVISIBLE(t);
          t = t->snext)
-      ;
+      /* NOTHING */;
+
     c->mon->sel = t;
   }
 }
@@ -1133,11 +1136,15 @@ dirtomon(int dir)
       m = mons;
   }
   else if (selmon == mons)
+  {
     for (m = mons;  m->next;            m = m->next)
-      ;
+      /* NOTHING */;
+  }
   else
+  {
     for (m = mons;  m->next != selmon;  m = m->next)
-      ;
+      /* NOTHING */;
+  }
 
   return m;
 }
@@ -1312,7 +1319,7 @@ drawtext(const char *text, XftColor col[ColLast], bool invert)
   for (len = MIN(olen, sizeof buf);
        len && (textnw(text, len) > (dc.w - h));
        len--)
-    ;
+    /* NOTHING */;
 
   if (!len)
     return;
@@ -1320,8 +1327,10 @@ drawtext(const char *text, XftColor col[ColLast], bool invert)
   memcpy(buf, text, len);
 
   if (len < olen)
+  {
     for (int i = len;  i && (i > (len - 3));  buf[--i] = '.')
-      ;
+      /* NOTHING */;
+  }
 
   d = XftDrawCreate(dpy,
                     dc.drawable,
@@ -1381,8 +1390,10 @@ static void
 focus(Client *c)
 {
   if (!c || !ISVISIBLE(c))
+  {
     for (c = selmon->stack;  c && !ISVISIBLE(c);  c = c->snext)
-      ;
+      /* NOTHING */;
+  }
 
   /* was if(selmon->sel) */
   if (    selmon->sel
@@ -1454,14 +1465,18 @@ focusnstack(const Arg *arg)
   for (j = 1, i = selmon->clients;
        i;
        i = i->next, j++)
+  {
     if (ISVISIBLE(i) && (j == arg->i))
       c = i;
+  }
 
   if (!c)
   {
     for (j = 1;  i;  i = i->next, j++)
+    {
       if (ISVISIBLE(i) && (j == arg->i))
         c = i;
+    }
   }
 
   if (c)
@@ -1482,22 +1497,30 @@ focusstack(const Arg *arg)
   if (arg->i > 0)
   {
     for (c = selmon->sel->next;  c && !ISVISIBLE(c);  c = c->next)
-      ;
+      /* NOTHING */;
 
     if (!c)
+    {
       for (c = selmon->clients;  c && !ISVISIBLE(c);  c = c->next)
-        ;
+        /* NOTHING */;
+    }
   }
   else
   {
     for (i = selmon->clients;  i != selmon->sel;  i = i->next)
+    {
       if (ISVISIBLE(i))
         c = i;
+    }
 
     if (!c)
+    {
       for (;  i;  i = i->next)
+      {
         if (ISVISIBLE(i))
           c = i;
+      }
+    }
   }
 
   if (c)
@@ -1523,8 +1546,10 @@ gaplessgrid(Monitor *m)
 
   /* grid dimensions */
   for (cols = 0; cols <= n/2; cols++)
+  {
     if ((cols * cols) >= n)
       break;
+  }
   if (n == 5)
   {
     /* set layout against the general calculation:
@@ -1697,7 +1722,9 @@ grabbuttons(Client *c, bool focused)
     if (focused)
     {
       for (unsigned int i = 0; i < LENGTH(buttons); i++)
+      {
         if (buttons[i].click == ClkClientWin)
+        {
           for (unsigned int j = 0; j < LENGTH(modifiers); j++)
             XGrabButton(dpy,
                         buttons[i].button,
@@ -1709,6 +1736,8 @@ grabbuttons(Client *c, bool focused)
                         GrabModeSync,
                         None,
                         None);
+        }
+      }
     }
     else
       XGrabButton(dpy,
@@ -1740,7 +1769,9 @@ grabkeys(void)
 
     XUngrabKey(dpy, AnyKey, AnyModifier, root);
     for (unsigned int i = 0; i < LENGTH(keys); i++)
+    {
       if ((code = XKeysymToKeycode(dpy, keys[i].keysym)))
+      {
         for (unsigned int j = 0; j < LENGTH(modifiers); j++)
           XGrabKey(dpy,
                    code,
@@ -1749,6 +1780,8 @@ grabkeys(void)
                    true,
                    GrabModeAsync,
                    GrabModeAsync);
+      }
+    }
   }
 }
 
@@ -1780,13 +1813,14 @@ isuniquegeom(XineramaScreenInfo *unique, size_t n,
              XineramaScreenInfo *info)
 {
   while (n--)
+  {
     if (   unique[n].x_org  == info->x_org
         && unique[n].y_org  == info->y_org
         && unique[n].width  == info->width
         && unique[n].height == info->height
        )
       return false;
-
+  }
   return true;
 }
 #endif /* XINERAMA */
@@ -1802,10 +1836,12 @@ keypress(XEvent *e)
   keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0);
 
   for (i = 0; i < LENGTH(keys); i++)
+  {
     if (   (keysym == keys[i].keysym)
         && (CLEANMASK(keys[i].mod) == CLEANMASK(ev->state))
         &&  keys[i].func)
       keys[i].func( &(keys[i].arg) );
+  }
 }
 
 static void
@@ -2154,7 +2190,7 @@ static Client *
 nexttiled(Client *c)
 {
   for (;  c && (c->isfloating || !ISVISIBLE(c));  c = c->next)
-    ;
+    /* NOTHING */;
 
   return c;
 }
@@ -2265,7 +2301,7 @@ resizeclient(Client *c, int x, int y, int w, int h)
   for (n = 0, nbc = nexttiled(selmon->clients);
        nbc;
        nbc = nexttiled(nbc->next), n++)
-    ;
+    /* NOTHING */;
 
   /* Remove border if layout is monocle or only one client present */
   if (   selmon->lt[selmon->sellt]->arrange == monocle
@@ -2368,7 +2404,7 @@ resizemouse(__attribute__((unused)) const Arg *arg)
   XUngrabPointer(dpy, CurrentTime);
 
   while (XCheckMaskEvent(dpy, EnterWindowMask, &ev))
-    ;
+    /* NOTHING */;
 
   if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon)
   {
@@ -2409,7 +2445,7 @@ restack(Monitor *m)
   XSync(dpy, false);
 
   while (XCheckMaskEvent(dpy, EnterWindowMask, &ev))
-    ;
+    /* NOTHING */;
 }
 
 static void
@@ -2420,8 +2456,10 @@ run(void)
   /* main event loop */
   XSync(dpy, false);
   while (running && !XNextEvent(dpy, &ev))
+  {
     if (handler[ev.type])
       handler[ev.type](&ev); /* call handler */
+  }
 }
 
 static void
@@ -2759,7 +2797,7 @@ sigchld(__attribute__((unused)) int sig)
     die("Can't install SIGCHLD handler");
 
   while (0 < waitpid(-1, NULL, WNOHANG))
-    ;
+    /* NOTHING */;
 }
 
 static void
@@ -2832,7 +2870,7 @@ tile(Monitor *m)
   for (n = 0, c = nexttiled(m->clients);
        c;
        c = nexttiled(c->next), n++)
-    ;
+    /* NOTHING */;
 
   if (n == 0)
     return;
@@ -2959,7 +2997,7 @@ toggleview(const Arg *arg)
     size_t i = 0;
 
     for (; !(newtagset & 1 << i); i++)
-      ;
+      /* NOTHING */;
 
     selmon->pertag->curtag = i + 1;
   }
@@ -3118,7 +3156,7 @@ updategeom(void)
     XineramaScreenInfo *unique = NULL;
 
     for (n = 0, m = mons; m; m = m->next, n++)
-      ;
+      /* NOTHING */;
 
     /* only consider unique geometries as separate screens */
     if (!(unique =
@@ -3128,8 +3166,10 @@ updategeom(void)
           sizeof(XineramaScreenInfo) * nn);
 
     for (i = 0, j = 0; i < nn; i++)
+    {
       if (isuniquegeom(unique, j, &info[i]))
         memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
+    }
 
     XFree(info);
 
@@ -3139,12 +3179,13 @@ updategeom(void)
       for (i = 0; i < (nn - n); i++)
       { /* new monitors available */
         for (m = mons;  m && m->next;  m = m->next)
-          ;
+          /* NOTHING */;
         if (m)
           m->next = createmon();
         else
           mons    = createmon();
       }
+
       for (i = 0, m = mons;  i < nn && m;  m = m->next, i++)
         if (i >= n
             || (   unique[i].x_org  != m->mx
@@ -3166,7 +3207,7 @@ updategeom(void)
       for (i = nn; i < n; i++)
       {
         for (m = mons;  m && m->next;  m = m->next)
-          ;
+          /* NOTHING */;
 
         while (m->clients)
         {
@@ -3377,7 +3418,7 @@ view(const Arg *arg)
     {
       size_t i;
       for (i = 0; !(arg->ui & 1 << i); i++)
-        ;
+        /* NOTHING */;
       selmon->pertag->curtag = i + 1;
     }
   }
@@ -3409,9 +3450,13 @@ wintoclient(Window w)
   Monitor *m;
 
   for (m = mons; m; m = m->next)
+  {
     for (c = m->clients; c; c = c->next)
+    {
       if (c->win == w)
         return c;
+    }
+  }
 
   return NULL;
 }
@@ -3427,8 +3472,10 @@ wintomon(Window w)
     return recttomon(x, y, 1, 1);
 
   for (m = mons; m; m = m->next)
+  {
     if (w == m->barwin)
       return m;
+  }
 
   if ((c = wintoclient(w)))
     return c->mon;
