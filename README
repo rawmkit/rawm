@@ -24,6 +24,8 @@ OVERVIEW
 	Unless original dwm 6.0 this dwm distribution depends on freetype2 and
 	xinerama.
 
+	See git log for further differences.
+
 	The original sources can be downloaded from:
 	1. https://git.suckless.org/dwm                (git)
 	2. https://dl.suckless.org/dwm/dwm-6.0.tar.gz  (tarball)
