@@ -1,14 +1,17 @@
 /* dwm customization.
  * See LICENSE file for copyright and license details. */
 
-/*
+/*********************************************************************
  * Appearance.
  */
 
+/* Font.
+ * See http://freedesktop.org/software/fontconfig/fontconfig-user.html
+ */
 static const char          font[]             = "Sans Mono:size=9";
-/*static const char        font[]             = "xos4 Terminus:style=Regular:size=9";*/
-/*static const char        font[]             = "Iosevka Term:style=Regular:size=10";*/
 
+/* Colors.
+ */
 static const char          normbordercolor[]  = "#444444";  /* window borders color */
 static const char          normbgcolor[]      = "#222222";  /* background color */
 static const char          normfgcolor[]      = "#bbbbbb";  /* text color in status bar */
@@ -16,13 +19,15 @@ static const char          selbordercolor[]   = "#005577";  /* active window bor
 static const char          selbgcolor[]       = "#005577";  /* window title/tags background color */
 static const char          selfgcolor[]       = "#eeeeee";  /* window title/tags foreground color */
 
+/* Other settings.
+ */
 static const unsigned int  borderpx           = 2;          /* border pixel of windows */
 static const unsigned int  snap               = 32;         /* snap pixel */
 static const bool          showbar            = true;       /* false means no bar */
 static const bool          topbar             = false;      /* false means bottom bar */
 static const double        defaultopacity     = 0.80;       /* transparency */
 
-/*
+/*********************************************************************
  * Layouts.
  */
 
@@ -40,7 +45,7 @@ static const Layout layouts[] = {
  { "###",       gaplessgrid     }, /* idx:5  key:Mod+g */
 };
 
-/*
+/*********************************************************************
  * Tags.
  */
 
@@ -87,7 +92,7 @@ static const Rule rules[] = {
   /* ... */
 };
 
-/*
+/*********************************************************************
  * Commands definition.
  */
 
@@ -131,7 +136,7 @@ static const char *mixer_inc_cmd[]  = { "amixer", "sset", "Master", "1+",     NU
 static const char *backlight_inc_cmd[] = { "xbacklight", "-inc", "10", NULL };
 static const char *backlight_dec_cmd[] = { "xbacklight", "-dec", "10", NULL };
 
-/*
+/*********************************************************************
  * Keys definition.
  */
 
