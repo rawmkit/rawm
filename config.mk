@@ -1,4 +1,5 @@
-# dwm version
+# project metadata
+NAME = dwm
 VERSION = 6.0.1zpln
 
 # optional xinerama support (comment to disable)
