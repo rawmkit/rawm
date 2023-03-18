@@ -144,16 +144,16 @@ struct Client {
 };
 
 typedef struct {
-  int       x, y, w, h;
-  XftColor  norm[ColLast];
-  XftColor  sel[ColLast];
-  Drawable  drawable;
-  GC        gc;
+  int           x, y, w, h;
+  XftColor      norm[ColLast];
+  XftColor      sel[ColLast];
+  Drawable      drawable;
+  GC            gc;
   struct {
-    int     ascent;
-    int     descent;
-    int     height;
-    XftFont *xfont;
+    int         ascent;
+    int         descent;
+    int         height;
+    XftFont     *xfont;
   } font;
 } DC; /* draw context */
 
@@ -370,12 +370,12 @@ static Window         root;
 static unsigned int   opacity = defaultopacity * 0xffffffff;
 
 struct Pertag {
-  unsigned int  curtag, prevtag;     /* current and previous tag */
-  int           nmasters[TAGS + 1];  /* number of windows in master area */
-  float         mfacts[TAGS + 1];    /* mfacts per tag */
-  unsigned int  sellts[TAGS + 1];    /* selected layouts */
+  unsigned int  curtag, prevtag;     /* current and previous tag           */
+  int           nmasters[TAGS + 1];  /* number of windows in master area   */
+  float         mfacts[TAGS + 1];    /* mfacts per tag                     */
+  unsigned int  sellts[TAGS + 1];    /* selected layouts                   */
   const Layout *ltidxs[TAGS + 1][2]; /* matrix of tags and layouts indexes */
-  bool          showbars[TAGS + 1];  /* display bar for the current tag */
+  bool          showbars[TAGS + 1];  /* display bar for the current tag    */
 };
 
 /* Compile-time check if all tags fit into an unsigned int bit array. */
@@ -2662,35 +2662,23 @@ setup(void)
   updategeom();
 
   /* init atoms */
-  wmatom[WMProtocols] = XInternAtom(dpy, "WM_PROTOCOLS",      false);
-  wmatom[WMDelete]    = XInternAtom(dpy, "WM_DELETE_WINDOW",  false);
-  wmatom[WMState]     = XInternAtom(dpy, "WM_STATE",          false);
-  wmatom[WMTakeFocus] = XInternAtom(dpy, "WM_TAKE_FOCUS",     false);
+  wmatom[WMProtocols]            = XInternAtom(dpy, "WM_PROTOCOLS",      false);
+  wmatom[WMDelete]               = XInternAtom(dpy, "WM_DELETE_WINDOW",  false);
+  wmatom[WMState]                = XInternAtom(dpy, "WM_STATE",          false);
+  wmatom[WMTakeFocus]            = XInternAtom(dpy, "WM_TAKE_FOCUS",     false);
 
-  netatom[NetActiveWindow] =
-                        XInternAtom(dpy, "_NET_ACTIVE_WINDOW",
-                                                              false);
-  netatom[NetSupported] =
-                        XInternAtom(dpy, "_NET_SUPPORTED",    false);
-  netatom[NetWMName] =
-                        XInternAtom(dpy, "_NET_WM_NAME",      false);
-  netatom[NetWMState] =
-                        XInternAtom(dpy, "_NET_WM_STATE",     false);
-  netatom[NetWMFullscreen] =
-                        XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN",
-                                                              false);
-  netatom[NetWMWindowType] =
-                        XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",
-                                                              false);
-
-  netatom[NetWMWindowTypeDialog] =
-                        XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",
-                                                              false);
+  netatom[NetActiveWindow]       = XInternAtom(dpy, "_NET_ACTIVE_WINDOW",         false);
+  netatom[NetSupported]          = XInternAtom(dpy, "_NET_SUPPORTED",             false);
+  netatom[NetWMName]             = XInternAtom(dpy, "_NET_WM_NAME",               false);
+  netatom[NetWMState]            = XInternAtom(dpy, "_NET_WM_STATE",              false);
+  netatom[NetWMFullscreen]       = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN",   false);
+  netatom[NetWMWindowType]       = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",        false);
+  netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", false);
 
   /* init cursors */
-  cursor[CurNormal] = XCreateFontCursor(dpy, XC_left_ptr);
-  cursor[CurResize] = XCreateFontCursor(dpy, XC_sizing);
-  cursor[CurMove]   = XCreateFontCursor(dpy, XC_fleur);
+  cursor[CurNormal]  = XCreateFontCursor(dpy, XC_left_ptr);
+  cursor[CurResize]  = XCreateFontCursor(dpy, XC_sizing);
+  cursor[CurMove]    = XCreateFontCursor(dpy, XC_fleur);
 
   /* init appearance */
   dc.norm[ColBorder] = getcolor(normbordercolor);
@@ -2724,14 +2712,14 @@ setup(void)
 
   /* select for events */
   wa.cursor     = cursor[CurNormal];
-  wa.event_mask =   SubstructureRedirectMask
-                  | SubstructureNotifyMask
-                  | ButtonPressMask
-                  | PointerMotionMask
-                  | EnterWindowMask
-                  | LeaveWindowMask
-                  | StructureNotifyMask
-                  | PropertyChangeMask;
+  wa.event_mask = SubstructureRedirectMask
+                | SubstructureNotifyMask
+                | ButtonPressMask
+                | PointerMotionMask
+                | EnterWindowMask
+                | LeaveWindowMask
+                | StructureNotifyMask
+                | PropertyChangeMask;
 
   XChangeWindowAttributes(dpy, root, CWEventMask|CWCursor, &wa);
   XSelectInput(dpy, root, wa.event_mask);
@@ -2978,16 +2966,11 @@ toggleview(const Arg *arg)
   selmon->tagset[selmon->seltags] = newtagset;
 
   /* apply settings for this view */
-  selmon->nmaster =
-    selmon->pertag->nmasters[selmon->pertag->curtag];
-  selmon->mfact =
-    selmon->pertag->mfacts[selmon->pertag->curtag];
-  selmon->sellt =
-    selmon->pertag->sellts[selmon->pertag->curtag];
-  selmon->lt[selmon->sellt] =
-    selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
-  selmon->lt[selmon->sellt^1] =
-    selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt^1];
+  selmon->nmaster             = selmon->pertag->nmasters[selmon->pertag->curtag];
+  selmon->mfact               = selmon->pertag->mfacts[selmon->pertag->curtag];
+  selmon->sellt               = selmon->pertag->sellts[selmon->pertag->curtag];
+  selmon->lt[selmon->sellt]   = selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
+  selmon->lt[selmon->sellt^1] = selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt^1];
 
   if (   selmon->showbar
       != selmon->pertag->showbars[selmon->pertag->curtag] )
@@ -3237,10 +3220,14 @@ updatenumlockmask(void)
   numlockmask = 0;
   modmap      = XGetModifierMapping(dpy);
   for (int i = 0; i < 8; i++)
+  {
     for (int j = 0; j < modmap->max_keypermod; j++)
+    {
       if (modmap->modifiermap[i * modmap->max_keypermod + j]
           == XKeysymToKeycode(dpy, XK_Num_Lock))
         numlockmask = (1 << i);
+    }
+  }
 
   XFreeModifiermap(modmap);
 }
@@ -3401,15 +3388,11 @@ view(const Arg *arg)
     selmon->pertag->curtag  = tmptag;
   }
 
-  selmon->nmaster = selmon->pertag->nmasters[selmon->pertag->curtag];
-  selmon->mfact   = selmon->pertag->mfacts[  selmon->pertag->curtag];
-  selmon->sellt   = selmon->pertag->sellts[  selmon->pertag->curtag];
-
-  selmon->lt[selmon->sellt] =
-    selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
-
-  selmon->lt[selmon->sellt^1] =
-    selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt^1];
+  selmon->nmaster             = selmon->pertag->nmasters[selmon->pertag->curtag];
+  selmon->mfact               = selmon->pertag->mfacts[  selmon->pertag->curtag];
+  selmon->sellt               = selmon->pertag->sellts[  selmon->pertag->curtag];
+  selmon->lt[selmon->sellt]   = selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
+  selmon->lt[selmon->sellt^1] = selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt^1];
 
   if (   selmon->showbar
       != selmon->pertag->showbars[selmon->pertag->curtag])
