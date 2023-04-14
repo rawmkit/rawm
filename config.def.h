@@ -93,7 +93,7 @@ static const Rule rules[] = {
 };
 
 /*********************************************************************
- * Commands definition.
+ * Command definitions.
  */
 
 /* Helper for spawning shell commands in the pre dwm-5.0 fashion. */
@@ -137,7 +137,7 @@ static const char *backlight_inc_cmd[] = { "xbacklight", "-inc", "10", NULL };
 static const char *backlight_dec_cmd[] = { "xbacklight", "-dec", "10", NULL };
 
 /*********************************************************************
- * Keys definition.
+ * Key definitions.
  */
 
 /* Mod4Mask - Windows key, Mod1Mask - Alt. */
@@ -224,7 +224,10 @@ static Key keys[] = {
  { 0,                           XF86XK_MonBrightnessUp,   spawn,          {.v = backlight_inc_cmd}},
 };
 
-/* Button definitions. */
+/*
+ * Button definitions.
+ */
+
 /* click can be ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
 static Button buttons[] = {
 /* Click                Event mask      Button            Function        Argument */
