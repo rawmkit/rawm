@@ -49,7 +49,7 @@
 #endif
 
 /*
- * Macros
+ * Macros.
  */
 
 #define BUTTONMASK  (ButtonPressMask | ButtonReleaseMask)
@@ -81,7 +81,7 @@
 #define TEXTW(X)   (textnw(X, strlen(X)) + dc.font.height)
 
 /*
- * Enums
+ * Enums.
  */
 
 enum { /* cursor */
@@ -216,8 +216,9 @@ typedef struct {
 } Rule;
 
 /*
- * Function declarations
+ * Function declarations.
  */
+
 static void           applyrules(Client *c);
 static bool           applysizehints(Client *c, int *x, int *y,
                                      int *w, int *h, bool interact);
@@ -330,8 +331,9 @@ static int            xerrorstart(Display *dpy, XErrorEvent *ee);
 static void           zoom(const Arg *arg);
 
 /*
- * Variables
+ * Variables.
  */
+
 static const char     broken[] = "broken";
 static char           stext[256];
 static int            screen;
@@ -400,7 +402,10 @@ getprop(Window w, const char *prop)
   return (char *)val;
 }
 
-/* function implementations */
+/* 
+ * Function implementations.
+ */
+
 static void
 applyrules(Client *c)
 {
