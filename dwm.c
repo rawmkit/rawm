@@ -48,7 +48,7 @@
 # include <X11/extensions/Xinerama.h>
 #endif
 
-/*
+/*********************************************************************
  * Macros.
  */
 
@@ -80,8 +80,8 @@
 
 #define TEXTW(X)   (textnw(X, strlen(X)) + dc.font.height)
 
-/*
- * Enums.
+/*********************************************************************
+ * Enums & Typedefs.
  */
 
 enum { /* cursor */
@@ -215,7 +215,7 @@ typedef struct {
   int           monitor;
 } Rule;
 
-/*
+/*********************************************************************
  * Function declarations.
  */
 
@@ -330,8 +330,8 @@ static int            xerrordummy(Display *dpy, XErrorEvent *ee);
 static int            xerrorstart(Display *dpy, XErrorEvent *ee);
 static void           zoom(const Arg *arg);
 
-/*
- * Variables.
+/*********************************************************************
+ * Global variables.
  */
 
 static const char     broken[] = "broken";
@@ -385,6 +385,10 @@ struct NumTags {
   char limitexceeded[TAGS > 31 ? -1 : 1];
 };
 
+/*********************************************************************
+ * Function implementations.
+ */
+
 char *
 getprop(Window w, const char *prop)
 {
@@ -401,10 +405,6 @@ getprop(Window w, const char *prop)
 
   return (char *)val;
 }
-
-/* 
- * Function implementations.
- */
 
 static void
 applyrules(Client *c)
