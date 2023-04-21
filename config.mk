@@ -1,6 +1,7 @@
 # project metadata
 NAME = dwm
 VERSION = 6.0.1zpln
+DIST = ${NAME}-${VERSION}
 
 # optional xinerama support (comment to disable)
 XINERAMAFLAGS = -DXINERAMA

@@ -32,5 +32,9 @@ uninstall:
 
 clean:
 	rm -f dwm dwm.o dwm.1
+	rm -f ${DIST}.tar.gz
 
-.PHONY: all install uninstall clean
+dist: clean
+	git archive --format=tar.gz -o ${DIST}.tar.gz --prefix=${DIST}/ HEAD
+
+.PHONY: all install uninstall clean dist
