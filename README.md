@@ -2,8 +2,8 @@ OVERVIEW
 --------
 This directory contains dwm, a dynamic window manager for X.
 
-This dwm distribution is a fork of suckless' dwm version 6.0 with the following
-applied patches:
+This dwm distribution is a fork of suckless' dwm version 6.0 with the
+following applied patches:
 - bstack
 - gapless grid
 - pertag
@@ -44,11 +44,11 @@ REQUIREMENTS
 
 INSTALL
 -------
-The shell commands `make && make install` should build and install this
-package.  See `config.mk` file for configuration parameters.
+The shell commands `make && make install` should build and install
+this package.  See `config.mk` file for configuration parameters.
 
-dwm can be customized by creating a custom `config.h` file and (re)compiling
-the source code.
+dwm can be customized by creating a custom `config.h` file and
+(re)compiling the source code.
 
 
 LICENSE
