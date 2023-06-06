@@ -1,14 +1,14 @@
-# build artefacts
+# build files and artefacts
 config.h
 dwm
 dwm.o
 dwm.1
 
-# vim undo
+# vim undo files
 .*.un~
 
 # backup files
 *.bak
 
-# tarballs
+# dist tarballs
 *.tar.gz
