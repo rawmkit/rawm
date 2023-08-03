@@ -4,8 +4,9 @@ dwm
 dwm.o
 dwm.1
 
-# vim undo files
+# vim undo and swap files
 .*.un~
+*.swp
 
 # backup files
 *.bak
