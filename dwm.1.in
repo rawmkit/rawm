@@ -21,9 +21,9 @@ attention, whereas the stacking area contains all other windows.
 .P
 .nf
 tile          ([]=)
-+---------+-------+     Tiled layout is selected by default.  Also,
-|         |   2   |     it can be selected manually by Meta-t.
-|         |       |
++---------+-------+     Tiled layout is selected by default.
+|         |   2   |     Also, it can be selected manually by
+|         |       |     Meta-t.
 |    1    +-------+
 |         |   3   |
 |         |       |
