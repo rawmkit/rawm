@@ -246,5 +246,5 @@ static Button buttons[] = {
  { ClkTagBar,           MODKEY,         Button3,          toggletag,      {0}                     },
 };
 
-/* vim:sw=2:ts=2:sts=2:et:cc=120
+/* vim: sw=2 ts=2 sts=2 et cc=120
  * End of file. */
