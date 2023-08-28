@@ -3365,7 +3365,7 @@ static void
 updatestatus(void)
 {
   if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-    strcpy(stext, NAME"-"VERSION);
+    strcpy(stext, "dwm "VERSION);
 
   drawbar(selmon);
 }
@@ -3583,7 +3583,7 @@ int
 main(int argc, char *argv[])
 {
   if (argc == 2 && !strcmp("-v", argv[1]))
-    die(NAME" "VERSION"\n");
+    die("dwm "VERSION"\n");
   else if (argc != 1)
     die("usage: dwm [-v]\n");
 
