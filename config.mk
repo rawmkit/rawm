@@ -38,12 +38,8 @@ INCS          = -I${X11INC} -I${FT2INC}
 LIBS          = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS}
 
 # flags
-CPPFLAGS      = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
-	        -DNAME=\"${NAME}\" -DVERSION=\"${VERSION}\" ${INCS} \
-	        ${XINERAMAFLAGS} ${PWKL} ${WINTITLE}
-CFLAGS        = -std=c99 -pedantic -Wall -Wextra -Wformat
+CFLAGS        = -pedantic -Wall -Wextra -Wformat \
+		-D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
+	        -DVERSION=\"${VERSION}\" \
+		${INCS} ${XINERAMAFLAGS} ${PWKL} ${WINTITLE}
 LDFLAGS       = ${LIBS}
-
-# compiler and linker
-CC            = cc
-LD            = ${CC}
