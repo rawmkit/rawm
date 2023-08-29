@@ -34,7 +34,7 @@ The original sources can be downloaded from:
 REQUIREMENTS
 ------------
 **Build time**:
-- c99 compiler
+- C99 compiler
 - POSIX sh(1p), make(1p) and "mandatory utilities"
 - libX11
 - freetype2
@@ -47,6 +47,9 @@ INSTALL
 The shell commands `make && make install` should build and install
 this package.  See `config.mk` file for configuration parameters.
 
+
+CUSTOMIZATION
+-------------
 dwm can be customized by creating a custom `config.h` file and
 (re)compiling the source code.
 
