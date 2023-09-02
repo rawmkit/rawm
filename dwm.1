@@ -58,8 +58,9 @@ monocle       ([M])
 +-----------------+
 .Ed
 .Pp
-Bottom stack (TTT) and bottom stack horizontal (===) are two
-stack layouts for dwm.
+Bottom stack (TTT) and bottom stack horizontal (===) are two stack
+layouts for
+.Nm .
 .Bd -literal -offset indent
 bstack        (TTT)                 bstackhoriz   (===)
 +-----------------+                 +-----------------+
@@ -72,12 +73,13 @@ bstack        (TTT)                 bstackhoriz   (===)
 +-----+-----+-----+                 +--------4--------+
 .Ed
 .Pp
-In floating layout windows can be resized and moved freely.  Dialog
-windows are always managed floating, regardless of the layout applied.
+In floating layout windows can be resized and moved freely.
+Dialog windows are always managed floating, regardless of the layout
+applied.
 .Pp
-Windows are grouped by tags.  Each window can be tagged with one or
-multiple tags.  Selecting certain tags displays all windows with these
-tags.
+Windows are grouped by tags.
+Each window can be tagged with one or multiple tags.
+Selecting certain tags displays all windows with these tags.
 .Pp
 Each screen contains a small status bar which displays all used tags,
 the layout, the title (if compiled with WIN_TITLE) of the focused
@@ -88,12 +90,14 @@ A floating window is indicated with an empty square and a maximised
 floating window is indicated with a filled square before the windows
 title.
 .Pp
-The selected tags are indicated with a different color.  The tags of
-the focused window are indicated with a filled square in the top left
-corner.  The tags which are applied to one or more windows are
-indicated with an empty square in the top left corner.
+The selected tags are indicated with a different color.
+The tags of the focused window are indicated with a filled square in
+the top left corner.
+The tags which are applied to one or more windows are indicated with
+an empty square in the top left corner.
 .Pp
-dwm draws a small border around windows to indicate the focus state.
+.Nm
+draws a small border around windows to indicate the focus state.
 .Sh OPTIONS
 .Bl -tag -width X
 .It Fl v
@@ -101,9 +105,10 @@ Print version and exit.
 .El
 .Sh USAGE
 .Ss Status bar
-.Bl -tag
+.Bl -tag -width Ds
 .It X root window name
-Is read and displayed in the status text area.  It can be set with the
+Is read and displayed in the status text area.
+It can be set with the
 .Xr xsetroot 1
 command.
 .It Button1
@@ -117,8 +122,8 @@ Click on a tag label applies that tag to the focused window.
 .It Meta\-Button3
 Click on a tag label adds/removes that tag to/from the focused window.
 .El
-.SS Keyboard commands
-.Bl -tag
+.Ss Keyboard commands
+.Bl -tag -width Ds
 .It Meta\-Shift\-Return
 Start terminal emulator (defined in
 .Pa config.h ).
@@ -167,7 +172,7 @@ Close focused window.
 .It Meta\-Shift\-space
 Toggle focused window between tiled and floating state.
 .It Meta\-Shift\-f
-Toggle focused window between fullscreen and tiled state. 
+Toggle focused window between fullscreen and tiled state.
 .It Meta\-Tab
 Toggles to the previously selected tags.
 .It Meta\-Shift\-[1..n]
@@ -185,20 +190,22 @@ Jump on the selected window in the "all windows with any tag" view.
 .It Meta\-Control\-[1..n]
 Add/remove all windows with nth tag to/from the view.
 .It Meta\-Shift\-q
-Quit dwm.
+Quit
+.Nm .
 .It Meta\-Control\-Shift\-q
-Restart dwm.
+Restart
+.Nm .
 .El
-.SS Mouse commands
-.Bl -tag
+.Ss Mouse commands
+.Bl -tag -width Ds
 .It Meta\-Button1
-Move focused window while dragging.  Tiled windows will be toggled to
-the floating state.
+Move focused window while dragging.
+Tiled windows will be toggled to the floating state.
 .It Meta\-Button2
 Toggles focused window between floating and tiled state.
 .It Meta\-Button3
-Resize focused window while dragging.  Tiled windows will be toggled
-to the floating state.
+Resize focused window while dragging.
+Tiled windows will be toggled to the floating state.
 .El
 .Sh CUSTOMIZATION
 .Nm
@@ -209,19 +216,24 @@ This keeps it fast, secure and simple.
 .Sh SIGNALS
 .Bl -tag -width XXXXXXXXXXXX
 .It SIGHUP - 1
-Restart the dwm process.
+Restart the
+.Nm
+process.
 .It SIGTERM - 15
-Cleanly terminate the dwm process.
+Cleanly terminate the
+.Nm
+process.
 .El
 .Sh SEE ALSO
 .Xr dmenu 1
 .Sh BUGS
 Java applications which use the XToolkit/XAWT backend may draw grey
-windows only.  The XToolkit/XAWT backend breaks ICCCM-compliance in
-recent JDK 1.5 and early JDK 1.6 versions, because it assumes a
-reparenting window manager.  Possible workarounds are using JDK 1.4
-(which doesn't contain the XToolkit/XAWT backend) or setting the
-environment variable
+windows only.
+The XToolkit/XAWT backend breaks ICCCM-compliance in recent JDK 1.5
+and early JDK 1.6 versions, because it assumes a reparenting window
+manager.
+Possible workarounds are using JDK 1.4 (which doesn't contain the
+XToolkit/XAWT backend) or setting the environment variable
 .Ev AWT_TOOLKIT
 to
 .Dq \&MToolkit
@@ -241,7 +253,9 @@ to
 GTK 2.10.9+ versions contain a broken
 .Dq \&Save\-As
 file dialog implementation, which requests to reconfigure its window
-size in an endless loop.  However, its window is still respondable
-during this state, so you can simply ignore the flicker until a new
-GTK version appears, which will fix this bug, approximately GTK
-2.10.12+ versions.
+size in an endless loop.
+However, its window is still respondable during this state, so you can
+simply ignore the flicker until a new GTK version appears, which will
+fix this bug, approximately GTK 2.10.12+ versions.
+.\" vim: cc=72 tw=70
+.\" End of file.
