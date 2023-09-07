@@ -2,12 +2,15 @@
 .Dd August 19, 2023
 .Dt DWM 1
 .Os dwm @VERSION@
+.\" ==================================================================
 .Sh NAME
 .Nm dwm
 .Nd dynamic window manager for X
+.\" ==================================================================
 .Sh SYNOPSIS
 .Nm
 .Op Fl v
+.\" ==================================================================
 .Sh DESCRIPTION
 .Nm
 is a dynamic window manager for X.  It manages windows in tiled,
@@ -98,12 +101,15 @@ an empty square in the top left corner.
 .Pp
 .Nm
 draws a small border around windows to indicate the focus state.
+.\" ==================================================================
 .Sh OPTIONS
 .Bl -tag -width X
 .It Fl v
 Print version and exit.
 .El
+.\" ==================================================================
 .Sh USAGE
+.\" ------------------------------------------------------------------
 .Ss Status bar
 .Bl -tag -width Ds
 .It X root window name
@@ -122,6 +128,7 @@ Click on a tag label applies that tag to the focused window.
 .It Meta\-Button3
 Click on a tag label adds/removes that tag to/from the focused window.
 .El
+.\" ------------------------------------------------------------------
 .Ss Keyboard commands
 .Bl -tag -width Ds
 .It Meta\-Shift\-Return
@@ -196,6 +203,7 @@ Quit
 Restart
 .Nm .
 .El
+.\" ------------------------------------------------------------------
 .Ss Mouse commands
 .Bl -tag -width Ds
 .It Meta\-Button1
@@ -207,12 +215,14 @@ Toggles focused window between floating and tiled state.
 Resize focused window while dragging.
 Tiled windows will be toggled to the floating state.
 .El
+.\" ==================================================================
 .Sh CUSTOMIZATION
 .Nm
 is customized by creating a custom
 .Pa config.h
 and (re)compiling the source code.
 This keeps it fast, secure and simple.
+.\" ==================================================================
 .Sh SIGNALS
 .Bl -tag -width XXXXXXXXXXXX
 .It SIGHUP - 1
@@ -224,8 +234,10 @@ Cleanly terminate the
 .Nm
 process.
 .El
+.\" ==================================================================
 .Sh SEE ALSO
 .Xr dmenu 1
+.\" ==================================================================
 .Sh BUGS
 Java applications which use the XToolkit/XAWT backend may draw grey
 windows only.
