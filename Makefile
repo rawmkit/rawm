@@ -8,13 +8,13 @@ config.h:
 	cp config.def.h $@
 
 install: all
-	mkdir -p    ${DESTDIR}${PREFIX}/bin
-	mkdir -p    ${DESTDIR}${MANPREFIX}/man1
-	cp -f dwm   ${DESTDIR}${PREFIX}/bin/
+	mkdir -p ${DESTDIR}${PREFIX}/bin
+	mkdir -p ${DESTDIR}${MANPREFIX}/man1
+	cp -f dwm ${DESTDIR}${PREFIX}/bin/
 	sed "s/@VERSION@/${VERSION}/g" dwm.1 > \
 		${DESTDIR}${MANPREFIX}/man1/dwm.1
-	chmod 0755  ${DESTDIR}${PREFIX}/bin/dwm
-	chmod 0644  ${DESTDIR}${MANPREFIX}/man1/dwm.1
+	chmod 0755 ${DESTDIR}${PREFIX}/bin/dwm
+	chmod 0644 ${DESTDIR}${MANPREFIX}/man1/dwm.1
 
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/bin/dwm
