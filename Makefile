@@ -20,7 +20,7 @@ uninstall:
 	rm -f ${DESTDIR}${MANPREFIX}/man1/dwm.1
 
 clean:
-	rm -f dwm dwm.o
+	rm -f dwm
 	rm -f ${DIST}.tar.gz
 
 dist: clean
