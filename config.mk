@@ -13,6 +13,9 @@ PWKL          = -DPWKL
 # optional windows title support (comment to disable)
 WINTITLE      = -DWINTITLE
 
+# optional session store
+SESSION_FILE  = -DSESSION_FILE=\".dwm.session\"
+
 # paths
 PREFIX        = /usr/local
 MANPREFIX     = ${PREFIX}/share/man
@@ -41,5 +44,5 @@ LIBS          = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS}
 CFLAGS        = -pedantic -Wall -Wextra -Wformat \
 		-D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
 	        -DVERSION=\"${VERSION}\" \
-		${INCS} ${XINERAMAFLAGS} ${PWKL} ${WINTITLE}
+		${INCS} ${XINERAMAFLAGS} ${PWKL} ${WINTITLE} ${SESSION_FILE}
 LDFLAGS       = ${LIBS}
