@@ -2261,9 +2261,11 @@ propertynotify(XEvent *e)
 }
 
 static void
-quit(__attribute__((unused)) const Arg *arg)
+quit(const Arg *arg)
 {
-  if (arg->i) restart = true;
+  if (arg->i)
+    restart = true;
+
   running = false;
 
 #ifdef SESSION_FILE
@@ -2576,6 +2578,9 @@ session_restore(void)
     /* add tags to every window by _win (id) */
     for (Client *c = selmon->clients; c; c = c->next)
     {
+      /* XXX (if necessary?) send to the right monitor using
+       * `sendmon()`
+       */
       if (c->win == _win)
       {
         c->tags = _tags;
