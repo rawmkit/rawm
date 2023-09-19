@@ -19,6 +19,7 @@ following applied patches:
 - "iscentered" rule for float windows
 - configure layout pertag at startup
 - restartsig
+- restoreafterrestart
 
 Unless original dwm 6.0 this dwm distribution depends on freetype2 and
 xinerama.
