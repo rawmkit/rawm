@@ -3685,7 +3685,8 @@ main(int argc, char *argv[])
   session_restore();
 #endif
   run();
-  if (restart) execvp(argv[0], argv);
+  if (restart)
+    execvp(argv[0], argv);
   cleanup();
   XCloseDisplay(dpy);
 
