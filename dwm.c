@@ -1211,7 +1211,7 @@ drawbar(Monitor *m)
   {
     unsigned int i = 0, j = 0;
 
-    for (c = m->clients;  c;  c = c->next)
+    for (c = selmon->clients;  c;  c = c->next)
     {
       if (ISVISIBLE(c))
       {
