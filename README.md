@@ -22,6 +22,7 @@ applied patches:
   * restartsig
   * restoreafterrestart
   * `_NET_CLIENT_LIST`
+  * systray
 
 Unless original dwm 6.0 this dwm distribution depends on freetype2 and
 xinerama.
