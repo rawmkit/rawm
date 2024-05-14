@@ -7,6 +7,9 @@ DIST          = ${NAME}-${VERSION}
 XINERAMAFLAGS = -DXINERAMA
 XINERAMALIBS  = -lXinerama
 
+# optional systray
+DWM_SYSTRAY   = -DDWM_SYSTRAY
+
 # optional per window keyboard layout support (comment to disable)
 PWKL          = -DPWKL
 
@@ -44,5 +47,6 @@ LIBS          = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS}
 CFLAGS        = -pedantic -Wall -Wextra -Wformat \
 		-D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
 	        -DVERSION=\"${VERSION}\" \
-		${INCS} ${XINERAMAFLAGS} ${PWKL} ${WINTITLE} ${SESSION_FILE}
+		${INCS} ${XINERAMAFLAGS} ${PWKL} ${WINTITLE} ${SESSION_FILE} \
+		${DWM_SYSTRAY}
 LDFLAGS       = ${LIBS}

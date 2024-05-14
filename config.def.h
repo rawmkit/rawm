@@ -27,6 +27,10 @@ static const bool          showbar            = true;       /* false means no ba
 static const bool          topbar             = false;      /* false means bottom bar */
 static const double        defaultopacity     = 0.80;       /* transparency */
 
+#ifdef DWM_SYSTRAY
+static const unsigned int  systrayspacing     = 2;          /* systray spacing */
+static const Bool          showsystray        = True;       /* False means no systray */
+#endif
 /*********************************************************************
  * Layouts.
  */
