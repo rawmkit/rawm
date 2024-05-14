@@ -115,7 +115,7 @@ enum { /* EWMH atoms */
   NetSystemTray, NetSystemTrayOP, NetSystemTrayOrientation,
 #endif
   NetWMName, NetWMState,
-  NetWMFullscreen, NetActiveWindow, NetWMWindowType,
+  NetWMFullscreen, NetActiveWindow, NetClientList, NetWMWindowType,
   NetWMWindowTypeDialog, NetLast
 };
 
@@ -374,6 +374,7 @@ static void           unmapnotify(XEvent *e);
 static bool           updategeom(void);
 static void           updatebarpos(Monitor *m);
 static void           updatebars(void);
+static void           updateclientlist(void);
 static void           updatenumlockmask(void);
 static void           updatesizehints(Client *c);
 static void           updatestatus(void);
@@ -2148,6 +2149,9 @@ manage(Window w, XWindowAttributes *wa)
 
   setclientstate(c, NormalState);
 
+  XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32,
+      PropModeAppend, (unsigned char *) &(c->win), 1);
+
   if (c->mon == selmon)
     unfocus(selmon->sel, false);
 
@@ -3081,6 +3085,7 @@ setup(void)
 #endif
   netatom[NetWMName]             = XInternAtom(dpy, "_NET_WM_NAME",               false);
   netatom[NetWMState]            = XInternAtom(dpy, "_NET_WM_STATE",              false);
+  netatom[NetClientList]         = XInternAtom(dpy, "_NET_CLIENT_LIST",           false);
   netatom[NetWMFullscreen]       = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN",   false);
   netatom[NetWMWindowType]       = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",        false);
   netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", false);
@@ -3129,6 +3134,8 @@ setup(void)
                   PropModeReplace,
                   (unsigned char *) netatom,
                   NetLast);
+
+  XDeleteProperty(dpy, root, netatom[NetClientList]);
 
   /* select for events */
   wa.cursor     = cursor[CurNormal];
@@ -3465,6 +3472,7 @@ unmanage(Client *c, bool destroyed)
   }
   free(c);
   focus(NULL);
+  updateclientlist();
   arrange(m);
 }
 
@@ -3553,6 +3561,22 @@ updatebarpos(Monitor *m)
   }
   else
     m->by  = -bh;
+}
+
+void
+updateclientlist() {
+  Client *c;
+  Monitor *m;
+
+  XDeleteProperty(dpy, root, netatom[NetClientList]);
+  for(m = mons; m; m = m->next)
+  {
+    for(c = m->clients; c; c = c->next)
+    {
+      XChangeProperty(dpy, root, netatom[NetClientList],
+          XA_WINDOW, 32, PropModeAppend, (unsigned char *) &(c->win), 1);
+    }
+  }
 }
 
 static bool
