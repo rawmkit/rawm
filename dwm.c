@@ -1206,8 +1206,9 @@ drawbar(Monitor *m)
     snprintf(m->ltsymbol, sizeof m->ltsymbol, "[]= %d", m->nmaster);
 
   /* float/monocle count */
-  else if (   m->lt[m->sellt]->arrange == monocle
-           || m->lt[m->sellt]->arrange == NULL)
+  else if (  (   m->lt[m->sellt]->arrange == monocle
+              || m->lt[m->sellt]->arrange == NULL  )
+           && m != selmon)
   {
     unsigned int i = 0, j = 0;
 
