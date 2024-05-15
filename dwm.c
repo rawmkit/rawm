@@ -357,12 +357,6 @@ static bool           sendevent(Client *c, Atom proto);
 #endif /* SYSTRAY */
 
 static void           sendmon(Client *c, Monitor *m);
-
-#ifdef SESSION_FILE
-static void           session_store(void);
-static void           session_restore(void);
-#endif /* SESSION_FILE */
-
 static void           setclientstate(Client *c, long state);
 static void           setfocus(Client *c);
 static void           setfullscreen(Client *c, bool fullscreen);
@@ -2514,11 +2508,6 @@ quit(const Arg *arg)
     restart = true;
 
   running = false;
-
-#ifdef SESSION_FILE
-  if (restart)
-    session_store();
-#endif /* SESSION_FILE */
 }
 
 static Monitor *
@@ -2829,80 +2818,6 @@ sendmon(Client *c, Monitor *m)
   focus(NULL);
   arrange(NULL);
 }
-
-#ifdef SESSION_FILE
-static void
-session_store(void)
-{
-  FILE *fw = fopen(SESSION_FILE, "w");
-
-  /* get all the clients with their tags and write them to the file */
-  for (Client *c = selmon->clients; c != NULL; c = c->next)
-  {
-    /* see `struct Client` for available data for saving */
-    fprintf(fw, "%lu %u\n", c->win, c->tags);
-  }
-
-  fclose(fw);
-}
-
-static void
-session_restore(void)
-{
-  FILE *fr = fopen(SESSION_FILE, "r");
-  if (!fr)
-    return;
-
-  /* allocate enough space for excepted input from text file */
-  char *str = malloc(23 * sizeof(char));
-
-  /* read file till the end */
-  while (fscanf(fr, "%[^\n] ", str) != EOF)
-  {
-    /* the read data must be the same as previously stored! */
-    Window _win;
-    long unsigned int _tags;
-
-    /* get data: see session_store func */
-    int data = sscanf(str, "%lu %lu", &_win, &_tags);
-
-    /* break loop if data wasn't read correctly */
-    if (data != 2)
-      break;
-
-    /* add tags to every window by _win (id) */
-    for (Client *c = selmon->clients; c; c = c->next)
-    {
-      /* XXX (if necessary?) send to the right monitor using
-       * `sendmon()`
-       */
-      if (c->win == _win)
-      {
-        c->tags = _tags;
-        break;
-      }
-    }
-  }
-
-  /* refocus on windows */
-  for (Client *c = selmon->clients; c; c = c->next)
-  {
-    focus(c);
-    restack(c->mon);
-  }
-
-  /* rearrange all monitors */
-  for (Monitor *m = selmon; m; m = m->next)
-    arrange(m);
-
-  free(str);
-  fclose(fr);
-
-  /* delete a session file */
-  remove(SESSION_FILE);
-}
-#endif /* SESSION_FILE */
-
 
 static void
 setclientstate(Client *c, long state)
@@ -4270,9 +4185,6 @@ main(int argc, char *argv[])
   checkotherwm();
   setup();
   scan();
-#ifdef SESSION_FILE
-  session_restore();
-#endif /* SESSION_FILE */
   run();
   if (restart)
     execvp(argv[0], argv);
