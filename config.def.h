@@ -30,7 +30,8 @@ static const double        defaultopacity     = 0.80;       /* transparency */
 #ifdef DWM_SYSTRAY
 static const unsigned int  systrayspacing     = 2;          /* systray spacing */
 static const Bool          showsystray        = True;       /* False means no systray */
-#endif
+#endif /* DWM_SYSTRAY */
+
 /*********************************************************************
  * Layouts.
  */
@@ -92,7 +93,8 @@ static const Rule rules[] = {
    */
 
   /* class        instance  title  role  tag mask  isfloating  iscentered  monitor */
-  { "Ktsuss",     "ktsuss", NULL,  NULL, 0,        true,       true,       -1 },
+  { "Ktsuss",     NULL,     NULL,  NULL, 0,        true,       true,       -1 },
+  { "pinentry-gtk-2", NULL, NULL,  NULL, 0,        true,       true,       -1 },
   /* ... */
 };
 
@@ -134,7 +136,7 @@ static const char *mixer_inc_cmd[]  = { "mixer", "vol", "+10", NULL };
 static const char *mixer_mute_cmd[] = { "amixer", "sset", "Master", "toggle", NULL };
 static const char *mixer_dec_cmd[]  = { "amixer", "sset", "Master", "1-",     NULL };
 static const char *mixer_inc_cmd[]  = { "amixer", "sset", "Master", "1+",     NULL };
-#endif
+#endif /* __DragonFly__ */
 
 /* Notebook's backlight settings. */
 static const char *backlight_inc_cmd[] = { "xbacklight", "-inc", "10", NULL };
@@ -218,7 +220,9 @@ static Key keys[] = {
         TAGKEYS(                XK_8,                                                   7)
         TAGKEYS(                XK_9,                                                   8)
 
-/* Multimedia keyboard shortcuts. */
+/*
+ * Multimedia keyboard shortcuts.
+ */
 /* Mixer */
  { 0,                           XF86XK_AudioMute,         spawn,          {.v = mixer_mute_cmd}   },
  { 0,                           XF86XK_AudioLowerVolume,  spawn,          {.v = mixer_dec_cmd}    },
@@ -237,9 +241,11 @@ static Button buttons[] = {
 /* Click                Event mask      Button            Function        Argument */
  { ClkLtSymbol,         0,              Button1,          setlayout,      {0}                     },
  { ClkLtSymbol,         0,              Button3,          setlayout,      {.v = &layouts[2]}      },
-#ifdef WINTITLE
+
+#ifdef DWM_WINTITLE
  { ClkWinTitle,         0,              Button2,          zoom,           {0}                     },
-#endif
+#endif /* DWM_WINTITLE */
+
  { ClkStatusText,       0,              Button2,          spawn,          {.v = term_cmd}         },
  { ClkClientWin,        MODKEY,         Button1,          movemouse,      {0}                     },
  { ClkClientWin,        MODKEY,         Button2,          togglefloating, {0}                     },
