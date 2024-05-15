@@ -2113,8 +2113,8 @@ manage(Window w, XWindowAttributes *wa)
 
   if (c->iscentered || (c->mon->lt[c->mon->sellt]->arrange == NULL))
   {
-    c->x = (c->mon->mw - WIDTH(c))  / 2;
-    c->y = (c->mon->mh - HEIGHT(c)) / 2;
+    c->x = c->mon->mx + (c->mon->mw - WIDTH(c))  / 2;
+    c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
   }
 
   wc.border_width = c->bw;
