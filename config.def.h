@@ -27,10 +27,10 @@ static const bool          showbar            = true;       /* false means no ba
 static const bool          topbar             = false;      /* false means bottom bar */
 static const double        defaultopacity     = 0.80;       /* transparency */
 
-#ifdef DWM_SYSTRAY
+#ifdef SYSTRAY
 static const unsigned int  systrayspacing     = 2;          /* systray spacing */
-static const Bool          showsystray        = True;       /* False means no systray */
-#endif /* DWM_SYSTRAY */
+static const bool          showsystray        = true;       /* false means no systray */
+#endif /* SYSTRAY */
 
 /*********************************************************************
  * Layouts.
@@ -242,9 +242,9 @@ static Button buttons[] = {
  { ClkLtSymbol,         0,              Button1,          setlayout,      {0}                     },
  { ClkLtSymbol,         0,              Button3,          setlayout,      {.v = &layouts[2]}      },
 
-#ifdef DWM_WINTITLE
+#ifdef WINTITLE
  { ClkWinTitle,         0,              Button2,          zoom,           {0}                     },
-#endif /* DWM_WINTITLE */
+#endif /* WINTITLE */
 
  { ClkStatusText,       0,              Button2,          spawn,          {.v = term_cmd}         },
  { ClkClientWin,        MODKEY,         Button1,          movemouse,      {0}                     },

@@ -4,20 +4,17 @@ VERSION       = 6.0z1
 DIST          = ${NAME}-${VERSION}
 
 # optional xinerama support (comment to disable)
-XINERAMAFLAGS = -DXINERAMA
+XINERAMA      = -DXINERAMA
 XINERAMALIBS  = -lXinerama
 
 # optional systray
-DWM_SYSTRAY   = -DDWM_SYSTRAY
+SYSTRAY       = -DSYSTRAY
 
 # optional per window keyboard layout support (comment to disable)
 PWKL          = -DPWKL
 
 # optional windows title support (comment to disable)
 WINTITLE      = -DWINTITLE
-
-# optional session store
-SESSION_FILE  = -DSESSION_FILE=\".dwm.session\"
 
 # paths
 PREFIX        = /usr/local
@@ -44,9 +41,7 @@ INCS          = -I${X11INC} -I${FT2INC}
 LIBS          = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS}
 
 # flags
-CFLAGS        = -pedantic -Wall -Wextra -Wformat \
-		-D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
-	        -DVERSION=\"${VERSION}\" \
-		${INCS} ${XINERAMAFLAGS} ${PWKL} ${WINTITLE} ${SESSION_FILE} \
-		${DWM_SYSTRAY}
+CPPFLAGS      = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
+		-DVERSION=\"${VERSION}\" ${XINERAMA} ${SYSTRAY} ${PWKL} ${WINTITLE}
+CFLAGS        = -pedantic -Wall -Wextra -Wformat ${INCS} ${CPPFLAGS}
 LDFLAGS       = ${LIBS}
