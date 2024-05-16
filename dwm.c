@@ -1364,14 +1364,21 @@ drawbar(Monitor *m)
     dc.x += dc.w;
   }
 
-  /* tile master count */
+  /*
+   * draw layout
+   */
+
+  /* tiled layout: []= X
+   * where X is the number of clients in master area */
   if (m->lt[m->sellt]->arrange == tile)
     snprintf(m->ltsymbol, sizeof m->ltsymbol, "[]= %d", m->nmaster);
 
-  /* float/monocle count */
+  /* float/monocle layout: [X/Y] or <X/Y>
+   * where X is the current window number, and Y is the number of
+   * clients in master area */
   else if (  (   m->lt[m->sellt]->arrange == monocle
-              || m->lt[m->sellt]->arrange == NULL  )
-           && m != selmon)
+              || m->lt[m->sellt]->arrange == NULL )
+           && m == selmon /* update only on selected monitor */ )
   {
     unsigned int i = 0, j = 0;
 
@@ -1392,10 +1399,10 @@ drawbar(Monitor *m)
   }
 
   else if (m->lt[m->sellt]->arrange == bstack)
-    snprintf(m->ltsymbol, sizeof m->ltsymbol, "TTT %u", m->nmaster);
+    snprintf(m->ltsymbol, sizeof m->ltsymbol, "TTT %d", m->nmaster);
 
   else if (m->lt[m->sellt]->arrange == bstackhoriz)
-    snprintf(m->ltsymbol, sizeof m->ltsymbol, "=== %u", m->nmaster);
+    snprintf(m->ltsymbol, sizeof m->ltsymbol, "=== %d", m->nmaster);
 
   else if (m->lt[m->sellt]->arrange == gaplessgrid)
     snprintf(m->ltsymbol, sizeof m->ltsymbol, "###");
