@@ -25,7 +25,7 @@ static const unsigned int  borderpx           = 2;          /* border pixel of w
 static const unsigned int  snap               = 32;         /* snap pixel */
 static const bool          showbar            = true;       /* false means no bar */
 static const bool          topbar             = false;      /* false means bottom bar */
-static const double        defaultopacity     = 0.80;       /* transparency */
+static const double        defaultopacity     = 0.80;       /* transparency for X11 compositor */
 
 #ifdef SYSTRAY
 static const unsigned int  systrayspacing     = 2;          /* systray spacing */
