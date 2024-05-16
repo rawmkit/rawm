@@ -22,13 +22,13 @@ In tiled layouts windows are managed in a master and stacking area.
 The master area contains the window which currently needs most
 attention, whereas the stacking area contains all other windows.
 .Bd -literal -offset indent
-tile          ([]=)
-+---------+-------+     Tiled layout is selected by default.
-|         |   2   |     Also, it can be selected manually by
-|         |       |     Meta-t.
-|    1    +-------+
-|         |   3   |
+tile  ([]= nmaster)
++---------+-------+     Tiled layout is default, but can be
+|         |   2   |     selected manually by Meta-t.
 |         |       |
+|    1    +-------+     The "nmaster" indicates the number of
+|         |   3   |     clients in master area, and can be
+|         |       |     increased/decreased by Meta-i/Meta-d.
 +---------+-------+
  master    stacking
   area       area
@@ -39,7 +39,7 @@ Gapless grid layout arranges the windows in a grid.
 gaplessgrid   (###)
 +-----+-----+-----+     NO MASTER AREA!
 |     |     |     |
-|  1  |  3  |  5  |     Layout can be selected by Meta-g
+|  1  |  3  |  5  |     Layout can be selected by Meta-g.
 |     |     +-----+
 |     |     |     |
 +-----+-----|  6  |
@@ -51,13 +51,13 @@ gaplessgrid   (###)
 .Pp
 In monocle layout all windows are maximised to the screen size.
 .Bd -literal -offset indent
-monocle       ([M])
+monocle     ([1/4])
 +-----------------+     NO MASTER AREA!
 |                 |
-|                 |     Layout can be selected by Meta-m
-|   1/2/3/4/...   |
+|                 |     1/4 shows currently selected vs. total
+|   1,2,3,4,...   |     number of available windows.
 |                 |
-|                 |
+|                 |     Layout can be selected by Meta-m.
 +-----------------+
 .Ed
 .Pp
@@ -65,7 +65,7 @@ Bottom stack (TTT) and bottom stack horizontal (===) are two stack
 layouts for
 .Nm .
 .Bd -literal -offset indent
-bstack        (TTT)                 bstackhoriz   (===)
+bstack (TTT nmaster)          bstackhoriz (=== nmaster)
 +-----------------+                 +-----------------+
 |                 |     master      |                 |
 |        1        |   <- area ->    |        1        |
@@ -76,9 +76,23 @@ bstack        (TTT)                 bstackhoriz   (===)
 +-----+-----+-----+                 +--------4--------+
 .Ed
 .Pp
+Layouts can be selected by Meta-s (bstack) and Meta-h (bstackhoriz).
+.Pp
 In floating layout windows can be resized and moved freely.
 Dialog windows are always managed floating, regardless of the layout
 applied.
+.Bd -literal -offset indent
+float       (<1/3>)  
++-----------------+     NO MASTER AREA!
+| +-----+ +-----+ |
+| |  1  | |  2  | |     1/3 shows currently selected vs total
+| +-----+ +-----+ |     number of available windows.
+|    +-------+    |
+|    |   3   |    |
+|    +-------+    |     Layout can be selected by Meta-f.
++-----------------+
+.Ed
+
 .Pp
 Windows are grouped by tags.
 Each window can be tagged with one or multiple tags.
