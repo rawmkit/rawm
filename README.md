@@ -21,7 +21,7 @@ applied patches:
   * configure layout pertag at startup
   * restartsig
   * `_NET_CLIENT_LIST`
-  * systray
+  * optional systray
 
 Unless original dwm 6.0 this dwm distribution depends on freetype2 and
 xinerama.
