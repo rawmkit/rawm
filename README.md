@@ -20,7 +20,6 @@ applied patches:
   * "iscentered" rule for float windows
   * configure layout pertag at startup
   * restartsig
-  * restoreafterrestart
   * `_NET_CLIENT_LIST`
   * systray
 
