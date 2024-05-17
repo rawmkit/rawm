@@ -16,7 +16,7 @@ applied patches:
   * optional per-window keyboard layout (-DPWKL)
   * optional window title (-DWINTITLE)
   * optional xinerama support (-DXINERAMA)
-  * counted monocle windows in bar
+  * counted monocle/float windows in bar
   * "iscentered" rule for float windows
   * configure layout pertag at startup
   * restartsig
