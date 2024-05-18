@@ -8,4 +8,4 @@ Next Release
 - [ ] Include custom shortcuts to the man?
 - [ ] Clean up systray commit and document
 - [x] Fix iscentered on multimonitor setups
-- [ ] Fix windows counter
+- [x] Fix windows counter
