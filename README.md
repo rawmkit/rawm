@@ -8,7 +8,7 @@ applied patches:
   * bstack
   * gapless grid
   * pertag
-  * WM_WINDOW_ROLE
+  * `WM_WINDOW_ROLE`
   * hide vacant tags
   * nametag
   * multi-monitor configuration
