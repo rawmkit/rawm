@@ -3191,28 +3191,28 @@ setup(void)
   updategeom();
 
   /* init atoms */
-  wmatom[WMProtocols]            = XInternAtom(dpy, "WM_PROTOCOLS",      false);
-  wmatom[WMDelete]               = XInternAtom(dpy, "WM_DELETE_WINDOW",  false);
-  wmatom[WMState]                = XInternAtom(dpy, "WM_STATE",          false);
-  wmatom[WMTakeFocus]            = XInternAtom(dpy, "WM_TAKE_FOCUS",     false);
+  wmatom[WMProtocols]               = XInternAtom(dpy, "WM_PROTOCOLS",                 false);
+  wmatom[WMDelete]                  = XInternAtom(dpy, "WM_DELETE_WINDOW",             false);
+  wmatom[WMState]                   = XInternAtom(dpy, "WM_STATE",                     false);
+  wmatom[WMTakeFocus]               = XInternAtom(dpy, "WM_TAKE_FOCUS",                false);
 
-  netatom[NetActiveWindow]       = XInternAtom(dpy, "_NET_ACTIVE_WINDOW",         false);
-  netatom[NetSupported]          = XInternAtom(dpy, "_NET_SUPPORTED",             false);
+  netatom[NetActiveWindow]          = XInternAtom(dpy, "_NET_ACTIVE_WINDOW",           false);
+  netatom[NetSupported]             = XInternAtom(dpy, "_NET_SUPPORTED",               false);
 #ifdef SYSTRAY
-  netatom[NetSystemTray]         = XInternAtom(dpy, "_NET_SYSTEM_TRAY_S0",        false);
-  netatom[NetSystemTrayOP]       = XInternAtom(dpy, "_NET_SYSTEM_TRAY_OPCODE",    false);
+  netatom[NetSystemTray]            = XInternAtom(dpy, "_NET_SYSTEM_TRAY_S0",          false);
+  netatom[NetSystemTrayOP]          = XInternAtom(dpy, "_NET_SYSTEM_TRAY_OPCODE",      false);
   netatom[NetSystemTrayOrientation] = XInternAtom(dpy, "_NET_SYSTEM_TRAY_ORIENTATION", false);
 #endif /* SYSTRAY */
-  netatom[NetWMName]             = XInternAtom(dpy, "_NET_WM_NAME",               false);
-  netatom[NetWMState]            = XInternAtom(dpy, "_NET_WM_STATE",              false);
-  netatom[NetClientList]         = XInternAtom(dpy, "_NET_CLIENT_LIST",           false);
-  netatom[NetWMFullscreen]       = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN",   false);
-  netatom[NetWMWindowType]       = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",        false);
-  netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", false);
+  netatom[NetWMName]                = XInternAtom(dpy, "_NET_WM_NAME",                 false);
+  netatom[NetWMState]               = XInternAtom(dpy, "_NET_WM_STATE",                false);
+  netatom[NetClientList]            = XInternAtom(dpy, "_NET_CLIENT_LIST",             false);
+  netatom[NetWMFullscreen]          = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN",     false);
+  netatom[NetWMWindowType]          = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",          false);
+  netatom[NetWMWindowTypeDialog]    = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",   false);
 #ifdef SYSTRAY
-  xatom[Manager]                 = XInternAtom(dpy, "MANAGER",      false);
-  xatom[Xembed]                  = XInternAtom(dpy, "_XEMBED",      false);
-  xatom[XembedInfo]              = XInternAtom(dpy, "_XEMBED_INFO", false);
+  xatom[Manager]                    = XInternAtom(dpy, "MANAGER",                      false);
+  xatom[Xembed]                     = XInternAtom(dpy, "_XEMBED",                      false);
+  xatom[XembedInfo]                 = XInternAtom(dpy, "_XEMBED_INFO",                 false);
 #endif /* SYSTRAY */
 
   /* init cursors */
