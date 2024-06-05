@@ -80,6 +80,13 @@ static CustomTagLayout tags[][TAGS] = {
 
 static const Rule rules[] = {
   /*
+   * xprop(1):
+   *    WM_CLASS(STRING) = instance, class
+   *    WM_NAME(STRING) = title
+   *    WM_WINDOW_ROLE(STRING) = role
+   */
+
+  /*
    * Fixed Monitor.
    */
 
