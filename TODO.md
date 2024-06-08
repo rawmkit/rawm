@@ -7,5 +7,5 @@ Next Release
 - [ ] Use specified color for urgent tag background/foreground?
 - [ ] Include custom shortcuts to the man?
 - [ ] Clean up systray commit and document
-- [x] Fix iscentered on multimonitor setups
+- [?] Fix iscentered on multimonitor setups
 - [x] Fix windows counter
