@@ -3186,7 +3186,7 @@ setup(void)
 
   sw = DisplayWidth(dpy, screen);
   sh = DisplayHeight(dpy, screen);
-  bh = dc.h = dc.font.height + 2;
+  bh = dc.h = user_bh ? user_bh : dc.font.height + 2;
 
   updategeom();
 
