@@ -12,12 +12,16 @@ static const char          font[]             = "Sans Mono:size=9";
 
 /* Colors.
  */
-static const char          normbordercolor[]  = "#444444";  /* window borders color */
-static const char          normbgcolor[]      = "#222222";  /* background color */
-static const char          normfgcolor[]      = "#bbbbbb";  /* text color in status bar */
-static const char          selbordercolor[]   = "#005577";  /* active window border color */
-static const char          selbgcolor[]       = "#005577";  /* window title/tags background color */
-static const char          selfgcolor[]       = "#eeeeee";  /* window title/tags foreground color */
+#define NUMCOLORS 4 /* need at least 3 */
+static const char          colors[NUMCOLORS][ColLast][8] = {
+  /* border     foreground  background */
+  { "#cccccc",  "#000000",  "#cccccc" },  /* 0 = normal black on gray */
+  { "#0066ff",  "#ffffff",  "#0066ff" },  /* 1 = selected: white on blue */
+  { "#0066ff",  "#0066ff",  "#ffffff" },  /* 2 = urgent/warning: blue on white */
+  { "#ff0000",  "#ffffff",  "#ff0000" },  /* 3 = error: white on red */
+  /* add more here */
+  /* ... */
+};
 
 /* Other settings.
  */
@@ -119,20 +123,20 @@ static const char *drun_cmd[] = {
   "dmenu_run",
     "-p", "Run:",
     "-fn", font,
-    "-nb", normbgcolor,
-    "-nf", normfgcolor,
-    "-sb", selbgcolor,
-    "-sf", selfgcolor,
+    "-nb", colors[0][ColBG],
+    "-nf", colors[0][ColFG],
+    "-sb", colors[1][ColBG],
+    "-sf", colors[1][ColFG],
     NULL,
 };
 static const char *pass_cmd[] = {
   "passmenu",
     "-p", "Password:",
     "-fn", font,
-    "-nb", normbgcolor,
-    "-nf", normfgcolor,
-    "-sb", selbgcolor,
-    "-sf", selfgcolor,
+    "-nb", colors[0][ColBG],
+    "-nf", colors[0][ColFG],
+    "-sb", colors[1][ColBG],
+    "-sf", colors[1][ColFG],
     NULL
 };
 static const char *term_cmd[] = { "st", NULL };

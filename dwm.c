@@ -73,6 +73,8 @@
 #define MAX(A, B)  ((A) > (B) ? (A) : (B))
 #define MIN(A, B)  ((A) < (B) ? (A) : (B))
 
+#define MAXCOLORS  8
+
 #define MOUSEMASK  (BUTTONMASK|PointerMotionMask)
 
 #define WIDTH(X)   ((X)->w + 2 * (X)->bw)
@@ -211,8 +213,7 @@ struct Client {
 
 typedef struct {
   int           x, y, w, h;
-  XftColor      norm[ColLast];
-  XftColor      sel[ColLast];
+  XftColor      colors[MAXCOLORS][ColLast];
   Drawable      drawable;
   GC            gc;
   struct {
@@ -319,10 +320,11 @@ static void           die(const char *errstr, ...);
 static Monitor       *dirtomon(int dir);
 static void           drawbar(Monitor *m);
 static void           drawbars(void);
-static void           drawsquare(bool filled, bool empty, bool invert,
+static void           drawcoloredtext(char *text);
+static void           drawsquare(bool filled, bool empty,
                                  XftColor col[ColLast]);
 static void           drawtext(const char *text, XftColor col[ColLast],
-                               bool invert);
+                               bool pad);
 static void           enternotify(XEvent *e);
 static void           expose(XEvent *e);
 static void           focus(Client *c);
@@ -1043,7 +1045,7 @@ clientmessage(XEvent *e)
       XReparentWindow(dpy, c->win, systray->win, 0, 0);
       /* use parents background pixmap */
       swa.background_pixmap = ParentRelative;
-      swa.background_pixel  = dc.norm[ColBG].pixel;
+      swa.background_pixel  = dc.colors[0][ColBG].pixel;
       XChangeWindowAttributes(dpy, c->win,
           CWBackPixmap | CWBackPixel, &swa);
       sendevent(c->win, netatom[Xembed], StructureNotifyMask,
@@ -1395,20 +1397,17 @@ drawbar(Monitor *m)
 
     dc.w = TEXTW(tags[m->num][i].tagname);
 
-    col = (m->tagset[m->seltags] & 1 << i)
-        ?  dc.sel
-        :  dc.norm;
+    col = dc.colors[ (  m->tagset[ m->seltags ] & 1 << i
+                      ? 1
+                      : (urg & 1 << i ? 2 : 0)
+                      ) ];
 
-    drawtext(tags[m->num][i].tagname,
-             col,
-             urg & 1 << i
-             );
+    drawtext(tags[m->num][i].tagname, col, true);
 
     drawsquare(   m == selmon
                && selmon->sel
                && selmon->sel->tags & 1 << i,
-               0,
-               urg & 1 << i,
+               occ & 1 << i,
                col
                );
 
@@ -1460,7 +1459,7 @@ drawbar(Monitor *m)
     snprintf(m->ltsymbol, sizeof m->ltsymbol, "###");
 
   dc.w  = blw = TEXTW(m->ltsymbol);
-  drawtext(m->ltsymbol, dc.norm, false);
+  drawtext(m->ltsymbol, dc.colors[0], true);
   dc.x += dc.w;
   x     = dc.x;
 
@@ -1480,7 +1479,7 @@ drawbar(Monitor *m)
       dc.x = x;
       dc.w = m->ww - x;
     }
-    drawtext(stext, dc.norm, false);
+    drawcoloredtext(stext);
   }
   else
     dc.x = m->ww;
@@ -1491,20 +1490,19 @@ drawbar(Monitor *m)
 #ifdef WINTITLE
     if (m->sel)
     {
-      /*
-       * XXX
-       * col = m == selmon ? dc.sel : dc.norm;
-       */
-      drawtext(m->sel->name, /*col*/dc.norm, false);
-      drawsquare(m->sel->isfixed,
-                 m->sel->isfloating,
-                 false,
-                 /*col*/dc.sel
-                 );
+      /* is monitor selected? draw dc.colors[1] then */
+      col = m == selmon ? dc.colors[1] : dc.colors[0];
+      drawtext(m->sel->name, col, true);
+
+      drawsquare(m->sel->isfixed, m->sel->isfloating, col);
+
+      /* or draw normal colors, no matter what monitor it is */
+      //drawtext(m->sel->name, dc.colors[0], true);
+      //drawsquare(m->sel->isfixed, m->sel->isfloating, dc.colors[1]);
     }
     else
 #endif /* WINTITLE */
-      drawtext(NULL, dc.norm, false);
+      drawtext(NULL, dc.colors[0], false);
   }
 
   XCopyArea(dpy, dc.drawable, m->barwin, dc.gc, 0, 0, m->ww, bh, 0, 0);
@@ -1525,11 +1523,56 @@ drawbars(void)
 }
 
 static void
-drawsquare(bool filled, bool empty, bool invert, XftColor col[ColLast])
+drawcoloredtext(char *text)
+{
+  bool first = true;
+  char *buf = text, *ptr = buf, c = 1;
+  XftColor *col = dc.colors[0];
+  int i, ox = dc.x;
+
+  while (*ptr)
+  {
+    for (i = 0; *ptr < 0 || *ptr > NUMCOLORS; i++, ptr++);
+
+    if (!*ptr)
+      break;
+
+    c = *ptr;
+    *ptr = 0;
+
+    if (i)
+    {
+      dc.w = selmon->ww - dc.x;
+      drawtext(buf, col, first);
+      dc.x += textnw(buf, i) + textnw(&c,1);
+      if (first)
+        dc.x += (dc.font.ascent + dc.font.descent) / 2;
+
+      first = false;
+    }
+    else if (first)
+    {
+      ox = dc.x += textnw(&c,1);
+    }
+
+    *ptr = c;
+    col = dc.colors[ c-1 ];
+    buf = ++ptr;
+  }
+
+  if (!first)
+    dc.x -= (dc.font.ascent + dc.font.descent) / 2;
+
+  drawtext(buf, col, true);
+  dc.x = ox;
+}
+
+static void
+drawsquare(bool filled, bool empty, XftColor col[ColLast])
 {
   int x;
 
-  XSetForeground(dpy, dc.gc, col[invert ? ColBG : ColFG].pixel);
+  XSetForeground(dpy, dc.gc, col[ColFG].pixel);
 
   x = (dc.font.ascent + dc.font.descent + 2) / 4;
 
@@ -1540,21 +1583,21 @@ drawsquare(bool filled, bool empty, bool invert, XftColor col[ColLast])
 }
 
 static void
-drawtext(const char *text, XftColor col[ColLast], bool invert)
+drawtext(const char *text, XftColor col[ColLast], bool pad)
 {
   char     buf[256];
   int      x, y, h, len, olen;
   XftDraw *d;
 
-  XSetForeground(dpy, dc.gc, col[invert ? ColFG : ColBG].pixel);
+  XSetForeground(dpy, dc.gc, col[ColBG].pixel);
   XFillRectangle(dpy, dc.drawable, dc.gc, dc.x, dc.y, dc.w, dc.h);
 
   if (!text)
     return;
 
   olen = strlen(text);
-  h = dc.font.ascent + dc.font.descent;
-  y = dc.y + (dc.h / 2) - (h / 2) + dc.font.ascent;
+  h = pad ? (dc.font.ascent + dc.font.descent) : 0;
+  y = dc.y + (dc.h + dc.font.ascent - dc.font.descent) / 2;
   x = dc.x + (h / 2);
 
   /* shorten text if necessary */
@@ -1581,7 +1624,7 @@ drawtext(const char *text, XftColor col[ColLast], bool invert)
                     );
 
   XftDrawStringUtf8(d,
-                    &col[invert ? ColBG : ColFG],
+                    &col[ColFG],
                     dc.font.xfont,
                     x,
                     y,
@@ -1662,7 +1705,7 @@ focus(Client *c)
     detachstack(c);
     attachstack(c);
     grabbuttons(c, true);
-    XSetWindowBorder(dpy, c->win, dc.sel[ColBorder].pixel);
+    XSetWindowBorder(dpy, c->win, dc.colors[1][ColBorder].pixel);
     setfocus(c);
   }
   else
@@ -2236,7 +2279,7 @@ manage(Window w, XWindowAttributes *wa)
   wc.border_width = c->bw;
 
   XConfigureWindow(dpy, w, CWBorderWidth, &wc);
-  XSetWindowBorder(dpy, w, dc.norm[ColBorder].pixel);
+  XSetWindowBorder(dpy, w, dc.colors[0][ColBorder].pixel);
 
   configure(c); /* propagates border_width, if size doesn't change */
   updatewindowtype(c);
@@ -2489,7 +2532,11 @@ nametag(__attribute__((unused)) const Arg *arg)
   snprintf(buf, sizeof(buf),
     "dmenu -p '%s' -fn '%s' -nb '%s' -nf '%s' -sb '%s' -sf '%s' "
     "</dev/null", "Current tag name: ",
-    font, normbgcolor, normfgcolor, selbgcolor, selfgcolor);
+    font,
+    colors[0][ColBG],
+    colors[0][ColFG],
+    colors[1][ColBG],
+    colors[1][ColFG]);
 
   errno = 0; /* popen(3p) says on failure it "may" set errno */
   if (!(f = popen(buf, "r")))
@@ -2593,7 +2640,7 @@ propertynotify(XEvent *e)
       updatewmhints(c);
       drawbars();
       if (c->isurgent)
-        XSetWindowBorder(dpy, c->win, dc.sel[ColFG].pixel);
+        XSetWindowBorder(dpy, c->win, dc.colors[1][ColFG].pixel);
       break;
     default:
       break;
@@ -3221,12 +3268,13 @@ setup(void)
   cursor[CurMove]    = XCreateFontCursor(dpy, XC_fleur);
 
   /* init appearance */
-  dc.norm[ColBorder] = getcolor(normbordercolor);
-  dc.norm[ColBG]     = getcolor(normbgcolor);
-  dc.norm[ColFG]     = getcolor(normfgcolor);
-  dc.sel[ColBorder]  = getcolor(selbordercolor);
-  dc.sel[ColBG]      = getcolor(selbgcolor);
-  dc.sel[ColFG]      = getcolor(selfgcolor);
+  for (int i = 0; i < NUMCOLORS; i++)
+  {
+    dc.colors[i][ColBorder] = getcolor(colors[i][ColBorder]);
+    dc.colors[i][ColFG]     = getcolor(colors[i][ColFG]);
+    dc.colors[i][ColBG]     = getcolor(colors[i][ColBG]);
+  }
+
   dc.drawable        = XCreatePixmap(dpy,
                                      root,
                                      DisplayWidth(dpy, screen),
@@ -3574,7 +3622,7 @@ unfocus(Client *c, bool setfocus)
 #endif /* PWKL */
 
   grabbuttons(c, false);
-  XSetWindowBorder(dpy, c->win, dc.norm[ColBorder].pixel);
+  XSetWindowBorder(dpy, c->win, dc.colors[0][ColBorder].pixel);
 
   if (setfocus)
   {
@@ -4038,13 +4086,13 @@ updatesystray(void)
                                        bh,
                                        0,
                                        0,
-                                       dc.sel[ColBG].pixel
+                                       dc.colors[1][ColBG].pixel
                                        );
 
     wa.event_mask        = ButtonPressMask | ExposureMask;
     wa.override_redirect = True;
     wa.background_pixmap = ParentRelative;
-    wa.background_pixel  = dc.norm[ColBG].pixel;
+    wa.background_pixel  = dc.colors[0][ColBG].pixel;
 
     XSelectInput(dpy, systray->win, SubstructureNotifyMask);
 
@@ -4112,7 +4160,7 @@ updatesystray(void)
   XMoveResizeWindow(dpy, systray->win, x, selmon->by, w, bh);
 
   /* redraw background */
-  XSetForeground(dpy, dc.gc, dc.norm[ColBG].pixel);
+  XSetForeground(dpy, dc.gc, dc.colors[0][ColBG].pixel);
   XFillRectangle(dpy, systray->win, dc.gc, 0, 0, w, bh);
   XSync(dpy, False);
 }
