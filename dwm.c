@@ -1532,7 +1532,8 @@ drawcoloredtext(char *text)
 
   while (*ptr)
   {
-    for (i = 0; *ptr < 0 || *ptr > NUMCOLORS; i++, ptr++);
+    for (i = 0; *ptr < 0 || *ptr > NUMCOLORS; i++, ptr++)
+      /* NOTHING */;
 
     if (!*ptr)
       break;
