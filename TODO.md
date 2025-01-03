@@ -12,3 +12,4 @@ Next Release
   - [?] Fix iscentered on multimonitor setups.
   - [x] Fix windows counter.
   - [ ] pertag layout ignores permonitor setups.
+  - [ ] Document statuscolors usage.
