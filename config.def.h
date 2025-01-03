@@ -19,8 +19,7 @@ static const char          colors[NUMCOLORS][ColLast][8] = {
   { "#0066ff",  "#ffffff",  "#0066ff" },  /* 1 = selected: white on blue */
   { "#0066ff",  "#0066ff",  "#ffffff" },  /* 2 = urgent/warning: blue on white */
   { "#ff0000",  "#ffffff",  "#ff0000" },  /* 3 = error: white on red */
-  /* add more here */
-  /* ... */
+  /* add more here ... */
 };
 
 /* Other settings.
@@ -32,8 +31,12 @@ static const bool          topbar             = false;      /* false means botto
 static const int           user_bh            = 0;          /* 0 means that dwm will calculate bar height,
                                                                >= 1 means dwm will user_bh as bar height */
 
-static const double        defaultopacity     = 0.80;       /* transparency for X11 compositor */
+/* Transparency for X11 compositor.
+ */
+static const double        defaultopacity     = 0.80;       /* default opacity level */
 
+/* System tray.
+ */
 #ifdef SYSTRAY
 static const unsigned int  systrayspacing     = 2;          /* systray spacing */
 static const bool          showsystray        = true;       /* false means no systray */
@@ -80,7 +83,7 @@ static CustomTagLayout tags[][TAGS] = {
    {"9",       2}, /* monocle */
    /* Don't exceed "Number of tags per monitor" or change TAGS
     * definition value (declared above) if you want more tags. */
-  }
+  },
   /* Monitor 1. */
   /* ... */
 };
