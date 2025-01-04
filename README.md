@@ -23,6 +23,7 @@ following applied patches:
   * `_NET_CLIENT_LIST`
   * optional systray support (-DSYSTRAY)
   * statuscolor patch
+  * optional auto centering of floating popup windows
 
 Unless original dwm 6.0 this dwm distribution depends on freetype2 and
 xinerama.

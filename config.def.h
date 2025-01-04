@@ -5,6 +5,10 @@
  * Appearance.
  */
 
+/* Auto centering of floating popup windows.
+ */
+#define autocenter_NetWMWindowTypeDialog false
+
 /* Font.
  * See http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */

@@ -2271,12 +2271,6 @@ manage(Window w, XWindowAttributes *wa)
 
   c->bw = borderpx;
 
-  if (c->iscentered  ||  (c->mon->lt[c->mon->sellt]->arrange == NULL))
-  {
-    c->x = c->mon->mx + (c->mon->mw - WIDTH(c))  / 2;
-    c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
-  }
-
   wc.border_width = c->bw;
 
   XConfigureWindow(dpy, w, CWBorderWidth, &wc);
@@ -2286,6 +2280,13 @@ manage(Window w, XWindowAttributes *wa)
   updatewindowtype(c);
   updatesizehints(c);
   updatewmhints(c);
+
+  if (c->iscentered  ||  (c->mon->lt[c->mon->sellt]->arrange == NULL))
+  {
+    c->x = c->mon->mx + (c->mon->mw - WIDTH(c))  / 2;
+    c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
+  }
+
   XSelectInput(dpy,
                w,
                  EnterWindowMask
@@ -4201,7 +4202,10 @@ updatewindowtype(Client *c)
     setfullscreen(c, true);
 
   if (wtype == netatom[NetWMWindowTypeDialog])
+  {
+    c->iscentered = autocenter_NetWMWindowTypeDialog;
     c->isfloating = true;
+  }
 }
 
 static void
