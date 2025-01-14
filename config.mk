@@ -1,6 +1,6 @@
 # project metadata
 NAME          = dwm
-VERSION       = 6.0z1
+VERSION       = 6.0z2
 DIST          = ${NAME}-${VERSION}
 
 # optional xinerama support (comment to disable)
@@ -42,7 +42,7 @@ LIBS          = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS}
 
 # flags
 CPPFLAGS      = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
-		-DVERSION=\"${VERSION}\" \
-		${XINERAMA} ${SYSTRAY} ${PWKL} ${WINTITLE}
+                -DVERSION=\"${VERSION}\" \
+                ${XINERAMA} ${SYSTRAY} ${PWKL} ${WINTITLE}
 CFLAGS        = -pedantic -Wall -Wextra -Wformat ${INCS} ${CPPFLAGS}
 LDFLAGS       = ${LIBS}
