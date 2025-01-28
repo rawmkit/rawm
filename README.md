@@ -25,8 +25,8 @@ following applied patches:
   * statuscolor patch
   * optional auto centering of floating popup windows
 
-Unless original dwm 6.0 this dwm distribution depends on freetype2 and
-xinerama.
+Unless original dwm version 6.0 this distribution depends on freetype2
+and xinerama.
 
 See git log for further differences.
 
