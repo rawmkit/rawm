@@ -956,7 +956,7 @@ cleanup(void)
     cleanupmon(mons);
 
 #ifdef SYSTRAY
-  if(showsystray)
+  if (showsystray)
   {
     XUnmapWindow(dpy, systray->win);
     XDestroyWindow(dpy, systray->win);
@@ -1685,7 +1685,7 @@ focus(Client *c)
       /* NOTHING */;
   }
 
-  /* was if(selmon->sel) */
+  /* was if (selmon->sel) */
   if (    selmon->sel
       && (selmon->sel != c)
       )
@@ -1905,7 +1905,7 @@ getatomprop(Client *c, Atom prop)
   {
     atom = *(Atom *)p;
 #ifdef SYSTRAY
-    if(da == xatom[XembedInfo] && dl == 2)
+    if (da == xatom[XembedInfo] && dl == 2)
       atom = ((Atom *)p)[1];
 #endif /* SYSTRAY */
     XFree(p);
@@ -3496,7 +3496,7 @@ togglebar(__attribute__((unused)) const Arg *arg)
 
     if (!selmon->showbar)
       wc.y = -bh;
-    else if(selmon->showbar)
+    else if (selmon->showbar)
     {
       wc.y = 0;
 
