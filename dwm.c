@@ -511,8 +511,10 @@ getprop(Window w, const char *prop)
   atom = XInternAtom(dpy, prop, true);
 
   if (atom)
+  {
     XGetWindowProperty(dpy, w, atom, 0, BUFSIZ, false, XA_STRING,
                        &adummy, &idummy, &ldummy, &ldummy, &val);
+  }
 
   return (char *)val;
 }
@@ -2222,6 +2224,7 @@ manage(Window w, XWindowAttributes *wa)
   if (   defaultopacity >= 0
       && defaultopacity <= 1
       )
+  {
     XChangeProperty(dpy,
                     c->win,
                     XInternAtom(dpy, "_NET_WM_WINDOW_OPACITY", false),
@@ -2231,6 +2234,7 @@ manage(Window w, XWindowAttributes *wa)
                     (unsigned char *) &opacity,
                     1L
                     );
+  }
 
   if (    XGetTransientForHint(dpy, w, &trans)
       && (t = wintoclient(trans))
@@ -2484,18 +2488,14 @@ movemouse(__attribute__((unused)) const Arg *arg)
         if (abs(selmon->wx - nx) < snap)
           nx = selmon->wx;
 
-        else if (  abs((selmon->wx + selmon->ww) - (nx + WIDTH(c)))
-                 < snap
-                 )
+        else if (abs((selmon->wx + selmon->ww) - (nx + WIDTH(c))) < snap)
           nx = selmon->wx + selmon->ww - WIDTH(c);
 
 
         if (abs(selmon->wy - ny) < snap)
           ny = selmon->wy;
 
-        else if (  abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c)))
-                 < snap
-                 )
+        else if (abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c))) < snap)
           ny = selmon->wy + selmon->wh - HEIGHT(c);
 
 
@@ -3108,13 +3108,14 @@ setfocus(Client *c)
   }
 
 #ifdef SYSTRAY
-  sendevent(c->win, wmatom[WMTakeFocus],
+  sendevent(c->win,
+            wmatom[WMTakeFocus],
             NoEventMask,
             wmatom[WMTakeFocus],
             CurrentTime,
             0, 0, 0);
 #else
-  sendevent(c,      wmatom[WMTakeFocus]);
+  sendevent(c, wmatom[WMTakeFocus]);
 #endif /* SYSTRAY */
 }
 
@@ -3179,8 +3180,10 @@ setlayout(const Arg *arg)
     selmon->sellt = selmon->pertag->sellts[selmon->pertag->curtag];
   }
   if (arg  &&  arg->v)
+  {
     selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt] =
       (Layout *)arg->v;
+  }
 
   selmon->lt[selmon->sellt] =
     selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
@@ -3322,8 +3325,7 @@ setup(void)
 
   XChangeWindowAttributes(dpy,
                           root,
-                            CWEventMask
-                          | CWCursor,
+                          CWEventMask | CWCursor,
                           &wa
                           );
   XSelectInput(dpy, root, wa.event_mask);
@@ -3722,9 +3724,7 @@ updatebars(void)
 #endif /* SYSTRAY */
                     CopyFromParent,
                     DefaultVisual(dpy, screen),
-                      CWOverrideRedirect
-                    | CWBackPixmap
-                    | CWEventMask,
+                    CWOverrideRedirect | CWBackPixmap | CWEventMask,
                     &wa
                     );
 
@@ -3750,8 +3750,8 @@ updatebarpos(Monitor *m)
   if (m->showbar)
   {
     m->wh -= bh;
-    m->by  = m->topbar ?  m->wy       : (m->wy + m->wh);
-    m->wy  = m->topbar ? (m->wy + bh) :  m->wy;
+    m->by  = m->topbar  ?   m->wy        :  (m->wy + m->wh);
+    m->wy  = m->topbar  ?  (m->wy + bh)  :   m->wy;
   }
   else
     m->by  = -bh;
@@ -4171,12 +4171,7 @@ updatesystray(void)
 static void
 updatetitle(Client *c)
 {
-  if (!gettextprop(c->win,
-                   netatom[NetWMName],
-                          c->name,
-                   sizeof c->name
-                   )
-      )
+  if (!gettextprop(c->win, netatom[NetWMName], c->name, sizeof c->name))
     gettextprop(c->win, XA_WM_NAME, c->name, sizeof c->name);
 
   if (c->name[0] == '\0') /* hack to mark broken clients */
