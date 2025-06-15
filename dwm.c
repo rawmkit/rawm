@@ -42,10 +42,12 @@
 #include <X11/Xutil.h>
 #include <X11/Xft/Xft.h>
 
+/* Per-window keyboard layout support. */
 #ifdef PWKL
 # include <X11/XKBlib.h>
 #endif /* PWKL */
 
+/* Xinerama support for multiple monitors. */
 #ifdef XINERAMA
 # include <X11/extensions/Xinerama.h>
 #endif /* XINERAMA */
@@ -54,41 +56,97 @@
  * Macros.
  */
 
+/** Button mask for grabbing mouse events. */
 #define BUTTONMASK  (ButtonPressMask | ButtonReleaseMask)
 
+/**
+ * @brief Clean modifier mask from NumLock and LockMask.
+ * @param mask The modifier mask to clean.
+ */
 #define CLEANMASK(mask)                                              \
   (    mask                                                          \
    & ~(numlockmask | LockMask)                                       \
    &  (ShiftMask   | ControlMask |                                   \
        Mod1Mask    | Mod2Mask    | Mod3Mask | Mod4Mask | Mod5Mask))
 
+/**
+ * @brief Calculate the area of intersection between a rectangle and a monitor's work area.
+ * @param x X-coordinate of the rectangle.
+ * @param y Y-coordinate of the rectangle.
+ * @param w Width of the rectangle.
+ * @param h Height of the rectangle.
+ * @param m Pointer to the Monitor structure.
+ * @return The intersecting area.
+ */
 #define INTERSECT(x, y, w, h, m) \
   (  MAX(0, MIN((x) + (w), (m)->wx + (m)->ww)  -  MAX((x), (m)->wx)) \
    * MAX(0, MIN((y) + (h), (m)->wy + (m)->wh)  -  MAX((y), (m)->wy)) )
 
+/**
+ * @brief Check if a client is visible on the currently selected tags of its monitor.
+ * @param C Pointer to the Client structure.
+ * @return True if visible, false otherwise.
+ */
 #define ISVISIBLE(C)  ((C->tags & C->mon->tagset[C->mon->seltags]))
 
+/**
+ * @brief Calculate the number of elements in an array.
+ * @param X The array.
+ */
 #define LENGTH(X)  (sizeof X / sizeof X[0])
 
+/**
+ * @brief Maximum of two values.
+ * @param A First value.
+ * @param B Second value.
+ * @return The maximum value.
+ */
 #define MAX(A, B)  ((A) > (B) ? (A) : (B))
+
+/**
+ * @brief Minimum of two values.
+ * @param A First value.
+ * @param B Second value.
+ * @return The minimum value.
+ */
 #define MIN(A, B)  ((A) < (B) ? (A) : (B))
 
+/** Maximum number of colors used for drawing. */
 #define MAXCOLORS  8
 
+/** Mouse mask for grabbing pointer motion and button events */
 #define MOUSEMASK  (BUTTONMASK|PointerMotionMask)
 
+/**
+ * @brief Calculate the total width of a client including border.
+ * @param X Pointer to the Client structure.
+ * @return The total width.
+ */
 #define WIDTH(X)   ((X)->w + 2 * (X)->bw)
+
+/**
+ * @brief Calculate the total height of a client including border.
+ * @param X Pointer to the Client structure.
+ * @return The total height.
+ */
 #define HEIGHT(X)  ((X)->h + 2 * (X)->bw)
 
+/** Mask for all possible tags. TAGS is defined in config.h. */
 #define TAGMASK    ((1 << TAGS) - 1)
 
+/**
+ * @brief Calculate the width of text plus padding.
+ * @param X The text string.
+ * @return The calculated width.
+ */
 #define TEXTW(X)   (textnw(X, strlen(X)) + dc.font.height)
 
+/** System Tray defines. */
 #define SYSTEM_TRAY_REQUEST_DOCK    0
 #define _NET_SYSTEM_TRAY_ORIENTATION_HORZ 0
 
 #ifdef SYSTRAY
-/* XEMBED messages */
+/* XEMBED messages. */
 # define XEMBED_EMBEDDED_NOTIFY     0
 # define XEMBED_WINDOW_ACTIVATE     1
 # define XEMBED_FOCUS_IN            4
