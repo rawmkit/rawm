@@ -334,25 +334,25 @@ typedef struct Pertag Pertag;
  * @brief Monitor structure to manage screens.
  */
 struct Monitor {
-  char ltsymbol[16]; /**< Layout symbol string displayed in the bar. */
-  float mfact; /**< Master area factor [0.05..0.95] (per tag). */
-  int nmaster; /**< Number of clients in master area (per tag). */
-  int num; /**< Monitor number (0, 1, ...). */
-  int by; /**< Bar Y-coordinate. */
-  int mx, my, mw, mh; /**< Monitor geometry (full screen size). */
-  int wx, wy, ww, wh; /**< Work area geometry (excluding bar). */
-  unsigned int seltags; /**< Index of the currently selected tagset (0 or 1). */
-  unsigned int sellt; /**< Index of the currently selected layout (0 or 1). */
+  char ltsymbol[16];      /**< Layout symbol string displayed in the bar. */
+  float mfact;            /**< Master area factor [0.05..0.95] (per tag). */
+  int nmaster;            /**< Number of clients in master area (per tag). */
+  int num;                /**< Monitor number (0, 1, ...). */
+  int by;                 /**< Bar Y-coordinate. */
+  int mx, my, mw, mh;     /**< Monitor geometry (full screen size). */
+  int wx, wy, ww, wh;     /**< Work area geometry (excluding bar). */
+  unsigned int seltags;   /**< Index of the currently selected tagset (0 or 1). */
+  unsigned int sellt;     /**< Index of the currently selected layout (0 or 1). */
   unsigned int tagset[2]; /**< Array holding current and previous tag masks. */
-  bool showbar; /**< Whether the bar is visible on this monitor (per tag). */
-  bool topbar; /**< Whether the bar is at the top (global config). */
-  Client *clients; /**< List of clients on this monitor. */
-  Client *sel; /**< Currently selected client on this monitor. */
-  Client *stack; /**< Stacked list of clients on this monitor (focus history). */
-  Monitor *next; /**< Next monitor in the global monitor list. */
-  Window barwin; /**< Window ID of the status bar for this monitor. */
-  const Layout *lt[2]; /**< Array holding current and previous layout (per tag). */
-  Pertag *pertag; /**< Pointer to the per-tag configuration for this monitor. */
+  bool showbar;           /**< Whether the bar is visible on this monitor (per tag). */
+  bool topbar;            /**< Whether the bar is at the top (global config). */
+  Client *clients;        /**< List of clients on this monitor. */
+  Client *sel;            /**< Currently selected client on this monitor. */
+  Client *stack;          /**< Stacked list of clients on this monitor (focus history). */
+  Monitor *next;          /**< Next monitor in the global monitor list. */
+  Window barwin;          /**< Window ID of the status bar for this monitor. */
+  const Layout *lt[2];    /**< Array holding current and previous layout (per tag). */
+  Pertag *pertag;         /**< Pointer to the per-tag configuration for this monitor. */
 };
 
 /**
