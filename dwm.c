@@ -161,6 +161,12 @@
 # define XEMBED_EMBEDDED_VERSION (VERSION_MAJOR << 16) | VERSION_MINOR
 #endif /* SYSTRAY */
 
+/** Max tag length including number and semicolon. */
+#define MAX_TAGLEN 25
+
+/** Max tag name length (excluding number and semicolon (3)). */
+#define MAX_TAGNAMELEN (MAX_TAGLEN - 3)
+
 /*********************************************************************
  * Enums & Typedefs.
  */
@@ -310,12 +316,6 @@ typedef struct {
   const char *symbol; /**< Symbol displayed in the bar (e.g., "[]="). */
   void (*arrange)(Monitor *); /**< Function to arrange clients on a monitor (e.g., tile, monocle). NULL means floating. */
 } Layout;
-
-/** Max tag length including number and semicolon. */
-#define MAX_TAGLEN 25
-
-/** Max tag name length (excluding number and semicolon (3)). */
-#define MAX_TAGNAMELEN (MAX_TAGLEN - 3)
 
 /**
  * @brief Structure to store layout index for custom tag names.
