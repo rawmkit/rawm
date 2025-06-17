@@ -165,186 +165,222 @@
  * Enums & Typedefs.
  */
 
-/* cursor */
+/** Cursor types used in dwm. */
 enum {
-  CurNormal,
-  CurResize,
-  CurMove,
-  CurLast
+  CurNormal, /**< Normal pointer cursor. */
+  CurResize, /**< Resize cursor. */
+  CurMove,   /**< Move cursor. */
+  CurLast    /**< Sentinel value for the last cursor type. */
 };
 
-/* color */
+/** Color definitions for drawing. */
 enum {
-  ColBorder,
-  ColFG,
-  ColBG,
-  ColLast
+  ColBorder, /**< Border color. */
+  ColFG,     /**< Foreground color. */
+  ColBG,     /**< Background color. */
+  ColLast    /**< Sentinel value for the last color type. */
 };
 
-/* EWMH atoms */
+/** EWMH atoms used for window properties and communication. */
 enum {
-  NetSupported,
+  NetSupported,             /**< _NET_SUPPORTED atom. */
 #ifdef SYSTRAY
-  NetSystemTray,
-  NetSystemTrayOP,
-  NetSystemTrayOrientation,
+  NetSystemTray,            /**< _NET_SYSTEM_TRAY_S0 atom. */
+  NetSystemTrayOP,          /**< _NET_SYSTEM_TRAY_OPCODE atom. */
+  NetSystemTrayOrientation, /**< _NET_SYSTEM_TRAY_ORIENTATION atom. */
 #endif /* SYSTRAY */
-  NetWMName,
-  NetWMState,
-  NetWMFullscreen,
-  NetActiveWindow,
-  NetClientList,
-  NetWMWindowType,
-  NetWMWindowTypeDialog,
-  NetLast
+  NetWMName,                /**< _NET_WM_NAME atom. */
+  NetWMState,               /**< _NET_WM_STATE atom. */
+  NetWMFullscreen,          /**< _NET_WM_STATE_FULLSCREEN atom. */
+  NetActiveWindow,          /**< _NET_ACTIVE_WINDOW atom. */
+  NetClientList,            /**< _NET_CLIENT_LIST atom. */
+  NetWMWindowType,          /**< _NET_WM_WINDOW_TYPE atom. */
+  NetWMWindowTypeDialog,    /**< _NET_WM_WINDOW_TYPE_DIALOG atom. */
+  NetLast                   /**< Sentinel value for the last EWMH atom. */
 };
 
 #ifdef SYSTRAY
-/* Xembed atoms */
+/** Xembed atoms used for system tray communication. */
 enum {
-  Manager,
-  Xembed,
-  XembedInfo,
-  XLast
+  Manager,    /**< MANAGER atom. */
+  Xembed,     /**< _XEMBED atom. */
+  XembedInfo, /**< _XEMBED_INFO atom. */
+  XLast       /**< Sentinel value for the last Xembed atom. */
 };
 #endif /* SYSTRAY */
 
-/* default atoms */
+/** Default WM atoms used for window protocols and state. */
 enum {
-  WMProtocols,
-  WMDelete,
-  WMState,
-  WMTakeFocus,
-  WMLast
+  WMProtocols, /**< WM_PROTOCOLS atom. */
+  WMDelete,    /**< WM_DELETE_WINDOW atom. */
+  WMState,     /**< WM_STATE atom. */
+  WMTakeFocus, /**< WM_TAKE_FOCUS atom. */
+  WMLast       /**< Sentinel value for the last WM atom. */
 };
 
-/* clicks */
+/** Bar click areas for button bindings. */
 enum {
-  ClkTagBar,
-  ClkLtSymbol,
-  ClkStatusText,
+  ClkTagBar,     /**< Click on a tag button. */
+  ClkLtSymbol,   /**< Click on the layout symbol. */
+  ClkStatusText, /**< Click on the status text area. */
 #ifdef WINTITLE
-  ClkWinTitle,
+  ClkWinTitle,   /**< Click on the window title area. */
 #endif /* WINTITLE */
-  ClkClientWin,
-  ClkRootWin,
-  ClkLast
+  ClkClientWin,  /**< Click on a client window. */
+  ClkRootWin,    /**< Click on the root window. */
+  ClkLast        /**< Sentinel value for the last click area. */
 };
 
+/** Argument union for key/button bindings. */
 typedef union {
-  int            i;
-  int           ui;
-  float          f;
-  const void    *v;
+ int i;           /**< Integer argument. */
+ unsigned int ui; /**< Unsigned integer argument. */
+ float f;         /**< Float argument. */
+ const void *v;   /**< Pointer argument. */
 } Arg;
 
+/** Button definition for mouse bindings. */
 typedef struct {
-  unsigned int  click;
-  unsigned int  mask;
-  unsigned int  button;
-  void          (*func)(const Arg *arg);
-  const Arg     arg;
+  unsigned int click;           /**< The click area (enum Clk...). */
+  unsigned int mask;            /**< Modifier mask (e.g., MODKEY). */
+  unsigned int button;          /**< Mouse button (e.g., Button1). */
+  void (*func)(const Arg *arg); /**< Function to execute. */
+  const Arg arg;                /**< Argument for the function. */
 } Button;
 
+/* Forward declarations. */
 typedef struct Monitor  Monitor;
 typedef struct Client   Client;
 
+/**
+ * @brief Client structure to manage individual windows.
+ */
 struct Client {
-  char          name[256];
-  float         mina, maxa;
-  int           x, y, w, h;
-  int           oldx, oldy, oldw, oldh;
-  int           basew, baseh, incw, inch, maxw, maxh, minw, minh;
-  int           bw, oldbw;
-  unsigned int  tags;
-  bool          isfixed, isfloating, iscentered, isurgent, neverfocus,
-                oldstate, isfullscreen;
-  Client        *next;
-  Client        *snext;
-  Monitor       *mon;
-  Window        win;
-
+  char name[256];       /**< Window title. */
+  float mina, maxa;     /**< Min/max aspect ratios from size hints. */
+  int x, y, w, h;       /**< Current geometry (position and size). */
+  int oldx, oldy, oldw, oldh; /**< Previous geometry. */
+  int basew, baseh, incw, inch, maxw, maxh, minw, minh; /**< Size hints. */
+  int bw, oldbw;        /**< Current and previous border width. */
+  unsigned int tags;    /**< Tag mask indicating which tags the client is on. */
+  bool isfixed, isfloating, iscentered, isurgent, neverfocus, oldstate, isfullscreen; /**< Various state flags. */
+  Client *next;         /**< Next client in the client list for the monitor. */
+  Client *snext;        /**< Next client in the stack list for the monitor (focus history). */
+  Monitor *mon;         /**< Pointer to the monitor the client is on. */
+  Window win;           /**< X window ID. */
 #ifdef PWKL
-  unsigned char kbdgrp;
+  unsigned char kbdgrp; /**< Keyboard group for per-window layout. */
 #endif /* PWKL */
 };
 
+/**
+ * @brief Drawing context.
+ *
+ * Holds information and resources needed for drawing on the bar.
+ */
 typedef struct {
-  int           x, y, w, h;
-  XftColor      colors[MAXCOLORS][ColLast];
-  Drawable      drawable;
-  GC            gc;
+  int x, y, w, h;    /**< Current drawing area geometry. */
+  XftColor colors[MAXCOLORS][ColLast]; /**< Array of color schemes (NUMCOLORS from config.h). */
+  Drawable drawable; /**< Pixmap for double buffering. */
+  GC gc;             /**< Graphics context. */
   struct {
-    int         ascent;
-    int         descent;
-    int         height;
-    XftFont     *xfont;
-  } font;
-} DC; /* draw context */
+    int ascent;     /**< Font ascent. */
+    int descent;    /**< Font descent. */
+    int height;     /**< Font height (ascent + descent). */
+    XftFont *xfont; /**< Xft font. */
+  } font; /**< Font information. */
+} DC;
 
+/**
+ * @brief Key definition for keyboard bindings.
+ */
 typedef struct {
-  unsigned int  mod;
-  KeySym        keysym;
-  void          (*func)(const Arg *);
-  const Arg     arg;
+  unsigned int mod; /**< Modifier mask (e.g., MODKEY). */
+  KeySym keysym;    /**< Key symbol (e.g., XK_Return). */
+  void (*func)(const Arg *); /**< Function to execute. */
+  const Arg arg;    /**< Argument for the function. */
 } Key;
 
+/**
+ * @brief Layout definition.
+ *
+ * Defines a layout symbol and the corresponding arrangement function.
+ */
 typedef struct {
-  const char    *symbol;
-  void          (*arrange)(Monitor *);
+  const char *symbol; /**< Symbol displayed in the bar (e.g., "[]="). */
+  void (*arrange)(Monitor *); /**< Function to arrange clients on a monitor (e.g., tile, monocle). NULL means floating. */
 } Layout;
 
-/* Max tag length */
-#define MAX_TAGLEN      25
+/** Max tag length including number and semicolon. */
+#define MAX_TAGLEN 25
 
-/* Max tag name length: 3 is a tag number with semicolon */
+/** Max tag name length (excluding number and semicolon (3)). */
 #define MAX_TAGNAMELEN (MAX_TAGLEN - 3)
 
+/**
+ * @brief Structure to store layout index for custom tag names.
+ *
+ * Used in the 'tags' array from config.h.
+ */
 typedef struct {
-  char          tagname[MAX_TAGLEN];
-  int           layout_idx;
+  char tagname[MAX_TAGLEN]; /**< Custom name for the tag. */
+  int layout_idx; /**< Index into the 'layouts' array for the default layout of this tag. */
 } CustomTagLayout;
 
+/* Forware declaration for Pertag structure. */
 typedef struct Pertag Pertag;
 
+/**
+ * @brief Monitor structure to manage screens.
+ */
 struct Monitor {
-  char          ltsymbol[16];
-  float         mfact;
-  int           nmaster;
-  int           num;
-  int           by;               /* bar geometry */
-  int           mx, my, mw, mh;   /* screen size */
-  int           wx, wy, ww, wh;   /* window area */
-  unsigned int  seltags;
-  unsigned int  sellt;
-  unsigned int  tagset[2];
-  bool          showbar;
-  bool          topbar;
-  Client        *clients;
-  Client        *sel;
-  Client        *stack;
-  Monitor       *next;
-  Window        barwin;
-  const Layout  *lt[2];
-  Pertag        *pertag;
+  char ltsymbol[16]; /**< Layout symbol string displayed in the bar. */
+  float mfact; /**< Master area factor [0.05..0.95] (per tag). */
+  int nmaster; /**< Number of clients in master area (per tag). */
+  int num; /**< Monitor number (0, 1, ...). */
+  int by; /**< Bar Y-coordinate. */
+  int mx, my, mw, mh; /**< Monitor geometry (full screen size). */
+  int wx, wy, ww, wh; /**< Work area geometry (excluding bar). */
+  unsigned int seltags; /**< Index of the currently selected tagset (0 or 1). */
+  unsigned int sellt; /**< Index of the currently selected layout (0 or 1). */
+  unsigned int tagset[2]; /**< Array holding current and previous tag masks. */
+  bool showbar; /**< Whether the bar is visible on this monitor (per tag). */
+  bool topbar; /**< Whether the bar is at the top (global config). */
+  Client *clients; /**< List of clients on this monitor. */
+  Client *sel; /**< Currently selected client on this monitor. */
+  Client *stack; /**< Stacked list of clients on this monitor (focus history). */
+  Monitor *next; /**< Next monitor in the global monitor list. */
+  Window barwin; /**< Window ID of the status bar for this monitor. */
+  const Layout *lt[2]; /**< Array holding current and previous layout (per tag). */
+  Pertag *pertag; /**< Pointer to the per-tag configuration for this monitor. */
 };
 
+/**
+ * @brief Rule structure for automatic client tagging and properties on creation.
+ *
+ * Used in the 'rules' array from `config.h'.
+ */
 typedef struct {
-  const char    *class;
-  const char    *instance;
-  const char    *title;
-  const char    *role;
-  unsigned int  tags;
-  bool          iscentered;
-  bool          isfloating;
-  int           monitor;
+  const char *class;    /**< WM_CLASS class hint (substring match). */
+  const char *instance; /**< WM_CLASS instance hint (substring match). */
+  const char *title;    /**< WM_NAME or _NET_WM_NAME (substring match). */
+  const char *role;     /**< WM_WINDOW_ROLE (substring match). */
+  unsigned int tags;    /**< Tags to assign (0 means current tags). */
+  bool iscentered;      /**< Whether to center the window. */
+  bool isfloating;      /**< Whether the window should be floating. */
+  int monitor;          /**< Monitor to spawn on (-1 for current). */
 } Rule;
 
 #ifdef SYSTRAY
-typedef struct Systray   Systray;
+/**
+ * @brief Systray structure.
+ *
+ * Manages the system tray window and its icons.
+ */
+typedef struct Systray Systray;
 struct Systray {
-  Window  win;
-  Client *icons;
+  Window win;    /**< Systray window ID. */
+  Client *icons; /**< List of systray icons (treated as clients). */
 };
 #endif /* SYSTRAY */
 
