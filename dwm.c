@@ -406,7 +406,7 @@ static void           clientmessage(XEvent *e);
 static void           configure(Client *c);
 static void           configurenotify(XEvent *e);
 static void           configurerequest(XEvent *e);
-static Monitor       *createmon(void);
+static Monitor       *createmon(int idx);
 static void           destroynotify(XEvent *e);
 static void           detach(Client *c);
 static void           detachstack(Client *c);
@@ -1322,7 +1322,7 @@ configurerequest(XEvent *e)
 }
 
 static Monitor *
-createmon(void)
+createmon(int idx)
 {
   Monitor *m;
   int      i;
@@ -1330,6 +1330,7 @@ createmon(void)
   if (!(m = (Monitor *)calloc(1, sizeof(Monitor))))
     die("fatal: could not malloc() %u bytes\n", sizeof(Monitor));
 
+  m->num        = idx;
   m->tagset[0]  = m->tagset[1] = 1;
   m->mfact      = mfact;
   m->nmaster    = nmaster;
@@ -3918,9 +3919,9 @@ updategeom(void)
         for (m = mons;  m && m->next;  m = m->next)
           /* NOTHING */;
         if (m)
-          m->next = createmon();
+          m->next = createmon(i);
         else
-          mons    = createmon();
+          mons    = createmon(i);
       }
 
       for (i = 0, m = mons;  i < nn && m;  m = m->next, i++)
@@ -3974,7 +3975,7 @@ updategeom(void)
   /* default monitor setup */
   {
     if (!mons)
-      mons = createmon();
+      mons = createmon(0);
 
     if (   mons->mw != sw
         || mons->mh != sh
