@@ -12,5 +12,5 @@ Next Release
 - [ ] Fix notification-daemon layout alignment.
 - [?] Fix iscentered on multimonitor setups.
 - [x] Fix windows counter.
-- [ ] pertag layout ignores permonitor setups.
+- [x] pertag layout ignores permonitor setups.
 - [ ] Document statuscolors usage.
