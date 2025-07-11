@@ -2,25 +2,30 @@
 
 include config.mk
 
-all: config.h dwm
+all: config.h rawm rawm.1
+
+rawm: rawm.o
+
+rawm.1: rawm.1.scdoc
+	scdoc < rawm.1.scdoc > rawm.1
 
 config.h:
 	cp config.def.h $@
 
 install: all
-	mkdir -p    ${DESTDIR}${PREFIX}/bin
-	mkdir -p    ${DESTDIR}${MANPREFIX}/man1
-	cp -f dwm   ${DESTDIR}${PREFIX}/bin/
-	cp -f dwm.1 ${DESTDIR}${MANPREFIX}/man1/
-	chmod 0755  ${DESTDIR}${PREFIX}/bin/dwm
-	chmod 0644  ${DESTDIR}${MANPREFIX}/man1/dwm.1
+	mkdir -p     ${DESTDIR}${PREFIX}/bin
+	mkdir -p     ${DESTDIR}${MANPREFIX}/man1
+	cp -f rawm   ${DESTDIR}${PREFIX}/bin/
+	cp -f rawm.1 ${DESTDIR}${MANPREFIX}/man1/
+	chmod 0755   ${DESTDIR}${PREFIX}/bin/rawm
+	chmod 0644   ${DESTDIR}${MANPREFIX}/man1/rawm.1
 
 uninstall:
-	rm -f ${DESTDIR}${PREFIX}/bin/dwm
-	rm -f ${DESTDIR}${MANPREFIX}/man1/dwm.1
+	rm -f ${DESTDIR}${PREFIX}/bin/rawm
+	rm -f ${DESTDIR}${MANPREFIX}/man1/rawm.1
 
 clean:
-	rm -f dwm
+	rm -f rawm
 	rm -f ${DIST}.tar.gz
 
 release:
