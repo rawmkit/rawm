@@ -7,7 +7,7 @@
  * Only one X connection at a time is allowed to select for this event
  * mask.
  *
- * The event handlers of dwm are organized in an array which is
+ * The event handlers of rawm are organized in an array which is
  * accessed whenever a new event has been fetched.  This allows event
  * dispatching in O(1) time.
  *
@@ -171,7 +171,7 @@
  * Enums & Typedefs.
  */
 
-/** Cursor types used in dwm. */
+/** Cursor types used in rawm. */
 enum {
   CurNormal, /**< Normal pointer cursor. */
   CurResize, /**< Resize cursor. */
@@ -2638,7 +2638,7 @@ nametag(__attribute__((unused)) const Arg *arg)
   errno = 0; /* popen(3p) says on failure it "may" set errno */
   if (!(f = popen(buf, "r")))
   {
-    fprintf(stderr, "dwm: nametag: Could not popen '%s'", buf);
+    fprintf(stderr, "rawm: nametag: Could not popen '%s'", buf);
     if (errno)
       fprintf(stderr, ": %s\n", strerror(errno));
     else
@@ -2647,11 +2647,11 @@ nametag(__attribute__((unused)) const Arg *arg)
   }
 
   if (!(p = fgets(buf, MAX_TAGNAMELEN, f))  &&  ferror(f))
-    fprintf(stderr, "dwm: nametag: fgets failed: %s\n",
+    fprintf(stderr, "rawm: nametag: fgets failed: %s\n",
             strerror(errno));
 
   if (pclose(f) < 0)
-    fprintf(stderr, "dwm: nametag: pclose failed: %s\n",
+    fprintf(stderr, "rawm: nametag: pclose failed: %s\n",
             strerror(errno));
 
   if (!p)
@@ -3489,7 +3489,7 @@ spawn(const Arg *arg)
     setsid();
     execvp(((char **)arg->v)[0],
             (char **)arg->v);
-    fprintf(stderr, "dwm: execvp %s", ((char **)arg->v)[0]);
+    fprintf(stderr, "rawm: execvp %s", ((char **)arg->v)[0]);
     perror(" failed");
     exit(EXIT_SUCCESS);
   }
@@ -4235,7 +4235,7 @@ updatesystray(void)
     }
     else
     {
-      fprintf(stderr, "dwm: unable to obtain system tray.\n");
+      fprintf(stderr, "rawm: unable to obtain system tray.\n");
       free(systray);
       systray = NULL;
       return;
@@ -4277,7 +4277,7 @@ static void
 updatestatus(void)
 {
   if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-    strcpy(stext, "dwm "VERSION);
+    strcpy(stext, "rawm "VERSION);
 
   drawbar(selmon);
 }
@@ -4479,7 +4479,7 @@ xerror(Display *dpy, XErrorEvent *ee)
     return 0;
 
   fprintf(stderr,
-          "dwm: fatal error: request code=%d, error code=%d\n",
+          "rawm: fatal error: request code=%d, error code=%d\n",
           ee->request_code,
           ee->error_code
           );
@@ -4500,7 +4500,7 @@ static int
 xerrorstart(__attribute__((unused)) Display     *dpy,
             __attribute__((unused)) XErrorEvent *ee )
 {
-  die("dwm: another window manager is already running\n");
+  die("rawm: another window manager is already running\n");
   return -1;
 }
 
@@ -4528,15 +4528,15 @@ int
 main(int argc, char *argv[])
 {
   if (argc == 2  &&  !strcmp("-v", argv[1]))
-    die("dwm "VERSION"\n");
+    die("rawm "VERSION"\n");
   else if (argc != 1)
-    die("usage: dwm [-v]\n");
+    die("usage: rawm [-v]\n");
 
   if (!setlocale(LC_CTYPE, "")  ||  !XSupportsLocale())
     fputs("warning: no locale support\n", stderr);
 
   if (!(dpy = XOpenDisplay(NULL)))
-    die("dwm: cannot open display\n");
+    die("rawm: cannot open display\n");
 
   checkotherwm();
   setup();
