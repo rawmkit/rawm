@@ -1,0 +1,337 @@
+RAWM(1)
+
+# NAME
+
+rawm - raw, dynamic window manager for X
+
+# SYNOPSIS
+
+*rawm* [*-v*]
+
+# DESCRIPTION
+
+*rawm* is a dynamic window manager for X.  It manages windows in
+tiled, monocle bottom stack, bottom stack horizontal and floating
+layouts.  Either layout can be applied dynamically, optimising the
+environment for the application in use and the task performed.
+
+In tiled layouts windows are managed in a master and stacking area.
+The master area contains the window which currently needs most
+attention, whereas the stacking area contains all other windows.
+
+```
+tile  ([]= nmaster)
++---------+-------+     Tiled layout is default, but can be
+|         |   2   |     selected manually by *Meta-t*.
+|         |       |
+|    1    +-------+     The "nmaster" indicates the number of
+|         |   3   |     clients in master area, and can be
+|         |       |     increased/decreased by *Meta-i* / *Meta-d*.
++---------+-------+
+master    stacking
+area       area
+```
+
+Gapless grid layout arranges the windows in a grid.
+
+```
+gaplessgrid   (###)
++-----+-----+-----+     NO MASTER AREA!
+|  1  |  3  |  5  |
+|     |     +-----+     Layout can be selected by *Meta-g*.
++-----+-----|  6  |
+|  2  |  4  +-----+
+|     |     |  7  |
++-----+-----+-----+
+```
+
+In monocle layout all windows are maximised to the screen size.
+
+```
+monocle     ([1/4])
++-----------------+     NO MASTER AREA!
+|                 |
+|                 |     1/4 shows currently selected vs. total
+|   1,2,3,4,...   |     number of available windows.
+|                 |
+|                 |     Layout can be selected by Meta-m.
++-----------------+
+```
+
+Bottom stack (TTT) and bottom stack horizontal (===) are two stack
+layouts for *rawm*.
+
+```
+bstack (TTT nmaster)          bstackhoriz (=== nmaster)
++-----------------+                 +-----------------+
+|                 |     master      |                 |
+|        1        |   <- area ->    |        1        |
+|                 |                 |                 |
++-----+-----+-----+                 +-----------------+
+|  2  |  3  |  4  |    stacking     +--------2--------+
+|     |     |     |   <- area ->    +--------3--------+
++-----+-----+-----+                 +--------4--------+
+```
+
+Layouts can be selected by *Meta-s* (bstack) and *Meta-h*
+(bstackhoriz).
+
+In floating layout windows can be resized and moved freely.  Dialog
+windows are always managed floating, regardless of the layout applied.
+
+```
+float       (<1/3>)
++-----------------+     NO MASTER AREA!
+| +-----+ +-----+ |
+| |  1  | |  2  | |     1/3 shows currently selected vs total
+| +-----+ +-----+ |     number of available windows.
+|    +-------+    |
+|    |   3   |    |
+|    +-------+    |     Layout can be selected by *Meta-f*.
++-----------------+
+```
+
+Windows are grouped by tags.  Each window can be tagged with one or
+multiple tags.  Selecting certain tags displays all windows with these
+tags.
+
+Each screen contains a small status bar which displays all used tags,
+the layout, the title (if compiled with WIN_TITLE) of the focused
+window, and the text read from the root window name property, if the
+screen is focused.
+
+A floating window is indicated with an empty square and a maximised
+floating window is indicated with a filled square before the windows
+title.
+
+The selected tags are indicated with a different color.  The tags of
+the focused window are indicated with a filled square in the top left
+corner.  The tags which are applied to one or more windows are
+indicated with an empty square in the top left corner.
+
+*rawm* draws a small border around windows to indicate the focus state.
+
+The options are as follows:
+
+*-v*
+	Print version and exit.
+
+# USAGE
+
+## Status bar
+
+*X root window name*
+	Is read and displayed in the status text area.  It can be set
+	with the *xsetroot*(1) command.  Example:
+
+	```
+	xsetroot -name "This is an example"
+	```
+
+	*rawm* supports colored status bar text via "statuscolors"
+	allowing segments of the status text to be displayed in
+	different colors.
+
+	The status text can include special escape codes to switch
+	between color schemes as defined in _config.h_.
+
+	The escape code is a single byte with a value between 1 and
+	NUMCOLORS (exclusive), where NUMCOLORS is defined in
+	_config.h_.  To use a color, insert a byte with value N
+	(1 <= N < NUMCOLORS) to use color scheme N for subsequent text.
+
+	The default color scheme is 0, which is used until the first
+	color escape is encountered.
+
+	Example:
+
+	To display "foo" in color 1, "bar" in color 2, and "baz" in
+	color 3, send the following status text (using octal escapes):
+
+	```
+	xsetroot -name "$(printf "\x1%s\x2%s\x3%s" foo bar baz)"
+	```
+
+	This will render "foo" using color scheme 1, "bar" using color
+	scheme 2, and "baz" in the default color.
+
+*Button1*
+	Click on a tag label to display all windows with that tag,
+	click on the layout label toggles between tiled and floating
+	layout.
+
+*Button3*
+	Click on a tag label adds/removes all windows with that tag
+	to/from the view.
+
+*Meta-Button1*
+	Click on a tag label applies that tag to the focused window.
+
+*Meta-Button3*
+	Click on a tag label adds/removes that tag to/from the focused
+	window.
+
+## Keyboard commands
+
+*Meta-Shift-Return*
+	Start terminal emulator (defined in _config.h_).
+
+*Meta-,*
+	Focus previous screen, if any.
+
+*Meta-.*
+	Focus next screen, if any.
+
+*Meta-Shift-,*
+	Send focused window to previous screen, if any.
+
+*Meta-Shift-.*
+	Send focused window to next screen, if any.
+
+*Meta-b*
+	Toggles bar on and off.
+
+*Meta-t*
+	Sets tiled layout.
+
+*Meta-f*
+	Sets floating layout.
+
+*Meta-m*
+	Sets monocle layout.
+
+*Meta-s*
+	Sets bstack layout.
+
+*Meta-h*
+	Sets bstackhoriz layout.
+
+*Meta-space*
+	Toggles between current and previous layout.
+
+*Meta-j*
+	Focus next window.
+
+*Meta-k*
+	Focus previous window.
+
+*Meta-i*
+	Increase clients in master area.
+
+*Meta-d*
+	Decrease clients in master area.
+
+*Meta-l*
+	Increase master area size.
+
+*Meta-h*
+	Decrease master area size.
+
+*Meta-Return*
+	Zooms/cycles focused window to/from master area (tiled layouts
+	only).
+
+*Meta-n*
+	Set current tag name (*dmenu*(1) required).
+
+*Meta-c*
+	Close focused window.
+
+*Meta-Shift-space*
+	Toggle focused window between tiled and floating state.
+
+*Meta-Shift-f*
+	Toggle focused window between fullscreen and tiled state.
+
+*Meta-Tab*
+	Toggles to the previously selected tags.
+
+*Meta-Shift-[1..n]*
+	Apply nth tag to focused window.
+
+*Meta-Shift-0*
+	Apply all tags to focused window.
+
+*Meta-Control-Shift-[1..n]*
+	Add/remove nth tag to/from focused window.
+
+*Meta-[1..n]*
+	View all windows with nth tag.
+
+*Meta-0*
+	View all windows with any tag.
+
+*Meta-o*
+	Jump on the selected window in the "all windows with any tag"
+	view.
+
+*Meta-Control-[1..n]*
+	Add/remove all windows with nth tag to/from the view.
+
+*Meta-Shift-q*
+	Quit *rawm*.
+
+*Meta-Control-Shift-q*
+	Restart *rawm*.
+
+## Mouse commands
+
+*Meta-Button1*
+	Move focused window while dragging.  Tiled windows will be
+	toggled to the floating state.
+
+*Meta-Button2*
+	Toggles focused window between floating and tiled state.
+
+*Meta-Button3*
+	Resize focused window while dragging.  Tiled windows will be
+	toggled to the  floating state.
+
+# CUSTOMIZATION
+
+*rawm* is customized by creating a custom _config.h_ file and
+(re)compiling the source code.  This keeps it fast, secure and simple.
+
+# SIGNALS
+
+*SIGHUP* (1)
+	Restart the *rawm* process.
+
+*SIGTERM* (15)
+	Cleanly terminate the *rawm* process.
+
+# SEE ALSO
+
+*dmenu*(1)
+
+# BUGS
+
+Java applications which use the XToolkit/XAWT backend may draw grey
+windows only.  The XToolkit/XAWT backend breaks ICCCM-compliance in
+recent JDK 1.5 and early JDK 1.6 versions, because it assumes a
+reparenting window manager.  Possible workarounds are using JDK 1.4
+(which doesn't contain the XToolkit/XAWT backend) or setting the
+environment variable *AWT_TOOLKIT* to "MToolkit" (to use the older
+Motif backend instead) or running one of the following commands:
+
+1.
+```
+xprop -root -f _NET_WM_NAME 32a -set _NET_WM_NAME LG3D
+```
+
+2.
+```
+wmname LG3D
+```
+
+(to pretend that a non-reparenting window manager is running that the
+XToolkit/XAWT backend can recognize) or when using OpenJDK setting the
+environment variable *\_JAVA\_AWT\_WM\_NONREPARENTING* to '1'.
+
+GTK 2.10.9+ versions contain a broken "Save-As" file dialog
+implementation, which requests to reconfigure its window size in an
+endless loop.  However, its window is still respondable during this
+state, so you can simply ignore the flicker until a new GTK version
+appears, which will fix this bug, approximately GTK 2.10.12+ versions.
+
+; vim: ft=scdoc cc=72 tw=70
