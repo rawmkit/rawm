@@ -1,6 +1,8 @@
 # build files and artefacts
 config.h
-dwm
+rawm
+rawm.o
+rawm.1
 
 # vim undo and swap files
 .*.un~
