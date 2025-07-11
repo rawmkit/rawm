@@ -25,7 +25,7 @@ uninstall:
 	rm -f ${DESTDIR}${MANPREFIX}/man1/rawm.1
 
 clean:
-	rm -f rawm
+	rm -f rawm rawm.1
 
 release:
 	git tag -a v${VERSION} -m v${VERSION}
