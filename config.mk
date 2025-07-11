@@ -1,7 +1,6 @@
 # project metadata
-NAME          = dwm
-VERSION       = 6.0z2
-DIST          = ${NAME}-${VERSION}
+NAME          = rawm
+VERSION       = 6.0
 
 # optional xinerama support (comment to disable)
 XINERAMA      = -DXINERAMA
