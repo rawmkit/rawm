@@ -1,4 +1,4 @@
-/* dwm customization.
+/* rawm customization.
  * See LICENSE file for copyright and license details. */
 
 /*********************************************************************
@@ -32,8 +32,8 @@ static const unsigned int  borderpx           = 2;          /* border pixel of w
 static const unsigned int  snap               = 32;         /* snap pixel */
 static const bool          showbar            = true;       /* false means no bar */
 static const bool          topbar             = false;      /* false means bottom bar */
-static const int           user_bh            = 0;          /* 0 means that dwm will calculate bar height,
-                                                               >= 1 means dwm will user_bh as bar height */
+static const int           user_bh            = 0;          /* 0 means that rawm will calculate bar height,
+                                                               >= 1 means rawm will user_bh as bar height */
 
 /* Transparency for X11 compositor.
  */
@@ -72,7 +72,7 @@ static const Layout layouts[] = {
 #define TAGS    9
 
 /* Max tag length is 22 (excludes tag number with semicolon).
- * If you want to change it, look at struct definition in dwm.c. */
+ * If you want to change it, look at struct definition in rawm.c. */
 static CustomTagLayout tags[][TAGS] = {
   /* Monitor 0.
    * Tag name  Layout idx (see "layouts" above) */
