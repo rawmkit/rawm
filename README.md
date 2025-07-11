@@ -26,7 +26,7 @@ following applied patches:
   * optional auto centering of floating popup windows
 
 Unless original dwm version 6.0 this distribution depends on freetype2
-and xinerama.
+and xinerama (optional).
 
 See git log for further differences.
 
