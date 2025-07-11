@@ -149,7 +149,7 @@ The options are as follows:
 	color 3, send the following status text (using octal escapes):
 
 	```
-	xsetroot -name "$(printf "\x1%s\x2%s\x3%s" foo bar baz)"
+	xsetroot -name "$(printf "\\x1%s\\x2%s\\x3%s" foo bar baz)"
 	```
 
 	This will render "foo" using color scheme 1, "bar" using color
