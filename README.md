@@ -47,6 +47,7 @@ Build time
   * `freetype2`
   * `fontconfig`
   * `xinerama` is optional, for Xinerama Extension support
+  * `scdoc(1)` to build manual page
 
 
 INSTALL
