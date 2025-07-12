@@ -2316,9 +2316,7 @@ manage(Window w, XWindowAttributes *wa)
   c->win = w;
   updatetitle(c);
 
-  if (   defaultopacity >= 0
-      && defaultopacity <= 1
-      )
+  if (defaultopacity >= 0  &&  defaultopacity <= 1)
   {
     XChangeProperty(dpy,
                     c->win,
@@ -3825,15 +3823,19 @@ updatebars(void)
 
     XDefineCursor(dpy, m->barwin, cursor[CurNormal]);
     XMapRaised(dpy, m->barwin);
-    XChangeProperty(dpy,
-                    m->barwin,
-                    XInternAtom(dpy, "_NET_WM_WINDOW_OPACITY", false),
-                    XA_CARDINAL,
-                    32,
-                    PropModeReplace,
-                    (unsigned char *) &opacity,
-                    1L
-                    );
+
+    if (defaultopacity >= 0  &&  defaultopacity <= 1)
+    {
+      XChangeProperty(dpy,
+                      m->barwin,
+                      XInternAtom(dpy, "_NET_WM_WINDOW_OPACITY", false),
+                      XA_CARDINAL,
+                      32,
+                      PropModeReplace,
+                      (unsigned char *) &opacity,
+                      1L
+                      );
+    }
   }
 }
 
@@ -4185,6 +4187,19 @@ updatesystray(void)
                                        0,
                                        dc.colors[1][ColBG].pixel
                                        );
+
+    if (defaultopacity >= 0  &&  defaultopacity <= 1)
+    {
+      XChangeProperty(dpy,
+                      systray->win,
+                      XInternAtom(dpy, "_NET_WM_WINDOW_OPACITY", False),
+                      XA_CARDINAL,
+                      32,
+                      PropModeReplace,
+                      (unsigned char *) &opacity,
+                      1L
+                      );
+    }
 
     wa.event_mask        = ButtonPressMask | ExposureMask;
     wa.override_redirect = True;
