@@ -2,33 +2,33 @@
 NAME          = rawm
 VERSION       = 6.0
 
-# optional xinerama support (comment to disable)
+# optional xinerama support
 XINERAMA      = -DXINERAMA
 XINERAMALIBS  = -lXinerama
 
 # optional systray
 SYSTRAY       = -DSYSTRAY
 
-# optional per window keyboard layout support (comment to disable)
+# optional per window keyboard layout support
 PWKL          = -DPWKL
 
-# optional windows title support (comment to disable)
+# optional windows title support
 WINTITLE      = -DWINTITLE
 
 # paths
 PREFIX        = /usr/local
 MANPREFIX     = ${PREFIX}/share/man
 
-# DragonFlyBSD, FreeBSD (uncomment to enable)
+# DragonFlyBSD, FreeBSD
 #X11INC       = /usr/local/include
 #X11LIB       = /usr/local/lib
 #FT2INC       = /usr/local/include/freetype2
 
-# NetBSD, OpenBSD (uncomment to enable)
+# NetBSD, OpenBSD
 #X11INC       = /usr/X11R6/include
 #X11LIB       = /usr/X11R6/lib
 
-# Linux (comment to disable)
+# Linux
 X11INC        = /usr/include
 X11LIB        = /usr/lib
 FT2INC        = /usr/include/freetype2
