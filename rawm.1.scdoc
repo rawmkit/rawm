@@ -2,7 +2,7 @@ RAWM(1)
 
 # NAME
 
-rawm - raw, dynamic window manager for X
+rawm - Ra window manager for X
 
 # SYNOPSIS
 
@@ -10,10 +10,11 @@ rawm - raw, dynamic window manager for X
 
 # DESCRIPTION
 
-*rawm* is a dynamic window manager for X.  It manages windows in
-tiled, monocle bottom stack, bottom stack horizontal and floating
-layouts.  Either layout can be applied dynamically, optimising the
-environment for the application in use and the task performed.
+*rawm* is a dynamic tiling window manager for X, derived from *dwm*
+6.0.  It manages windows in tiled, monocle bottom stack, bottom stack
+horizontal and floating layouts.  Either layout can be applied
+dynamically, optimising the environment for the application in use and
+the task performed.
 
 In tiled layouts windows are managed in a master and stacking area.
 The master area contains the window which currently needs most
