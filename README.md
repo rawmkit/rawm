@@ -1,7 +1,7 @@
 OVERVIEW
 ========
 
-This directory contains `rawm`, a raw dynamic window manager for X.
+This directory contains `rawm`, a Ra Window Manager for X.
 
 This `rawm` distribution is a fork of suckless' `dwm` version 6.0 with
 the following applied patches:
