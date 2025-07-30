@@ -2739,7 +2739,10 @@ propertynotify(XEvent *e)
       updatewmhints(c);
       drawbars();
       if (c->isurgent)
-        XSetWindowBorder(dpy, c->win, dc.colors[1][ColFG].pixel);
+      {
+        /* Set urgent/warning border color (from colors[2]) */
+        XSetWindowBorder(dpy, c->win, dc.colors[2][ColFG].pixel);
+      }
       break;
     default:
       break;
