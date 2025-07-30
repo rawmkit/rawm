@@ -1082,6 +1082,10 @@ cleanupmon(Monitor *mon)
 
   XUnmapWindow(dpy, mon->barwin);
   XDestroyWindow(dpy, mon->barwin);
+
+  if (mon->pertag)
+    free(mon->pertag);
+
   free(mon);
 }
 
