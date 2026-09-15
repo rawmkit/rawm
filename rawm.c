@@ -393,7 +393,6 @@ static void           die(const char *errstr, ...);
 static Monitor       *dirtomon(int dir);
 static void           drawbar(Monitor *m);
 static void           drawbars(void);
-static void           drawcoloredtext(char *text);
 static void           drawsquare(bool filled, bool empty,
                                  XftColor col[ColLast]);
 static void           drawtext(const char *text, XftColor col[ColLast],
@@ -422,6 +421,8 @@ static Client        *wintosystrayicon(Window w);
 static XftColor       getcolor(const char *colstr);
 static bool           getrootptr(int *x, int *y);
 static long           getstate(Window w);
+static bool           validutf8(const unsigned char *text, size_t length);
+static bool           getstatusprop(char *text, unsigned int size);
 static bool           gettextprop(Window w, Atom atom, char *text,
                                   unsigned int size);
 static void           grabbuttons(Client *c, bool focused);
@@ -514,6 +515,7 @@ static unsigned long systrayorientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 
 static const char     broken[] = "broken";
 static char           stext[256];
+static Atom           statusatom, utf8atom;
 static int            screen;
 static int            sw, sh; /* X display screen geometry width, height */
 static int            bh, blw = 0; /* bar geometry */
@@ -1240,15 +1242,24 @@ buttonpress(XEvent *e)
     }
     else if (ev->x < x + blw)
       click = ClkLtSymbol;
+    else
+    {
+      int status_x = selmon->ww;
+      int status_w = stext[0] ? TEXTW(stext) : 0;
+
+#ifdef SYSTRAY
+      if (config.show_systray)
+        status_x -= getsystraywidth();
+#endif /* SYSTRAY */
+      status_x -= status_w;
+
+      if (status_w && ev->x >= status_x)
+        click = ClkStatusText;
 #ifdef WINTITLE
-    else if (ev->x > selmon->ww - TEXTW(stext))
-      click = ClkStatusText;
-    else
-      click = ClkWinTitle;
-#else
-    else
-      click = ClkStatusText;
+      else
+        click = ClkWinTitle;
 #endif /* WINTITLE */
+    }
   }
   else if ((c = wintoclient(ev->window)))
   {
@@ -1820,7 +1831,7 @@ drawbar(Monitor *m)
   if (m == selmon)
   {
     /* status is only drawn on selected monitor */
-    dc.w = TEXTW(stext);
+    dc.w = stext[0] ? TEXTW(stext) : 0;
     dc.x = m->ww - dc.w;
 
 #ifdef SYSTRAY
@@ -1833,7 +1844,8 @@ drawbar(Monitor *m)
       dc.x = x;
       dc.w = m->ww - x;
     }
-    drawcoloredtext(stext);
+    if (stext[0])
+      drawtext(stext, dc.colors[0], true);
   }
   else
     dc.x = m->ww;
@@ -1874,52 +1886,6 @@ drawbars(void)
 #ifdef SYSTRAY
   updatesystray();
 #endif /* SYSTRAY */
-}
-
-static void
-drawcoloredtext(char *text)
-{
-  bool first = true;
-  char *buf = text, *ptr = buf, c = 1;
-  XftColor *col = dc.colors[0];
-  int i, ox = dc.x;
-
-  while (*ptr)
-  {
-    for (i = 0; *ptr < 0 || *ptr > NUMCOLORS; i++, ptr++)
-      /* NOTHING */;
-
-    if (!*ptr)
-      break;
-
-    c = *ptr;
-    *ptr = 0;
-
-    if (i)
-    {
-      dc.w = selmon->ww - dc.x;
-      drawtext(buf, col, first);
-      dc.x += textnw(buf, i) + textnw(&c,1);
-      if (first)
-        dc.x += (dc.font.ascent + dc.font.descent) / 2;
-
-      first = false;
-    }
-    else if (first)
-    {
-      ox = dc.x += textnw(&c,1);
-    }
-
-    *ptr = c;
-    col = dc.colors[ c-1 ];
-    buf = ++ptr;
-  }
-
-  if (!first)
-    dc.x -= (dc.font.ascent + dc.font.descent) / 2;
-
-  drawtext(buf, col, true);
-  dc.x = ox;
 }
 
 static void
@@ -2354,6 +2320,116 @@ getsystraywidth()
   return w ? w + config.systray_spacing : 1;
 }
 #endif /* SYSTRAY */
+
+static bool
+validutf8(const unsigned char *text, size_t length)
+{
+  size_t i = 0;
+
+  while (i < length)
+  {
+    unsigned char c = text[i++];
+
+    if (c <= 0x7f)
+      continue;
+    if (c >= 0xc2 && c <= 0xdf)
+    {
+      if (i >= length || text[i] < 0x80 || text[i] > 0xbf)
+        return false;
+      i++;
+      continue;
+    }
+    if (c == 0xe0)
+    {
+      if (i + 1 >= length || text[i] < 0xa0 || text[i] > 0xbf ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
+        return false;
+      i += 2;
+      continue;
+    }
+    if ((c >= 0xe1 && c <= 0xec) || (c >= 0xee && c <= 0xef))
+    {
+      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0xbf ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
+        return false;
+      i += 2;
+      continue;
+    }
+    if (c == 0xed)
+    {
+      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0x9f ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
+        return false;
+      i += 2;
+      continue;
+    }
+    if (c == 0xf0)
+    {
+      if (i + 2 >= length || text[i] < 0x90 || text[i] > 0xbf ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
+          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
+        return false;
+      i += 3;
+      continue;
+    }
+    if (c >= 0xf1 && c <= 0xf3)
+    {
+      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0xbf ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
+          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
+        return false;
+      i += 3;
+      continue;
+    }
+    if (c == 0xf4)
+    {
+      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0x8f ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
+          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
+        return false;
+      i += 3;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+static bool
+getstatusprop(char *text, unsigned int size)
+{
+  Atom actual_type;
+  int actual_format;
+  unsigned long nitems, bytes_after;
+  unsigned char *value = NULL;
+  bool ok = false;
+
+  if (!text || size == 0)
+    return false;
+  text[0] = '\0';
+
+  if (   XGetWindowProperty(dpy, root, statusatom, 0, 64, False,
+                            AnyPropertyType, &actual_type, &actual_format,
+                            &nitems, &bytes_after, &value) != Success
+      || actual_type != utf8atom
+      || actual_format != 8
+      || bytes_after != 0
+      || nitems >= size
+      || (nitems && memchr(value, '\0', nitems))
+      || !validutf8(value, nitems)
+      )
+    goto out;
+
+  if (nitems)
+    memcpy(text, value, nitems);
+  text[nitems] = '\0';
+  ok = true;
+
+out:
+  if (value)
+    XFree(value);
+  return ok;
+}
 
 static bool
 gettextprop(Window w, Atom atom, char *text, unsigned int size)
@@ -2987,7 +3063,10 @@ propertynotify(XEvent *e)
   }
 #endif /* SYSTRAY */
 
-  if ((ev->window == root)  &&  (ev->atom == XA_WM_NAME))
+  if (   config.status_enabled
+      && ev->window == root
+      && ev->atom == statusatom
+      )
     updatestatus();
   else if (ev->state == PropertyDelete)
     return; /* ignore */
@@ -3642,6 +3721,8 @@ setup(void)
   netatom[NetWMFullscreen]          = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN",     false);
   netatom[NetWMWindowType]          = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",          false);
   netatom[NetWMWindowTypeDialog]    = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",   false);
+  utf8atom                           = XInternAtom(dpy, "UTF8_STRING",                   false);
+  statusatom                         = XInternAtom(dpy, "_RAWM_STATUS_V1",               false);
 #ifdef SYSTRAY
   xatom[Manager]                    = XInternAtom(dpy, "MANAGER",                      false);
   xatom[Xembed]                     = XInternAtom(dpy, "_XEMBED",                      false);
@@ -4589,8 +4670,8 @@ updatetitle(Client *c)
 static void
 updatestatus(void)
 {
-  if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-    strcpy(stext, "rawm "VERSION);
+  if (!config.status_enabled || !getstatusprop(stext, sizeof(stext)))
+    stext[0] = '\0';
 
   drawbar(selmon);
 }

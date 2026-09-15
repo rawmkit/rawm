@@ -16,6 +16,10 @@ typedef enum {
 } RawmCenterMode;
 
 typedef enum {
+  RAWM_STATUS_PROTOCOL_V1
+} RawmStatusProtocol;
+
+typedef enum {
   RAWM_LAYOUT_TILE,
   RAWM_LAYOUT_FLOATING,
   RAWM_LAYOUT_MONOCLE,
@@ -138,6 +142,9 @@ typedef struct {
   int bar_height;
   bool show_systray;
   unsigned int systray_spacing;
+
+  bool status_enabled;
+  RawmStatusProtocol status_protocol;
 
   RawmCenterMode dialog_center;
   bool resize_hints;

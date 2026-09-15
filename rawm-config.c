@@ -151,6 +151,22 @@ center_mode_name(RawmCenterMode mode)
            : NULL;
 }
 
+static const char *
+status_protocol_name(RawmStatusProtocol protocol)
+{
+  return protocol == RAWM_STATUS_PROTOCOL_V1 ? "rawm-v1" : NULL;
+}
+
+static int
+parse_status_protocol(const char *name, RawmStatusProtocol *protocol)
+{
+  if (!strcmp(name, "rawm-v1")) {
+    *protocol = RAWM_STATUS_PROTOCOL_V1;
+    return 0;
+  }
+  return -1;
+}
+
 static int
 parse_center_mode(const char *name, RawmCenterMode *mode)
 {
@@ -282,6 +298,8 @@ rawm_config_init(RawmConfig *cfg)
   cfg->bar_height = 0;
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
+  cfg->status_enabled = true;
+  cfg->status_protocol = RAWM_STATUS_PROTOCOL_V1;
   cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->resize_hints = false;
   cfg->master_factor = 0.55;
@@ -611,6 +629,30 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
         parse_color_scheme(err, cfg, group, "error", 3) < 0)
       return -1;
   }
+  return 0;
+}
+
+static int
+parse_status(FILE *err, RawmConfig *cfg, const config_setting_t *group)
+{
+  static const char *const allowed[] = { "enabled", "protocol" };
+  config_setting_t *setting;
+  const char *value;
+
+  if (config_setting_type(group) != CONFIG_TYPE_GROUP)
+    return cfg_error(err, group, "status must be a group", "");
+  if (validate_members(err, group, allowed, 2) < 0 ||
+      read_bool(err, group, "enabled", &cfg->status_enabled) < 0)
+    return -1;
+
+  setting = config_setting_get_member(group, "protocol");
+  if (!setting)
+    return 0;
+  if (config_setting_type(setting) != CONFIG_TYPE_STRING)
+    return cfg_error(err, setting, "status.protocol must be a string", "");
+  value = config_setting_get_string(setting);
+  if (parse_status_protocol(value, &cfg->status_protocol) < 0)
+    return cfg_error(err, setting, "unsupported status protocol '%s'", value);
   return 0;
 }
 
@@ -1252,15 +1294,18 @@ static int
 parse_layer(FILE *err, RawmConfig *cfg, config_t *source)
 {
   static const char *const allowed[] = {
-    "ui", "behavior", "layout", "tags", "rules", "commands", "input"
+    "ui", "status", "behavior", "layout", "tags", "rules", "commands", "input"
   };
   config_setting_t *root = config_root_setting(source);
   config_setting_t *setting;
 
-  if (validate_members(err, root, allowed, 7) < 0)
+  if (validate_members(err, root, allowed, 8) < 0)
     return -1;
   setting = config_setting_get_member(root, "ui");
   if (setting && parse_ui(err, cfg, setting) < 0)
+    return -1;
+  setting = config_setting_get_member(root, "status");
+  if (setting && parse_status(err, cfg, setting) < 0)
     return -1;
   setting = config_setting_get_member(root, "behavior");
   if (setting && parse_behavior(err, cfg, setting) < 0)
@@ -1425,6 +1470,10 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%s", cfg->show_systray ? "true" : "false");
   else if (!strcmp(path, "ui.systray.spacing"))
     snprintf(buf, buflen, "%u", cfg->systray_spacing);
+  else if (!strcmp(path, "status.enabled"))
+    snprintf(buf, buflen, "%s", cfg->status_enabled ? "true" : "false");
+  else if (!strcmp(path, "status.protocol"))
+    snprintf(buf, buflen, "%s", status_protocol_name(cfg->status_protocol));
   else if (!strcmp(path, "behavior.dialog_center"))
     snprintf(buf, buflen, "%s", center_mode_name(cfg->dialog_center));
   else if (!strcmp(path, "behavior.resize_hints"))
