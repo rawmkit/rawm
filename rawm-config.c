@@ -141,6 +141,30 @@ rawm_layout_name(RawmLayoutId layout)
   return layout >= 0 && layout < RAWM_LAYOUT_COUNT ? names[layout] : NULL;
 }
 
+static const char *
+center_mode_name(RawmCenterMode mode)
+{
+  static const char *const names[] = { "none", "monitor", "parent" };
+
+  return mode >= RAWM_CENTER_NONE && mode <= RAWM_CENTER_PARENT
+           ? names[mode]
+           : NULL;
+}
+
+static int
+parse_center_mode(const char *name, RawmCenterMode *mode)
+{
+  int i;
+
+  for (i = RAWM_CENTER_NONE; i <= RAWM_CENTER_PARENT; ++i) {
+    if (!strcmp(name, center_mode_name((RawmCenterMode)i))) {
+      *mode = (RawmCenterMode)i;
+      return 0;
+    }
+  }
+  return -1;
+}
+
 static int
 parse_layout_name(const char *name, RawmLayoutId *layout)
 {
@@ -258,7 +282,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->bar_height = 0;
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
-  cfg->autocenter_dialogs = false;
+  cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->resize_hints = false;
   cfg->master_factor = 0.55;
   cfg->master_count = 1;
@@ -593,11 +617,23 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 static int
 parse_behavior(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
-  static const char *const allowed[] = { "autocenter_dialogs", "resize_hints" };
+  static const char *const allowed[] = { "dialog_center", "resize_hints" };
+  config_setting_t *setting;
+  const char *value;
+
   if (validate_members(err, group, allowed, 2) < 0 ||
-      read_bool(err, group, "autocenter_dialogs", &cfg->autocenter_dialogs) < 0 ||
       read_bool(err, group, "resize_hints", &cfg->resize_hints) < 0)
     return -1;
+
+  setting = config_setting_get_member(group, "dialog_center");
+  if (!setting)
+    return 0;
+  if (config_setting_type(setting) != CONFIG_TYPE_STRING)
+    return cfg_error(err, setting, "%s", "dialog_center must be a string");
+
+  value = config_setting_get_string(setting);
+  if (parse_center_mode(value, &cfg->dialog_center) < 0)
+    return cfg_error(err, setting, "invalid dialog_center '%s'", value);
   return 0;
 }
 
@@ -806,7 +842,7 @@ static int
 parse_rules(FILE *err, RawmConfig *cfg, const config_setting_t *list)
 {
   static const char *const allowed[] = {
-    "class", "instance", "title", "role", "tags", "floating", "centered", "monitor"
+    "class", "instance", "title", "role", "tags", "floating", "center", "monitor"
   };
   RawmRule *rules;
   int i, n;
@@ -840,9 +876,24 @@ parse_rules(FILE *err, RawmConfig *cfg, const config_setting_t *list)
     if (parse_tag_mask(err, s, &rules[i].tags) < 0)
       goto fail;
     if (read_bool(err, entry, "floating", &rules[i].floating) < 0 ||
-        read_bool(err, entry, "centered", &rules[i].centered) < 0 ||
         read_int_range(err, entry, "monitor", -1, INT_MAX, &rules[i].monitor) < 0)
       goto fail;
+
+    s = config_setting_get_member(entry, "center");
+    if (s) {
+      const char *value;
+
+      if (config_setting_type(s) != CONFIG_TYPE_STRING) {
+        cfg_error(err, s, "%s", "center must be a string");
+        goto fail;
+      }
+      value = config_setting_get_string(s);
+      if (parse_center_mode(value, &rules[i].center) < 0) {
+        cfg_error(err, s, "invalid center mode '%s'", value);
+        goto fail;
+      }
+      rules[i].has_center = true;
+    }
   }
   free_rules(cfg->rules, cfg->rule_count);
   cfg->rules = rules;
@@ -1374,8 +1425,8 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%s", cfg->show_systray ? "true" : "false");
   else if (!strcmp(path, "ui.systray.spacing"))
     snprintf(buf, buflen, "%u", cfg->systray_spacing);
-  else if (!strcmp(path, "behavior.autocenter_dialogs"))
-    snprintf(buf, buflen, "%s", cfg->autocenter_dialogs ? "true" : "false");
+  else if (!strcmp(path, "behavior.dialog_center"))
+    snprintf(buf, buflen, "%s", center_mode_name(cfg->dialog_center));
   else if (!strcmp(path, "behavior.resize_hints"))
     snprintf(buf, buflen, "%s", cfg->resize_hints ? "true" : "false");
   else if (!strcmp(path, "layout.master_factor"))

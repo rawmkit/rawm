@@ -271,7 +271,8 @@ struct Client {
   int basew, baseh, incw, inch, maxw, maxh, minw, minh; /**< Size hints. */
   int bw, oldbw;        /**< Current and previous border width. */
   unsigned int tags;    /**< Tag mask indicating which tags the client is on. */
-  bool isfixed, isfloating, iscentered, isurgent, neverfocus, oldstate, isfullscreen; /**< Various state flags. */
+  bool isfixed, isfloating, center_explicit, isurgent, neverfocus, oldstate, isfullscreen; /**< Various state flags. */
+  RawmCenterMode center; /**< Placement policy for centered windows. */
   Client *next;         /**< Next client in the client list for the monitor. */
   Client *snext;        /**< Next client in the stack list for the monitor (focus history). */
   Monitor *mon;         /**< Pointer to the monitor the client is on. */
@@ -378,6 +379,7 @@ static void           buttonpress(XEvent *e);
 static void           checkotherwm(void);
 static void           cleanup(void);
 static void           cleanupmon(Monitor *mon);
+static void           centerclient(Client *c, RawmCenterMode mode);
 static void           clearurgent(Client *c);
 static void           clientmessage(XEvent *e);
 static void           configure(Client *c);
@@ -793,8 +795,6 @@ applyrules(Client *c)
   XClassHint     ch = { NULL, NULL };
 
   /* rule matching */
-  c->isfloating = 0;
-  c->tags = 0;
   XGetClassHint(dpy, c->win, &ch);
 
   class     = ch.res_class ? ch.res_class : broken;
@@ -813,9 +813,13 @@ applyrules(Client *c)
         && (!r->role     || strstr(role,     r->role))
         )
     {
-      c->iscentered  = r->centered;
       c->isfloating  = r->floating;
       c->tags       |= r->tags;
+
+      if (r->has_center) {
+        c->center = r->center;
+        c->center_explicit = true;
+      }
 
       for (m = mons;  m && m->num != r->monitor;  m = m->next)
         /* NOTHING */;
@@ -834,6 +838,37 @@ applyrules(Client *c)
   c->tags = (c->tags & TAGMASK)
           ? (c->tags & TAGMASK)
           :  c->mon->tagset[c->mon->seltags];
+}
+
+static void
+centerclient(Client *c, RawmCenterMode mode)
+{
+  Client *parent = NULL;
+  Window trans = None;
+  int x, y, maxx, maxy;
+
+  if (mode == RAWM_CENTER_NONE)
+    return;
+
+  if (mode == RAWM_CENTER_PARENT &&
+      XGetTransientForHint(dpy, c->win, &trans) &&
+      (parent = wintoclient(trans)) && parent != c && parent->mon == c->mon) {
+    x = parent->x + (WIDTH(parent) - WIDTH(c)) / 2;
+    y = parent->y + (HEIGHT(parent) - HEIGHT(c)) / 2;
+  } else {
+    x = c->mon->mx + (c->mon->mw - WIDTH(c)) / 2;
+    y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
+  }
+
+  maxx = c->mon->mx + c->mon->mw - WIDTH(c);
+  maxy = c->mon->my + c->mon->mh - HEIGHT(c);
+  if (maxx < c->mon->mx)
+    maxx = c->mon->mx;
+  if (maxy < c->mon->my)
+    maxy = c->mon->my;
+
+  c->x = MAX(c->mon->mx, MIN(x, maxx));
+  c->y = MAX(c->mon->my, MIN(y, maxy));
 }
 
 static bool
@@ -2565,10 +2600,9 @@ manage(Window w, XWindowAttributes *wa)
     c->tags = t->tags;
   }
   else
-  {
     c->mon = selmon;
-    applyrules(c);
-  }
+
+  applyrules(c);
 
   /* geometry */
   c->x = c->oldx = wa->x;
@@ -2606,11 +2640,10 @@ manage(Window w, XWindowAttributes *wa)
   updatesizehints(c);
   updatewmhints(c);
 
-  if (c->iscentered  ||  (c->mon->lt[c->mon->sellt]->arrange == NULL))
-  {
-    c->x = c->mon->mx + (c->mon->mw - WIDTH(c))  / 2;
-    c->y = c->mon->my + (c->mon->mh - HEIGHT(c)) / 2;
-  }
+  if (c->center != RAWM_CENTER_NONE)
+    centerclient(c, c->center);
+  else if (c->mon->lt[c->mon->sellt]->arrange == NULL)
+    centerclient(c, RAWM_CENTER_MONITOR);
 
   XSelectInput(dpy,
                w,
@@ -2968,6 +3001,11 @@ propertynotify(XEvent *e)
           && (c->isfloating = (wintoclient(trans))  !=  NULL)
           )
         arrange(c->mon);
+      if (c->center == RAWM_CENTER_PARENT) {
+        centerclient(c, c->center);
+        XMoveWindow(dpy, c->win, c->x, c->y);
+        configure(c);
+      }
       break;
     case XA_WM_NORMAL_HINTS:
       updatesizehints(c);
@@ -2994,8 +3032,14 @@ propertynotify(XEvent *e)
         drawbar(c->mon);
     }
 
-    if (ev->atom == netatom[NetWMWindowType])
+    if (ev->atom == netatom[NetWMWindowType]) {
       updatewindowtype(c);
+      if (c->center != RAWM_CENTER_NONE) {
+        centerclient(c, c->center);
+        XMoveWindow(dpy, c->win, c->x, c->y);
+        configure(c);
+      }
+    }
   }
 }
 
@@ -4562,7 +4606,8 @@ updatewindowtype(Client *c)
 
   if (wtype == netatom[NetWMWindowTypeDialog])
   {
-    c->iscentered = config.autocenter_dialogs;
+    if (!c->center_explicit)
+      c->center = config.dialog_center;
     c->isfloating = true;
   }
 }

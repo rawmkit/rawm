@@ -10,6 +10,12 @@
 #define RAWM_COLOR_COMPONENTS 3
 
 typedef enum {
+  RAWM_CENTER_NONE,
+  RAWM_CENTER_MONITOR,
+  RAWM_CENTER_PARENT
+} RawmCenterMode;
+
+typedef enum {
   RAWM_LAYOUT_TILE,
   RAWM_LAYOUT_FLOATING,
   RAWM_LAYOUT_MONOCLE,
@@ -81,7 +87,8 @@ typedef struct {
   char *role;
   unsigned int tags;
   bool floating;
-  bool centered;
+  bool has_center;
+  RawmCenterMode center;
   int monitor;
 } RawmRule;
 
@@ -132,7 +139,7 @@ typedef struct {
   bool show_systray;
   unsigned int systray_spacing;
 
-  bool autocenter_dialogs;
+  RawmCenterMode dialog_center;
   bool resize_hints;
 
   double master_factor;
