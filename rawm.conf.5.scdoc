@@ -105,6 +105,7 @@ The reference namespace contains these scalar paths:
 - *ui.font*, *ui.border_width*, *ui.snap*, *ui.opacity*
 - *ui.bar.show*, *ui.bar.position*, *ui.bar.height*
 - *ui.systray.show*, *ui.systray.spacing*
+- *status.enabled*, *status.protocol*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
   *urgent*, or *error*, and _component_ is *border*, *foreground*, or
   *background*
@@ -115,8 +116,8 @@ The reference namespace contains these scalar paths:
   documented below
 
 String targets are expanded recursively. Numeric scalars are rendered in
-base-10 form, booleans as *true* or *false*, and *ui.bar.position* as *top* or
-*bottom*. Groups, lists, rules, tags, commands, and individual command
+base-10 form, booleans as *true* or *false*, *ui.bar.position* as *top* or
+*bottom*, and *status.protocol* as its protocol name. Groups, lists, rules, tags, commands, and individual command
 arguments are not reference targets.
 
 An unknown path, malformed reference, or reference cycle is a fatal
@@ -187,8 +188,36 @@ ui = {
 };
 ```
 
-The four schemes also remain the status-color schemes used by rawm's colored
-status text.
+# STATUS
+
+The top-level *status* group defines the status-text boundary consumed by rawm.
+It does not name or supervise a producer. A session may use *rawmstat*(1), a
+shell program, or any other X11 client that implements the selected protocol.
+
+*enabled* = boolean
+	Whether rawm consumes and displays external status text. When false, the
+	status area is empty and status-property changes are ignored. Default true.
+
+*protocol* = "rawm-v1"
+	Status transport and payload contract. *"rawm-v1"* is currently the only
+	supported protocol and is the default. Unknown protocol names are fatal
+	configuration errors.
+
+## rawm-v1
+
+The *rawm-v1* protocol is intentionally small. A producer writes one plain
+UTF-8 status string to the *_RAWM_STATUS_V1* property of the X root window.
+The property type must be *UTF8_STRING* with format 8. The payload may contain
+at most 255 bytes and must not contain an embedded NUL byte.
+
+rawm watches the root window for property changes and redraws the selected
+monitor's bar when *_RAWM_STATUS_V1* changes. A missing, deleted, wrong-type,
+malformed, or oversized property produces an empty status area.
+
+The payload is text only. *rawm-v1* defines no color-control bytes, markup,
+block identifiers, click routing, process discovery, or producer lifecycle.
+Presentation remains rawm policy. The root *WM_NAME* property is not used as a
+status channel.
 
 # BEHAVIOR
 

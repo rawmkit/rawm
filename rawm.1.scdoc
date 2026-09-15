@@ -98,8 +98,8 @@ tags.
 
 Each screen contains a small status bar which displays all used tags,
 the layout, the title (if compiled with WIN_TITLE) of the focused
-window, and the text read from the root window name property, if the
-screen is focused.
+window, and status text received through the configured status protocol
+on the focused screen.
 
 A floating window is indicated with an empty square and a maximised
 floating window is indicated with a filled square before the windows
@@ -129,39 +129,17 @@ The options are as follows:
 
 ## Status bar
 
-*X root window name*
-	Is read and displayed in the status text area.  It can be set
-	with the *xsetroot*(1) command.  Example:
+*rawm-v1 status*
+	When *status.enabled* is true and *status.protocol* is *"rawm-v1"*,
+	rawm reads plain UTF-8 text from the *_RAWM_STATUS_V1* property on
+	the X root window. The property must have type *UTF8_STRING*, contain
+	no embedded NUL byte, and contain at most 255 bytes. Invalid or
+	missing status data is displayed as an empty status area.
 
-	```
-	xsetroot -name "This is an example"
-	```
-
-	*rawm* supports colored status bar text via "statuscolors"
-	allowing segments of the status text to be displayed in
-	different colors.
-
-	The status text can include special escape codes to switch
-	between the four color schemes defined by *rawm.conf*(5).
-
-	The escape code is a single byte with a value from 1 through 3.
-	To use a color, insert byte value N to use color scheme N for
-	subsequent text. Scheme 0 is the normal scheme.
-
-	The default color scheme is 0, which is used until the first
-	color escape is encountered.
-
-	Example:
-
-	To display "foo" in color 1, "bar" in color 2, and "baz" in
-	color 3, send the following status text (using octal escapes):
-
-	```
-	xsetroot -name "$(printf "\\x1%s\\x2%s\\x3%s" foo bar baz)"
-	```
-
-	This will render "foo" using color scheme 1, "bar" using color
-	scheme 2, and "baz" using color scheme 3.
+	The root *WM_NAME* property is not used for status. The protocol has
+	no in-band color or click-control bytes; rawm owns presentation.
+	*rawmstat*(1) is the companion producer, but any X11 client may
+	publish the property. See *rawm.conf*(5) for the protocol contract.
 
 *Button1*
 	Click on a tag label to display all windows with that tag,
