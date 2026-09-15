@@ -25,8 +25,8 @@ the following applied patches:
   * `statuscolor` patch
   * optional auto centering of floating popup windows
 
-Unless original `dwm` version 6.0 this distribution depends on
-`freetype2` and `xinerama` (optional).
+Unlike original `dwm` version 6.0 this distribution depends on
+`freetype2`, `fontconfig`, and `libconfig`; `xinerama` is optional.
 
 See git log for further differences.
 
@@ -46,6 +46,7 @@ Build time
   * `libX11`
   * `freetype2`
   * `fontconfig`
+  * `libconfig`
   * `xinerama` is optional, for Xinerama Extension support
   * `scdoc(1)` to build manual page
 
@@ -59,11 +60,18 @@ this package.
 See `config.mk` file for configuration parameters.
 
 
-CUSTOMIZATION
+CONFIGURATION
 =============
 
-`rawm` can be customized by creating a custom `config.h` file and
-(re)compiling the source code.
+`rawm` is configured at runtime with libconfig. The installed system file is
+`/etc/rawm/rawm.conf`; a user override may be placed at
+`$XDG_CONFIG_HOME/rawm/rawm.conf` or, by default,
+`$HOME/.config/rawm/rawm.conf`.
+
+Use `rawm -C` to validate the effective configuration without opening the X
+display, or `rawm -C -c ./rawm.conf` to validate one explicit file over the
+built-in defaults. See `rawm.conf(5)` for the complete schema, precedence and
+binding semantics.
 
 
 LICENSE

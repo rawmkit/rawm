@@ -6,7 +6,7 @@ rawm - Ra window manager for X
 
 # SYNOPSIS
 
-*rawm* [*-v*]
+*rawm* [*-C*] [*-c* _path_] [*-v*]
 
 # DESCRIPTION
 
@@ -114,7 +114,15 @@ indicated with an empty square in the top left corner.
 
 The options are as follows:
 
-*-v*
+*-c* _path_, *--config* _path_
+	Load the built-in defaults followed by exactly _path_, bypassing the
+	standard system and user configuration files.
+
+*-C*, *--check-config*
+	Validate the effective configuration and exit without opening the X
+	display.
+
+*-v*, *--version*
 	Print version and exit.
 
 # USAGE
@@ -134,12 +142,11 @@ The options are as follows:
 	different colors.
 
 	The status text can include special escape codes to switch
-	between color schemes as defined in _config.h_.
+	between the four color schemes defined by *rawm.conf*(5).
 
-	The escape code is a single byte with a value between 1 and
-	NUMCOLORS (exclusive), where NUMCOLORS is defined in
-	_config.h_.  To use a color, insert a byte with value N
-	(1 <= N < NUMCOLORS) to use color scheme N for subsequent text.
+	The escape code is a single byte with a value from 1 through 3.
+	To use a color, insert byte value N to use color scheme N for
+	subsequent text. Scheme 0 is the normal scheme.
 
 	The default color scheme is 0, which is used until the first
 	color escape is encountered.
@@ -154,7 +161,7 @@ The options are as follows:
 	```
 
 	This will render "foo" using color scheme 1, "bar" using color
-	scheme 2, and "baz" in the default color.
+	scheme 2, and "baz" using color scheme 3.
 
 *Button1*
 	Click on a tag label to display all windows with that tag,
@@ -174,8 +181,14 @@ The options are as follows:
 
 ## Keyboard commands
 
+These are the built-in bindings. An *input.keys* list in *rawm.conf*(5)
+replaces them.
+
+*Meta-r*
+	Start the configured *launcher* command.
+
 *Meta-Shift-Return*
-	Start terminal emulator (defined in _config.h_).
+	Start the configured *terminal* command.
 
 *Meta-,*
 	Focus previous screen, if any.
@@ -222,10 +235,10 @@ The options are as follows:
 *Meta-d*
 	Decrease clients in master area.
 
-*Meta-l*
+*Meta-Shift-l*
 	Increase master area size.
 
-*Meta-h*
+*Meta-Shift-h*
 	Decrease master area size.
 
 *Meta-Return*
@@ -277,6 +290,9 @@ The options are as follows:
 
 ## Mouse commands
 
+These are the built-in mouse bindings. An *input.buttons* list in
+*rawm.conf*(5) replaces them.
+
 *Meta-Button1*
 	Move focused window while dragging.  Tiled windows will be
 	toggled to the floating state.
@@ -288,10 +304,12 @@ The options are as follows:
 	Resize focused window while dragging.  Tiled windows will be
 	toggled to the  floating state.
 
-# CUSTOMIZATION
+# CONFIGURATION
 
-*rawm* is customized by creating a custom _config.h_ file and
-(re)compiling the source code.  This keeps it fast, secure and simple.
+*rawm* loads runtime policy from *rawm.conf*(5). The default search order is
+built-in defaults, _/etc/rawm/rawm.conf_, then the XDG user file. Lists such
+as rules and input bindings have explicit replacement semantics; named
+commands merge by name. Use *rawm -C* before restarting after an edit.
 
 # SIGNALS
 
@@ -303,7 +321,7 @@ The options are as follows:
 
 # SEE ALSO
 
-*dmenu*(1)
+*rawm.conf*(5), *dmenu*(1)
 
 # BUGS
 

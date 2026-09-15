@@ -1,0 +1,440 @@
+RAWM.CONF(5)
+
+# NAME
+
+rawm.conf - runtime configuration for rawm
+
+# DESCRIPTION
+
+*rawm*(1) uses libconfig to load window-manager policy at startup.
+Configuration changes therefore do not require recompiling rawm.
+
+The configuration is deliberately split into groups for user-interface
+settings, behavior, layouts, tags, application rules, commands, and input
+bindings. Unknown setting names, wrong types, invalid ranges, unresolved
+commands, invalid key symbols, duplicate bindings, and references to tags or
+layouts which do not exist are fatal configuration errors.
+
+Use *rawm -C* to validate the effective configuration without opening the X
+display.
+
+# FILES AND PRECEDENCE
+
+Without *-c*, rawm starts from its compiled-in conservative defaults and then
+loads these files, if present, in order:
+
+_/etc/rawm/rawm.conf_
+	System configuration. The prefix is controlled by *SYSCONFDIR* at build
+	time.
+
+_$XDG_CONFIG_HOME/rawm/rawm.conf_
+	Per-user configuration when *XDG_CONFIG_HOME* is an absolute path.
+
+_$HOME/.config/rawm/rawm.conf_
+	Per-user fallback when *XDG_CONFIG_HOME* is unset, empty, or relative.
+
+A later layer overrides an earlier layer. *rawm -c path* bypasses both standard
+files and loads only the built-in defaults followed by _path_.
+
+Scalar values and ordinary group members overlay individually. The named
+members of *commands* merge by command name. Color schemes and layout symbols
+also overlay member by member.
+
+When present, *tags.default*, *tags.monitors*, *rules*, *input.keys*, and
+*input.buttons* replace the corresponding complete value inherited from the
+previous layer. This makes list policy deterministic: a user does not
+accidentally retain an old rule or binding merely because it was omitted from
+a replacement list.
+
+# LIBCONFIG SYNTAX
+
+The file uses normal libconfig syntax. Groups use braces, lists use
+parentheses, strings are quoted, and statements end in semicolons. For example:
+
+```
+ui = {
+  font = "monospace:size=9";
+  border_width = 2;
+};
+```
+
+libconfig includes are supported. rawm sets the include directory to the
+directory containing the file being loaded, so a relative include is relative
+to that configuration file:
+
+```
+@include "workstation.conf"
+```
+
+# UI
+
+The *ui* group controls presentation and pointer geometry.
+
+*font* = string
+	Fontconfig/Xft font pattern. The default is *monospace:size=9*.
+
+*border_width* = integer
+	Window border width in pixels. Range 0..64. Default 2.
+
+*snap* = integer
+	Distance in pixels at which floating windows snap to monitor edges. Range
+	0..4096. Default 32.
+
+*opacity* = number
+	Opacity applied to rawm-created surfaces where supported. Range 0.0..1.0.
+	The conservative default is 1.0.
+
+## Bar
+
+The *ui.bar* group accepts:
+
+*show* = boolean
+	Whether the bar starts visible. Default true.
+
+*position* = "top" | "bottom"
+	Bar edge. Default "bottom".
+
+*height* = integer
+	Explicit bar height in pixels, 0..512. Zero derives the height from the
+	font. Default 0.
+
+## System tray
+
+The *ui.systray* group accepts:
+
+*show* = boolean
+	Whether the system tray is shown when rawm was built with SYSTRAY support.
+	Default true.
+
+*spacing* = integer
+	Spacing around tray icons in pixels. Range 0..64. Default 2.
+
+## Colors
+
+The *ui.colors* group has four named schemes: *normal*, *selected*, *urgent*,
+and *error*. Each scheme may contain *border*, *foreground*, and *background*
+string values accepted by Xft.
+
+```
+ui = {
+  colors = {
+    normal = {
+      border = "#cccccc";
+      foreground = "#000000";
+      background = "#cccccc";
+    };
+  };
+};
+```
+
+The four schemes also remain the status-color schemes used by rawm's colored
+status text.
+
+# BEHAVIOR
+
+The *behavior* group accepts:
+
+*autocenter_dialogs* = boolean
+	Center EWMH dialog windows automatically. Dialogs remain floating either
+	way. Default false.
+
+*resize_hints* = boolean
+	Respect application size hints while tiled. Default false.
+
+# LAYOUT
+
+The *layout* group accepts:
+
+*master_factor* = number
+	Initial fraction of monitor width/height assigned to the master area.
+	Range 0.05..0.95. Default 0.55.
+
+*master_count* = integer
+	Initial number of clients in the master area. Range 0..64. Default 1.
+
+*symbols* = group
+	Overrides status-bar symbols by stable layout name.
+
+The stable layout names are *tile*, *floating*, *monocle*, *bstack*,
+*bstack_horizontal*, and *grid*.
+
+```
+layout = {
+  symbols = {
+    tile = "[]=";
+    floating = "<1/1>";
+    monocle = "[1/1]";
+    bstack = "TTT";
+    bstack_horizontal = "===";
+    grid = "###";
+  };
+};
+```
+
+Configuration refers to layouts by these names, never by implementation array
+indexes.
+
+# TAGS
+
+The *tags.default* setting is a list of 1..31 tag groups. Each entry requires a
+*name* and may select a default *layout*. Tag names may contain at most 22
+bytes.
+
+```
+tags = {
+  default = (
+    { name = "term"; layout = "tile"; },
+    { name = "web";  layout = "monocle"; },
+    { name = "chat"; layout = "tile"; }
+  );
+};
+```
+
+The list length is the effective tag count. Input bindings and rules may not
+refer to a tag beyond that count.
+
+The optional *tags.monitors* list overrides tag names and default layouts for
+specific monitor numbers. Every override must define exactly the same number
+of tags as *tags.default*.
+
+```
+tags = {
+  monitors = (
+    {
+      monitor = 1;
+      tags = (
+        { name = "1:dev"; layout = "tile"; },
+        { name = "2:web"; layout = "monocle"; },
+        { name = "3";     layout = "tile"; }
+      );
+    }
+  );
+};
+```
+
+Monitor numbers are zero-based.
+
+# RULES
+
+*rules* is a list of groups matched when a client is managed. An omitted match
+field is a wildcard. String match fields use substring matching, preserving
+rawm's existing rule semantics.
+
+A rule accepts:
+
+*class* = string
+	WM_CLASS class substring.
+
+*instance* = string
+	WM_CLASS instance substring.
+
+*title* = string
+	Window-title substring.
+
+*role* = string
+	WM_WINDOW_ROLE substring.
+
+*tags* = list | "all"
+	One-based tag numbers, for example *(1, 3)*, or the string *"all"*. If
+	omitted or empty, the client remains on the currently selected tags.
+
+*floating* = boolean
+	Start the matching client floating.
+
+*centered* = boolean
+	Center the matching client.
+
+*monitor* = integer
+	Zero-based destination monitor. *-1* means the current monitor and is the
+	default.
+
+Example:
+
+```
+rules = (
+  {
+    class = "Pavucontrol";
+    floating = true;
+    centered = true;
+    monitor = -1;
+  },
+  {
+    class = "Firefox";
+    tags = (2);
+  }
+);
+```
+
+An explicitly present *rules* list replaces the inherited rule list.
+
+# COMMANDS
+
+*commands* is a group whose member names are command identifiers and whose
+values are non-empty argv lists.
+
+```
+commands = {
+  terminal = ("st");
+  launcher = ("dmenu_run", "-p", "Run:");
+  shell_example = ("/bin/sh", "-c", "printf '%s\\n' hello");
+};
+```
+
+Commands are executed directly with *execvp*(3). rawm does not implicitly
+invoke a shell. Use an explicit shell argv when shell parsing is actually
+wanted.
+
+Command definitions merge by name across configuration layers. A later
+*terminal* definition replaces only the earlier *terminal* definition.
+
+# INPUT
+
+The *input* group contains optional *keys* and *buttons* lists. If either list
+is present, that entire list replaces the inherited list of the same kind.
+
+## Modifiers
+
+A binding's *modifiers* member is a list containing zero or more of *"Shift"*,
+*"Control"*, *"Mod1"*, *"Mod2"*, *"Mod3"*, *"Mod4"*, and *"Mod5"*.
+
+An empty list means no modifier.
+
+## Key bindings
+
+Each *input.keys* entry requires:
+
+*modifiers* = list
+	Optional modifier list. Omission is equivalent to an empty list.
+
+*key* = string
+	An X keysym name understood by *XStringToKeysym*(3), such as *"Return"*,
+	*"space"*, *"1"*, or *"XF86AudioMute"*.
+
+*action* = string
+	Action name described below.
+
+Action-specific members are supplied in the same group.
+
+```
+input.keys = (
+  {
+    modifiers = ("Mod4", "Shift");
+    key = "Return";
+    action = "spawn";
+    command = "terminal";
+  },
+  {
+    modifiers = ("Mod4");
+    key = "2";
+    action = "view";
+    tag = 2;
+  }
+);
+```
+
+Duplicate resolved modifier/keysym pairs are rejected.
+
+## Mouse bindings
+
+Each *input.buttons* entry requires *click*, *button*, and *action*. The
+optional *modifiers* list has the same syntax as key bindings.
+
+*click* may be *"tag_bar"*, *"layout"*, *"status"*, *"title"*, *"client"*,
+or *"root"*. The *"title"* area requires a build with WINTITLE support.
+
+*button* is an integer from 1 through 9.
+
+For *view*, *toggle_view*, *tag*, and *toggle_tag* on *"tag_bar"*, omitting the
+*tag* member means the tag under the pointer. This is how the conventional tag
+bar bindings are expressed.
+
+```
+input.buttons = (
+  {
+    click = "client";
+    modifiers = ("Mod4");
+    button = 1;
+    action = "move";
+  },
+  {
+    click = "tag_bar";
+    button = 1;
+    action = "view";
+  }
+);
+```
+
+# ACTIONS
+
+*spawn*
+	Requires *command* naming an entry in *commands*.
+
+*toggle_bar*, *rename_tag*, *zoom*, *kill_client*, *toggle_floating*,
+*window_view*, *toggle_fullscreen*, *move*, *resize*
+	Take no action-specific argument.
+
+*focus_stack*
+	Requires non-zero integer *number*. Positive selects forward, negative
+	selects backward.
+
+*focus_index*
+	Requires positive integer *number*.
+
+*inc_master*
+	Requires integer *number*, usually 1 or -1.
+
+*set_master_factor*
+	Requires either absolute *factor* in the range 0.1..0.9 or relative
+	*delta* strictly between -0.9 and 0.9. The two members are mutually
+	exclusive.
+
+*view*
+	Optional *tag* is a one-based tag number or *"all"*. With no tag in a
+	key binding, switches to the previous view. With no tag on a tag-bar
+	mouse binding, uses the clicked tag.
+
+*toggle_view*
+	Requires *tag* except on a tag-bar mouse binding, where omission uses the
+	clicked tag.
+
+*tag*, *toggle_tag*
+	Require *tag* except on a tag-bar mouse binding, where omission uses the
+	clicked tag. *tag* may be a one-based number or *"all"*.
+
+*set_layout*
+	Optional *layout* is one of the stable layout names. If omitted, toggles
+	between the current and previous layout.
+
+*focus_monitor*, *tag_monitor*
+	Require non-zero integer *number*. Negative selects the previous monitor;
+	positive selects the next monitor.
+
+*quit*
+	Optional boolean *restart*. False exits rawm; true re-executes it with the
+	original command-line arguments.
+
+Arguments not used by an action are rejected rather than silently ignored.
+
+# VALIDATION
+
+The recommended edit cycle is:
+
+```
+rawm -C
+```
+
+To validate a file independently of the standard system and user layers:
+
+```
+rawm -C -c ./rawm.conf
+```
+
+Successful validation exits with status 0 and does not require an X display.
+Configuration errors are printed to standard error and produce a non-zero exit
+status.
+
+# SEE ALSO
+
+*rawm*(1), *libconfig*(5), *XStringToKeysym*(3), *execvp*(3)
+
+; vim: ft=scdoc cc=72 tw=70
