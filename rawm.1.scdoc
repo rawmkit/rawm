@@ -309,7 +309,9 @@ These are the built-in mouse bindings. An *input.buttons* list in
 *rawm* loads runtime policy from *rawm.conf*(5). The default search order is
 built-in defaults, _/etc/rawm/rawm.conf_, then the XDG user file. Lists such
 as rules and input bindings have explicit replacement semantics; named
-commands merge by name. Use *rawm -C* before restarting after an edit.
+commands merge by name. String settings and command arguments may reuse final
+scalar values with *${path}* references. Use *rawm -C* before restarting after
+an edit.
 
 # SIGNALS
 

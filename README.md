@@ -68,6 +68,10 @@ CONFIGURATION
 `$XDG_CONFIG_HOME/rawm/rawm.conf` or, by default,
 `$HOME/.config/rawm/rawm.conf`.
 
+Configuration strings can reuse final scalar settings with `${path}` references;
+for example, a dmenu command may use `${ui.font}` and
+`${ui.colors.normal.background}` instead of duplicating theme values.
+
 Use `rawm -C` to validate the effective configuration without opening the X
 display, or `rawm -C -c ./rawm.conf` to validate one explicit file over the
 built-in defaults. See `rawm.conf(5)` for the complete schema, precedence and

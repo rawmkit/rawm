@@ -12,8 +12,9 @@ Configuration changes therefore do not require recompiling rawm.
 The configuration is deliberately split into groups for user-interface
 settings, behavior, layouts, tags, application rules, commands, and input
 bindings. Unknown setting names, wrong types, invalid ranges, unresolved
-commands, invalid key symbols, duplicate bindings, and references to tags or
-layouts which do not exist are fatal configuration errors.
+commands or value references, invalid key symbols, duplicate bindings, and
+references to tags or layouts which do not exist are fatal configuration
+errors.
 
 Use *rawm -C* to validate the effective configuration without opening the X
 display.
@@ -65,6 +66,64 @@ to that configuration file:
 ```
 @include "workstation.conf"
 ```
+
+# VALUE REFERENCES
+
+rawm extends ordinary libconfig strings with *${path}* references. References
+are resolved only after all configuration layers have been merged, so an
+inherited command observes the final user override of a referenced setting.
+This is semantic expansion of the typed rawm configuration, not textual
+preprocessing of the configuration file.
+
+References may appear in *ui.font*, color values, layout symbols, and command
+argument strings. Literal text may surround a reference:
+
+```
+ui = {
+  font = "IBM Plex Mono:style=Regular:size=11";
+  opacity = 0.85;
+
+  colors = {
+    normal = { background = "#282828"; };
+    selected = { background = "${ui.colors.normal.background}"; };
+  };
+};
+
+commands = {
+  launcher = (
+    "dmenu_run",
+    "-fn", "${ui.font}",
+    "-nb", "${ui.colors.normal.background}",
+    "-sb", "${ui.colors.selected.background}"
+  );
+  transset = ("transset", "-a", "-t", "${ui.opacity}");
+};
+```
+
+The reference namespace contains these scalar paths:
+
+- *ui.font*, *ui.border_width*, *ui.snap*, *ui.opacity*
+- *ui.bar.show*, *ui.bar.position*, *ui.bar.height*
+- *ui.systray.show*, *ui.systray.spacing*
+- *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
+  *urgent*, or *error*, and _component_ is *border*, *foreground*, or
+  *background*
+- *behavior.autocenter_dialogs*, *behavior.resize_hints*
+- *layout.master_factor*, *layout.master_count*
+- *layout.symbols.<layout>*, where _layout_ is one of the stable layout names
+  documented below
+
+String targets are expanded recursively. Numeric scalars are rendered in
+base-10 form, booleans as *true* or *false*, and *ui.bar.position* as *top* or
+*bottom*. Groups, lists, rules, tags, commands, and individual command
+arguments are not reference targets.
+
+An unknown path, malformed reference, or reference cycle is a fatal
+configuration error and is checked by *rawm -C*. rawm does not interpret
+references as environment variables and does not perform shell expansion. To
+pass a literal shell-style parameter through rawm, prefix the dollar sign with
+another dollar sign: *$${HOME}* becomes literal *${HOME}*. This is useful in an
+explicit *sh -c* command.
 
 # UI
 
@@ -285,7 +344,9 @@ invoke a shell. Use an explicit shell argv when shell parsing is actually
 wanted.
 
 Command definitions merge by name across configuration layers. A later
-*terminal* definition replaces only the earlier *terminal* definition.
+*terminal* definition replaces only the earlier *terminal* definition. Command
+arguments may use the *${path}* value references described above; expansion
+happens after all layers have been merged.
 
 # INPUT
 
