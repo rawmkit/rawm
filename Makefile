@@ -39,7 +39,10 @@ uninstall:
 clean:
 	rm -f rawm rawm.o rawm-config.o rawm.1 rawm.conf.5
 
+check: rawm
+	./tests/config.sh ./rawm
+
 release:
 	git tag -a v${VERSION} -m v${VERSION}
 
-.PHONY: all install uninstall clean release
+.PHONY: all check install uninstall clean release
