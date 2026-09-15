@@ -46,6 +46,7 @@ tests/config-reference-test: tests/config-reference-test.o rawm-config.o
 check: rawm tests/config-reference-test
 	./tests/config.sh ./rawm
 	./tests/config-reference-test
+	./tests/gaps.sh ./rawm
 
 release:
 	git tag -a v${VERSION} -m v${VERSION}

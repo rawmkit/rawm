@@ -34,6 +34,9 @@ main(void)
     "commands = {\n"
     "  probe = (\"probe\", \"-fn\", \"${ui.font}\",\n"
     "           \"--opacity=${ui.opacity}\",\n"
+    "           \"--inner=${layout.gaps.inner}\",\n"
+    "           \"--outer=${layout.gaps.outer}\",\n"
+    "           \"--smart=${layout.gaps.smart}\",\n"
     "           \"--bar=${ui.bar.position}\",\n"
     "           \"--tray=${ui.systray.show}\",\n"
     "           \"${ui.colors.selected.background}\",\n"
@@ -51,10 +54,12 @@ main(void)
     "      background = \"${ui.colors.normal.background}\";\n"
     "    };\n"
     "  };\n"
-    "};\n";
+    "};\n"
+    "layout = { gaps = { inner = 7; outer = 11; smart = true; }; };\n";
   static const char *const expected[] = {
-    "probe", "-fn", "face-#111111", "--opacity=0.85", "--bar=top",
-    "--tray=false", "#222222", "${HOME}"
+    "probe", "-fn", "face-#111111", "--opacity=0.85", "--inner=7",
+    "--outer=11", "--smart=true", "--bar=top", "--tray=false",
+    "#222222", "${HOME}"
   };
   char path[] = "/tmp/rawm-config-reference.XXXXXX";
   RawmConfig cfg;

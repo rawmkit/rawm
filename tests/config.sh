@@ -34,7 +34,10 @@ ui = {
   font = "monospace:size=11";
   bar = { position = "top"; };
 };
-layout = { master_factor = 0.60; };
+layout = {
+  master_factor = 0.60;
+  gaps = { inner = 8; outer = 12; smart = true; };
+};
 tags = {
   default = (
     { name = "dev"; layout = "tile"; },
@@ -63,6 +66,21 @@ input = {
 };
 EOC
 expect_ok "$tmp/valid.conf"
+
+cat >"$tmp/gap-range.conf" <<'EOC'
+layout = { gaps = { inner = -1; }; };
+EOC
+expect_fail "$tmp/gap-range.conf"
+
+cat >"$tmp/gap-member.conf" <<'EOC'
+layout = { gaps = { innner = 8; }; };
+EOC
+expect_fail "$tmp/gap-member.conf"
+
+cat >"$tmp/gap-type.conf" <<'EOC'
+layout = { gaps = 8; };
+EOC
+expect_fail "$tmp/gap-type.conf"
 
 cat >"$tmp/include-body.conf" <<'EOC'
 ui = { font = "monospace:size=10"; };
