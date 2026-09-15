@@ -110,6 +110,7 @@ The reference namespace contains these scalar paths:
   *background*
 - *behavior.autocenter_dialogs*, *behavior.resize_hints*
 - *layout.master_factor*, *layout.master_count*
+- *layout.gaps.inner*, *layout.gaps.outer*, *layout.gaps.smart*
 - *layout.symbols.<layout>*, where _layout_ is one of the stable layout names
   documented below
 
@@ -211,6 +212,21 @@ The *layout* group accepts:
 *master_count* = integer
 	Initial number of clients in the master area. Range 0..64. Default 1.
 
+*gaps* = group
+	Controls spacing around and between tiled clients. Floating clients are not
+	affected.
+
+	*inner* = integer
+		Pixels between tiled clients. Range 0..4096. Default 0.
+
+	*outer* = integer
+		Pixels between the monitor work area and tiled clients. Range 0..4096.
+		Default 0.
+
+	*smart* = boolean
+		When true, suppress the outer gap while exactly one tiled client is
+		visible on the monitor. Inner gaps are unaffected. Default false.
+
 *symbols* = group
 	Overrides status-bar symbols by stable layout name.
 
@@ -219,6 +235,12 @@ The stable layout names are *tile*, *floating*, *monocle*, *bstack*,
 
 ```
 layout = {
+  gaps = {
+    inner = 8;
+    outer = 8;
+    smart = true;
+  };
+
   symbols = {
     tile = "[]=";
     floating = "<1/1>";
@@ -229,6 +251,11 @@ layout = {
   };
 };
 ```
+
+Gaps apply to *tile*, *monocle*, *bstack*, *bstack_horizontal*, and *grid*.
+For monocle there are no inner gaps because clients overlap; only the outer
+gap applies. rawm clamps configured gaps to the available monitor geometry so
+an excessively large value cannot produce negative layout dimensions.
 
 Configuration refers to layouts by these names, never by implementation array
 indexes.

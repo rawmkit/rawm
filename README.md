@@ -24,6 +24,7 @@ the following applied patches:
   * optional systray support (`-DSYSTRAY`)
   * `statuscolor` patch
   * optional auto centering of floating popup windows
+  * configurable inner/outer layout gaps with optional smart outer gaps
 
 Unlike original `dwm` version 6.0 this distribution depends on
 `freetype2`, `fontconfig`, and `libconfig`; `xinerama` is optional.
@@ -71,6 +72,10 @@ CONFIGURATION
 Configuration strings can reuse final scalar settings with `${path}` references;
 for example, a dmenu command may use `${ui.font}` and
 `${ui.colors.normal.background}` instead of duplicating theme values.
+
+Tiled layouts support runtime-configured inner and outer gaps through
+`layout.gaps`; smart gaps may suppress the outer margin when only one tiled
+client is visible.
 
 Use `rawm -C` to validate the effective configuration without opening the X
 display, or `rawm -C -c ./rawm.conf` to validate one explicit file over the
