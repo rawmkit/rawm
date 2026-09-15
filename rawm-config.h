@@ -99,6 +99,7 @@ typedef struct {
   bool has_number;
   int number;
   bool has_factor;
+  bool factor_absolute;
   double factor;
   bool has_tag;
   bool all_tags;

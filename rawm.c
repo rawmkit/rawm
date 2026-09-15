@@ -646,7 +646,9 @@ runtime_argument(const RawmBinding *binding)
       arg.i = binding->number;
       break;
     case RAWM_ACTION_SET_MASTER_FACTOR:
-      arg.f = (float)binding->factor;
+      arg.f = (float)(binding->factor_absolute
+                      ? binding->factor + 1.0
+                      : binding->factor);
       break;
     case RAWM_ACTION_VIEW:
     case RAWM_ACTION_TOGGLE_VIEW:

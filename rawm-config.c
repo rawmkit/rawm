@@ -211,6 +211,7 @@ static void
 set_key_factor(RawmKeyBinding *key, double factor)
 {
   key->binding.has_factor = true;
+  key->binding.factor_absolute = false;
   key->binding.factor = factor;
 }
 
@@ -962,16 +963,10 @@ parse_action_name(const char *name, RawmAction *action)
 static int
 parse_binding(FILE *err, const config_setting_t *entry, RawmBinding *binding)
 {
-  static const char *const allowed[] = {
-    "modifiers", "key", "click", "button", "action", "command", "layout",
-    "number", "factor", "tag", "restart"
-  };
   config_setting_t *s;
   const char *value;
 
   memset(binding, 0, sizeof(*binding));
-  if (validate_members(err, entry, allowed, 11) < 0)
-    return -1;
   s = config_setting_get_member(entry, "action");
   if (!s || config_setting_type(s) != CONFIG_TYPE_STRING)
     return cfg_error(err, entry, "%s requires string member 'action'", "binding");
@@ -1010,6 +1005,20 @@ parse_binding(FILE *err, const config_setting_t *entry, RawmBinding *binding)
     else
       return cfg_error(err, s, "%s must be numeric", "factor");
     binding->has_factor = true;
+    binding->factor_absolute = true;
+  }
+  s = config_setting_get_member(entry, "delta");
+  if (s) {
+    if (binding->has_factor)
+      return cfg_error(err, s, "%s cannot be used with factor", "delta");
+    if (config_setting_type(s) == CONFIG_TYPE_FLOAT)
+      binding->factor = config_setting_get_float(s);
+    else if (config_setting_type(s) == CONFIG_TYPE_INT)
+      binding->factor = config_setting_get_int(s);
+    else
+      return cfg_error(err, s, "%s must be numeric", "delta");
+    binding->has_factor = true;
+    binding->factor_absolute = false;
   }
   s = config_setting_get_member(entry, "tag");
   if (s) {
@@ -1038,6 +1047,10 @@ parse_binding(FILE *err, const config_setting_t *entry, RawmBinding *binding)
 static int
 parse_keys(FILE *err, RawmConfig *cfg, const config_setting_t *list)
 {
+  static const char *const allowed[] = {
+    "modifiers", "key", "action", "command", "layout", "number",
+    "factor", "delta", "tag", "restart"
+  };
   RawmKeyBinding *keys;
   int i, n;
   if (config_setting_type(list) != CONFIG_TYPE_LIST &&
@@ -1052,7 +1065,8 @@ parse_keys(FILE *err, RawmConfig *cfg, const config_setting_t *list)
       cfg_error(err, entry, "%s entries must be groups", "input.keys");
       goto fail;
     }
-    if (parse_modifiers(err, entry, &keys[i].modifiers) < 0 ||
+    if (validate_members(err, entry, allowed, 10) < 0 ||
+        parse_modifiers(err, entry, &keys[i].modifiers) < 0 ||
         parse_binding(err, entry, &keys[i].binding) < 0)
       goto fail;
     key = config_setting_get_member(entry, "key");
@@ -1091,6 +1105,10 @@ parse_click_name(const char *name, RawmClick *click)
 static int
 parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
 {
+  static const char *const allowed[] = {
+    "modifiers", "click", "button", "action", "command", "layout",
+    "number", "factor", "delta", "tag", "restart"
+  };
   RawmButtonBinding *buttons;
   int i, n;
   if (config_setting_type(list) != CONFIG_TYPE_LIST &&
@@ -1106,7 +1124,8 @@ parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
       cfg_error(err, entry, "%s entries must be groups", "input.buttons");
       goto fail;
     }
-    if (parse_modifiers(err, entry, &buttons[i].modifiers) < 0 ||
+    if (validate_members(err, entry, allowed, 11) < 0 ||
+        parse_modifiers(err, entry, &buttons[i].modifiers) < 0 ||
         parse_binding(err, entry, &buttons[i].binding) < 0)
       goto fail;
     click = config_setting_get_member(entry, "click");
@@ -1251,7 +1270,7 @@ user_config_path(void)
   const char *home;
   size_t len;
   char *path;
-  if (xdg && *xdg) {
+  if (xdg && *xdg && xdg[0] == '/') {
     len = strlen(xdg) + strlen("/rawm/rawm.conf") + 1;
     path = xcalloc(len, 1);
     snprintf(path, len, "%s/rawm/rawm.conf", xdg);
@@ -1292,12 +1311,27 @@ rawm_config_load(RawmConfig *cfg, const char *explicit_path, FILE *err)
 }
 
 static int
+binding_has_extra(const RawmBinding *b, bool command, bool layout,
+                  bool number, bool factor, bool tag, bool restart)
+{
+  return (!command && b->command) ||
+         (!layout && b->has_layout) ||
+         (!number && b->has_number) ||
+         (!factor && b->has_factor) ||
+         (!tag && b->has_tag) ||
+         (!restart && b->restart);
+}
+
+static int
 validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
                  RawmClick click, FILE *err)
 {
   bool dynamic_tag = mouse && click == RAWM_CLICK_TAG_BAR;
+
   switch (b->action) {
   case RAWM_ACTION_SPAWN:
+    if (binding_has_extra(b, true, false, false, false, false, false))
+      goto extra;
     if (!b->command || !rawm_config_find_command(cfg, b->command)) {
       fprintf(err, "rawm: configuration error: spawn binding references unknown command '%s'\n",
               b->command ? b->command : "");
@@ -1305,45 +1339,96 @@ validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
     }
     break;
   case RAWM_ACTION_FOCUS_STACK:
+    if (binding_has_extra(b, false, false, true, false, false, false))
+      goto extra;
+    if (!b->has_number || !b->number) {
+      fputs("rawm: configuration error: focus_stack requires non-zero 'number'\n", err);
+      return -1;
+    }
+    break;
   case RAWM_ACTION_FOCUS_INDEX:
+    if (binding_has_extra(b, false, false, true, false, false, false))
+      goto extra;
+    if (!b->has_number || b->number < 1) {
+      fputs("rawm: configuration error: focus_index requires positive 'number'\n", err);
+      return -1;
+    }
+    break;
   case RAWM_ACTION_INC_MASTER:
+    if (binding_has_extra(b, false, false, true, false, false, false))
+      goto extra;
+    if (!b->has_number) {
+      fputs("rawm: configuration error: inc_master requires 'number'\n", err);
+      return -1;
+    }
+    break;
   case RAWM_ACTION_FOCUS_MONITOR:
   case RAWM_ACTION_TAG_MONITOR:
-    if (!b->has_number) {
-      fputs("rawm: configuration error: binding action requires 'number'\n", err);
+    if (binding_has_extra(b, false, false, true, false, false, false))
+      goto extra;
+    if (!b->has_number || !b->number) {
+      fputs("rawm: configuration error: monitor action requires non-zero 'number'\n", err);
       return -1;
     }
     break;
   case RAWM_ACTION_SET_MASTER_FACTOR:
-    if (!b->has_factor || b->factor <= -1.0 || b->factor >= 2.0) {
-      fputs("rawm: configuration error: set_master_factor requires a sensible 'factor'\n", err);
+    if (binding_has_extra(b, false, false, false, true, false, false))
+      goto extra;
+    if (!b->has_factor ||
+        (b->factor_absolute && (b->factor < 0.1 || b->factor > 0.9)) ||
+        (!b->factor_absolute && (b->factor <= -0.9 || b->factor >= 0.9))) {
+      fputs("rawm: configuration error: set_master_factor requires factor 0.1..0.9 or delta -0.9..0.9\n", err);
       return -1;
     }
     break;
   case RAWM_ACTION_VIEW:
+    if (binding_has_extra(b, false, false, false, false, true, false))
+      goto extra;
+    if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count)
+      goto bad_tag;
+    break;
   case RAWM_ACTION_TOGGLE_VIEW:
-    if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count) {
-      fputs("rawm: configuration error: binding refers to a tag that does not exist\n", err);
+    if (binding_has_extra(b, false, false, false, false, true, false))
+      goto extra;
+    if (!b->has_tag && !dynamic_tag) {
+      fputs("rawm: configuration error: toggle_view requires 'tag' outside tag-bar mouse bindings\n", err);
       return -1;
     }
+    if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count)
+      goto bad_tag;
     break;
   case RAWM_ACTION_TAG:
   case RAWM_ACTION_TOGGLE_TAG:
+    if (binding_has_extra(b, false, false, false, false, true, false))
+      goto extra;
     if (!b->has_tag && !dynamic_tag) {
       fputs("rawm: configuration error: tag action requires 'tag' outside tag-bar mouse bindings\n", err);
       return -1;
     }
-    if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count) {
-      fputs("rawm: configuration error: binding refers to a tag that does not exist\n", err);
-      return -1;
-    }
+    if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count)
+      goto bad_tag;
     break;
   case RAWM_ACTION_SET_LAYOUT:
+    if (binding_has_extra(b, false, true, false, false, false, false))
+      goto extra;
+    break;
+  case RAWM_ACTION_QUIT:
+    if (binding_has_extra(b, false, false, false, false, false, true))
+      goto extra;
     break;
   default:
+    if (binding_has_extra(b, false, false, false, false, false, false))
+      goto extra;
     break;
   }
   return 0;
+
+bad_tag:
+  fputs("rawm: configuration error: binding refers to a tag that does not exist\n", err);
+  return -1;
+extra:
+  fputs("rawm: configuration error: binding contains arguments not used by its action\n", err);
+  return -1;
 }
 
 int
