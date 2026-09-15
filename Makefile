@@ -38,15 +38,20 @@ uninstall:
 
 clean:
 	rm -f rawm rawm.o rawm-config.o rawm.1 rawm.conf.5 \
-	      tests/config-reference-test tests/config-reference-test.o
+	      tests/config-reference-test tests/config-reference-test.o \
+	      tests/dialog-center-client tests/dialog-center-client.o
 
 tests/config-reference-test: tests/config-reference-test.o rawm-config.o
 	${CC} -o $@ tests/config-reference-test.o rawm-config.o ${LDFLAGS}
 
-check: rawm tests/config-reference-test
+tests/dialog-center-client: tests/dialog-center-client.o
+	${CC} -o $@ tests/dialog-center-client.o -L${X11LIB} -lX11
+
+check: rawm tests/config-reference-test tests/dialog-center-client
 	./tests/config.sh ./rawm
 	./tests/config-reference-test
 	./tests/gaps.sh ./rawm
+	./tests/dialog-center.sh ./rawm ./tests/dialog-center-client
 
 release:
 	git tag -a v${VERSION} -m v${VERSION}

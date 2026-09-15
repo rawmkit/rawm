@@ -37,11 +37,13 @@ main(void)
     "           \"--inner=${layout.gaps.inner}\",\n"
     "           \"--outer=${layout.gaps.outer}\",\n"
     "           \"--smart=${layout.gaps.smart}\",\n"
+    "           \"--center=${behavior.dialog_center}\",\n"
     "           \"--bar=${ui.bar.position}\",\n"
     "           \"--tray=${ui.systray.show}\",\n"
     "           \"${ui.colors.selected.background}\",\n"
     "           \"$${HOME}\");\n"
     "};\n"
+    "behavior = { dialog_center = \"parent\"; };\n"
     "ui = {\n"
     "  font = \"face-${ui.colors.selected.foreground}\";\n"
     "  opacity = 0.85;\n"
@@ -58,7 +60,7 @@ main(void)
     "layout = { gaps = { inner = 7; outer = 11; smart = true; }; };\n";
   static const char *const expected[] = {
     "probe", "-fn", "face-#111111", "--opacity=0.85", "--inner=7",
-    "--outer=11", "--smart=true", "--bar=top", "--tray=false",
+    "--outer=11", "--smart=true", "--center=parent", "--bar=top", "--tray=false",
     "#222222", "${HOME}"
   };
   char path[] = "/tmp/rawm-config-reference.XXXXXX";

@@ -34,6 +34,7 @@ ui = {
   font = "monospace:size=11";
   bar = { position = "top"; };
 };
+behavior = { dialog_center = "parent"; };
 layout = {
   master_factor = 0.60;
   gaps = { inner = 8; outer = 12; smart = true; };
@@ -66,6 +67,36 @@ input = {
 };
 EOC
 expect_ok "$tmp/valid.conf"
+
+cat >"$tmp/center-mode.conf" <<'EOC'
+behavior = { dialog_center = "monitor"; };
+rules = (
+  { class = "DialogA"; floating = true; center = "parent"; },
+  { class = "DialogB"; floating = true; center = "monitor"; },
+  { class = "DialogC"; floating = true; center = "none"; }
+);
+EOC
+expect_ok "$tmp/center-mode.conf"
+
+cat >"$tmp/center-mode-invalid.conf" <<'EOC'
+behavior = { dialog_center = "screen-ish"; };
+EOC
+expect_fail "$tmp/center-mode-invalid.conf"
+
+cat >"$tmp/center-mode-type.conf" <<'EOC'
+behavior = { dialog_center = true; };
+EOC
+expect_fail "$tmp/center-mode-type.conf"
+
+cat >"$tmp/legacy-autocenter.conf" <<'EOC'
+behavior = { autocenter_dialogs = true; };
+EOC
+expect_fail "$tmp/legacy-autocenter.conf"
+
+cat >"$tmp/legacy-centered.conf" <<'EOC'
+rules = ({ class = "Old"; centered = true; });
+EOC
+expect_fail "$tmp/legacy-centered.conf"
 
 cat >"$tmp/gap-range.conf" <<'EOC'
 layout = { gaps = { inner = -1; }; };
