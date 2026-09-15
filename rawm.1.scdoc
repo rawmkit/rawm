@@ -131,7 +131,7 @@ The options are as follows:
 
 *rawm-v1 status*
 	When *status.enabled* is true and *status.protocol* is *"rawm-v1"*,
-	rawm reads plain UTF-8 text from the *_RAWM_STATUS_V1* property on
+	rawm reads plain UTF-8 text from the *\_RAWM\_STATUS\_V1* property on
 	the X root window. The property must have type *UTF8_STRING*, contain
 	no embedded NUL byte, and contain at most 255 bytes. Invalid or
 	missing status data is displayed as an empty status area.

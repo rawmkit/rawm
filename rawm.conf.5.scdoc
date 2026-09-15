@@ -206,12 +206,12 @@ shell program, or any other X11 client that implements the selected protocol.
 ## rawm-v1
 
 The *rawm-v1* protocol is intentionally small. A producer writes one plain
-UTF-8 status string to the *_RAWM_STATUS_V1* property of the X root window.
+UTF-8 status string to the *\_RAWM\_STATUS\_V1* property of the X root window.
 The property type must be *UTF8_STRING* with format 8. The payload may contain
 at most 255 bytes and must not contain an embedded NUL byte.
 
 rawm watches the root window for property changes and redraws the selected
-monitor's bar when *_RAWM_STATUS_V1* changes. A missing, deleted, wrong-type,
+monitor's bar when *\_RAWM\_STATUS\_V1* changes. A missing, deleted, wrong-type,
 malformed, or oversized property produces an empty status area.
 
 The payload is text only. *rawm-v1* defines no color-control bytes, markup,
