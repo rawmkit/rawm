@@ -108,7 +108,7 @@ The reference namespace contains these scalar paths:
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
   *urgent*, or *error*, and _component_ is *border*, *foreground*, or
   *background*
-- *behavior.autocenter_dialogs*, *behavior.resize_hints*
+- *behavior.dialog_center*, *behavior.resize_hints*
 - *layout.master_factor*, *layout.master_count*
 - *layout.gaps.inner*, *layout.gaps.outer*, *layout.gaps.smart*
 - *layout.symbols.<layout>*, where _layout_ is one of the stable layout names
@@ -194,9 +194,13 @@ status text.
 
 The *behavior* group accepts:
 
-*autocenter_dialogs* = boolean
-	Center EWMH dialog windows automatically. Dialogs remain floating either
-	way. Default false.
+*dialog_center* = "none" | "monitor" | "parent"
+	Placement policy for EWMH dialog windows. Dialogs remain floating in all
+	modes. *"none"* leaves their position unchanged. *"monitor"* centers the
+	dialog's outer frame in its monitor. *"parent"* centers it over the outer
+	frame of its managed *WM_TRANSIENT_FOR* owner on the same monitor; when no
+	usable managed owner exists, rawm falls back to monitor centering. Default
+	*"none"*.
 
 *resize_hints* = boolean
 	Respect application size hints while tiled. Default false.
@@ -327,8 +331,13 @@ A rule accepts:
 *floating* = boolean
 	Start the matching client floating.
 
-*centered* = boolean
-	Center the matching client.
+*center* = "none" | "monitor" | "parent"
+	Explicit centering policy for the matching client. *"none"* disables
+	centering, *"monitor"* centers the client's outer frame in its monitor, and
+	*"parent"* centers it over its managed *WM_TRANSIENT_FOR* owner on the same
+	monitor, with monitor centering as the fallback. For EWMH dialogs, an explicit rule value takes
+	precedence over *behavior.dialog_center*. If omitted, non-dialog clients are
+	not centered and dialogs use *behavior.dialog_center*.
 
 *monitor* = integer
 	Zero-based destination monitor. *-1* means the current monitor and is the
@@ -341,7 +350,7 @@ rules = (
   {
     class = "Pavucontrol";
     floating = true;
-    centered = true;
+    center = "monitor";
     monitor = -1;
   },
   {
@@ -350,6 +359,11 @@ rules = (
   }
 );
 ```
+
+Rules are evaluated for transient clients as well as ordinary top-level
+clients. A transient first inherits its managed owner's monitor and tags, then
+matching rules may refine that placement policy. This allows per-application
+dialog rules to override the global dialog-centering mode.
 
 An explicitly present *rules* list replaces the inherited rule list.
 

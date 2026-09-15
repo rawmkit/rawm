@@ -17,7 +17,7 @@ the following applied patches:
   * optional window title (`-DWINTITLE`)
   * optional `xinerama` support (`-DXINERAMA`)
   * count monocle/float windows in statusbar
-  * `iscentered` rule for float windows
+  * explicit monitor/parent centering policy for floating windows and dialogs
   * configure layout `pertag` at startup
   * `restartsig`
   * `_NET_CLIENT_LIST`

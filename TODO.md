@@ -10,7 +10,7 @@ Next Release
 - [ ] Include custom shortcuts to the man?
 - [ ] Clean up systray commit and document.
 - [ ] Fix notification-daemon layout alignment.
-- [?] Fix iscentered on multimonitor setups.
+- [x] Replace iscentered with explicit monitor/parent centering policy.
 - [x] Fix windows counter.
 - [x] pertag layout ignores permonitor setups.
 - [x] Document statuscolors usage.
