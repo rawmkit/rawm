@@ -137,6 +137,9 @@ typedef struct {
 
   double master_factor;
   int master_count;
+  unsigned int gap_inner;
+  unsigned int gap_outer;
+  bool smart_gaps;
   char *layout_symbols[RAWM_LAYOUT_COUNT];
 
   RawmTagConfig *tags;

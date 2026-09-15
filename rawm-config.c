@@ -262,6 +262,9 @@ rawm_config_init(RawmConfig *cfg)
   cfg->resize_hints = false;
   cfg->master_factor = 0.55;
   cfg->master_count = 1;
+  cfg->gap_inner = 0;
+  cfg->gap_outer = 0;
+  cfg->smart_gaps = false;
 
   for (i = 0; i < RAWM_COLOR_SCHEMES; ++i)
     for (j = 0; j < 3; ++j)
@@ -601,20 +604,40 @@ parse_behavior(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 static int
 parse_layout(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
-  static const char *const allowed[] = { "master_factor", "master_count", "symbols" };
+  static const char *const allowed[] = {
+    "master_factor", "master_count", "gaps", "symbols"
+  };
+  static const char *const gap_allowed[] = { "inner", "outer", "smart" };
   static const char *const symbol_allowed[] = {
     "tile", "floating", "monocle", "bstack", "bstack_horizontal", "grid"
   };
+  config_setting_t *gaps;
   config_setting_t *symbols;
+  int inner = (int)cfg->gap_inner;
+  int outer = (int)cfg->gap_outer;
   int count = cfg->master_count;
   int i;
 
-  if (validate_members(err, group, allowed, 3) < 0 ||
+  if (validate_members(err, group, allowed, 4) < 0 ||
       read_double_range(err, group, "master_factor", 0.05, 0.95,
                         &cfg->master_factor) < 0 ||
       read_int_range(err, group, "master_count", 0, 64, &count) < 0)
     return -1;
   cfg->master_count = count;
+
+  gaps = config_setting_get_member(group, "gaps");
+  if (gaps) {
+    if (config_setting_type(gaps) != CONFIG_TYPE_GROUP)
+      return cfg_error(err, gaps, "%s", "layout.gaps must be a group");
+    if (validate_members(err, gaps, gap_allowed, 3) < 0 ||
+        read_int_range(err, gaps, "inner", 0, 4096, &inner) < 0 ||
+        read_int_range(err, gaps, "outer", 0, 4096, &outer) < 0 ||
+        read_bool(err, gaps, "smart", &cfg->smart_gaps) < 0)
+      return -1;
+    cfg->gap_inner = (unsigned int)inner;
+    cfg->gap_outer = (unsigned int)outer;
+  }
+
   symbols = config_setting_get_member(group, "symbols");
   if (!symbols)
     return 0;
@@ -1359,6 +1382,12 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%.15g", cfg->master_factor);
   else if (!strcmp(path, "layout.master_count"))
     snprintf(buf, buflen, "%d", cfg->master_count);
+  else if (!strcmp(path, "layout.gaps.inner"))
+    snprintf(buf, buflen, "%u", cfg->gap_inner);
+  else if (!strcmp(path, "layout.gaps.outer"))
+    snprintf(buf, buflen, "%u", cfg->gap_outer);
+  else if (!strcmp(path, "layout.gaps.smart"))
+    snprintf(buf, buflen, "%s", cfg->smart_gaps ? "true" : "false");
   else
     return -1;
 

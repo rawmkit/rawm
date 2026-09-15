@@ -403,7 +403,7 @@ static void           focusin(XEvent *e);
 static void           focusmon(const Arg *arg);
 static void           focusnstack(const Arg *arg);
 static void           focusstack(const Arg *arg);
-static void           gaplessgrid(Monitor *m);
+static void           grid(Monitor *m);
 
 #ifdef SYSTRAY
 static Atom           getatomprop(Client *c, Atom prop);
@@ -558,7 +558,7 @@ static Layout         layouts[RAWM_LAYOUT_COUNT] = {
   { NULL, monocle },
   { NULL, bstack },
   { NULL, bstackhoriz },
-  { NULL, gaplessgrid },
+  { NULL, grid },
 };
 static Key           *keys = NULL;
 static size_t         key_count = 0;
@@ -992,10 +992,46 @@ attachstack(Client *c)
   c->mon->stack = c;
 }
 
+typedef struct {
+  int x;
+  int y;
+  int w;
+  int h;
+} LayoutArea;
+
+static int
+fitgap(unsigned int configured, int extent, int items)
+{
+  int maxgap;
+
+  if (items <= 1 || extent <= items)
+    return 0;
+
+  maxgap = (extent - items) / (items - 1);
+  return MIN((int)configured, maxgap);
+}
+
+static LayoutArea
+layoutarea(Monitor *m, int n)
+{
+  LayoutArea area;
+  int outer = (config.smart_gaps && n == 1) ? 0 : (int)config.gap_outer;
+  int limit = MAX(0, (MIN(m->ww, m->wh) - 1) / 2);
+
+  outer = MIN(outer, limit);
+  area.x = m->wx + outer;
+  area.y = m->wy + outer;
+  area.w = MAX(1, m->ww - 2 * outer);
+  area.h = MAX(1, m->wh - 2 * outer);
+  return area;
+}
+
 static void
 bstack(Monitor *m)
 {
+  LayoutArea area;
   int     w, h, mh, mx, tx, ty, tw;
+  int     master, stack, mgap, sgap, splitgap;
   int     i, n;
   Client *c;
 
@@ -1007,45 +1043,52 @@ bstack(Monitor *m)
   if (n == 0)
     return;
 
+  area = layoutarea(m, n);
+  master = MIN(n, m->nmaster);
+  stack = n - master;
+  mgap = fitgap(config.gap_inner, area.w, master);
+  sgap = fitgap(config.gap_inner, area.w, stack);
+  splitgap = (master && stack) ? fitgap(config.gap_inner, area.h, 2) : 0;
+
   if (n > m->nmaster)
   {
-    mh = m->nmaster ? m->mfact * m->wh : 0;
-    tw = m->ww / (n - m->nmaster);
-    ty = m->wy + mh;
+    mh = m->nmaster ? m->mfact * (area.h - splitgap) : 0;
+    tw = stack ? (area.w - sgap * (stack - 1)) / stack : area.w;
+    ty = area.y + mh + splitgap;
   }
   else
   {
-    mh = m->wh;
-    tw = m->ww;
-    ty = m->wy;
+    mh = area.h;
+    tw = area.w;
+    ty = area.y;
   }
 
-  for (i = mx = 0, tx = m->wx, c = nexttiled(m->clients);
+  for (i = mx = 0, tx = area.x, c = nexttiled(m->clients);
        c;
        c = nexttiled(c->next), i++)
   {
     if (i < m->nmaster)
     {
-      w = (m->ww - mx) / (MIN(n, m->nmaster) - i);
+      w = (area.w - mx - mgap * (master - i - 1)) / (master - i);
       resize(c,
-             m->wx + mx,
-             m->wy,
+             area.x + mx,
+             area.y,
              w  - (2 * c->bw),
              mh - (2 * c->bw),
              false);
-      mx += WIDTH(c);
+      mx += WIDTH(c) + mgap;
     }
     else
     {
-      h = m->wh - mh;
+      h = area.h - mh - splitgap;
       resize(c,
              tx,
              ty,
              tw - (2 * c->bw),
              h  - (2 * c->bw),
              false);
-      if (tw != m->ww)
-        tx += WIDTH(c);
+      if (tw != area.w)
+        tx += WIDTH(c) + sgap;
     }
   }
 }
@@ -1053,7 +1096,9 @@ bstack(Monitor *m)
 static void
 bstackhoriz(Monitor *m)
 {
+  LayoutArea area;
   int     w, mh, mx, tx, ty, th;
+  int     master, stack, mgap, sgap, splitgap, stackh;
   int     i, n;
   Client *c;
 
@@ -1065,43 +1110,53 @@ bstackhoriz(Monitor *m)
   if (n == 0)
     return;
 
+  area = layoutarea(m, n);
+  master = MIN(n, m->nmaster);
+  stack = n - master;
+  mgap = fitgap(config.gap_inner, area.w, master);
+  splitgap = (master && stack) ? fitgap(config.gap_inner, area.h, 2) : 0;
+  stackh = area.h;
+  sgap = 0;
+
   if (n > m->nmaster)
   {
-    mh =  m->nmaster ? m->mfact * m->wh : 0;
-    th = (m->wh - mh) / (n - m->nmaster);
-    ty =  m->wy + mh;
+    mh = m->nmaster ? m->mfact * (area.h - splitgap) : 0;
+    stackh = area.h - mh - splitgap;
+    sgap = fitgap(config.gap_inner, stackh, stack);
+    th = stack ? (stackh - sgap * (stack - 1)) / stack : stackh;
+    ty = area.y + mh + splitgap;
   }
   else
   {
-    th = mh = m->wh;
-    ty =      m->wy;
+    th = mh = area.h;
+    ty =      area.y;
   }
 
-  for (i = mx = 0, tx = m->wx, c = nexttiled(m->clients);
+  for (i = mx = 0, tx = area.x, c = nexttiled(m->clients);
        c;
        c = nexttiled(c->next), i++)
   {
     if (i < m->nmaster)
     {
-      w = (m->ww - mx) / (MIN(n, m->nmaster) - i);
+      w = (area.w - mx - mgap * (master - i - 1)) / (master - i);
       resize(c,
-             m->wx + mx,
-             m->wy,
+             area.x + mx,
+             area.y,
              w  - (2 * c->bw),
              mh - (2 * c->bw),
              false);
-      mx += WIDTH(c);
+      mx += WIDTH(c) + mgap;
     }
     else
     {
       resize(c,
              tx,
              ty,
-             m->ww - (2 * c->bw),
+             area.w - (2 * c->bw),
              th    - (2 * c->bw),
              false);
-      if (th != m->wh)
-        ty += HEIGHT(c);
+      if (th != area.h)
+        ty += HEIGHT(c) + sgap;
     }
   }
 }
@@ -1719,7 +1774,7 @@ drawbar(Monitor *m)
   else if (m->lt[m->sellt]->arrange == bstackhoriz)
     snprintf(m->ltsymbol, sizeof m->ltsymbol, "=== %d", m->nmaster);
 
-  else if (m->lt[m->sellt]->arrange == gaplessgrid)
+  else if (m->lt[m->sellt]->arrange == grid)
     snprintf(m->ltsymbol, sizeof m->ltsymbol, "###");
 
   dc.w  = blw = TEXTW(m->ltsymbol);
@@ -2087,9 +2142,11 @@ focusstack(const Arg *arg)
 }
 
 static void
-gaplessgrid(Monitor *m)
+grid(Monitor *m)
 {
+  LayoutArea area;
   int     n, cols, rows, cn, rn, i, cx, cy, cw, ch;
+  int     colgap, rowgap;
   Client *c;
 
   for (n = 0, c = nexttiled(m->clients);
@@ -2099,6 +2156,8 @@ gaplessgrid(Monitor *m)
 
   if (n == 0)
     return;
+
+  area = layoutarea(m, n);
 
   /* grid dimensions */
   for (cols = 0;  cols <= n/2;  cols++)
@@ -2114,9 +2173,10 @@ gaplessgrid(Monitor *m)
   }
 
   rows = n/cols;
+  colgap = fitgap(config.gap_inner, area.w, cols);
 
   /* window geometries */
-  cw = cols ? (m->ww / cols) : m->ww;
+  cw = cols ? ((area.w - colgap * (cols - 1)) / cols) : area.w;
   cn = 0; /* current column number */
   rn = 0; /* current row number    */
   for (i = 0, c = nexttiled(m->clients);
@@ -2126,9 +2186,10 @@ gaplessgrid(Monitor *m)
     if (((i / rows) + 1) > (cols - (n % cols)))
       rows = (n / cols) + 1;
 
-    ch = rows ? (m->wh / rows) : m->wh;
-    cx = m->wx + cn*cw;
-    cy = m->wy + rn*ch;
+    rowgap = fitgap(config.gap_inner, area.h, rows);
+    ch = rows ? ((area.h - rowgap * (rows - 1)) / rows) : area.h;
+    cx = area.x + cn * (cw + colgap);
+    cy = area.y + rn * (ch + rowgap);
     resize(c,
            cx,
            cy,
@@ -2646,14 +2707,23 @@ maprequest(XEvent *e)
 static void
 monocle(Monitor *m)
 {
+  LayoutArea area;
+  int n = 0;
   Client *c;
+
+  for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
+    n++;
+  if (n == 0)
+    return;
+
+  area = layoutarea(m, n);
   for (c = nexttiled(m->clients);  c;  c = nexttiled(c->next))
   {
     resize(c,
-           m->wx,
-           m->wy,
-           m->ww - 2 * c->bw,
-           m->wh - 2 * c->bw,
+           area.x,
+           area.y,
+           area.w - 2 * c->bw,
+           area.h - 2 * c->bw,
            false
            );
 
@@ -2662,7 +2732,7 @@ monocle(Monitor *m)
       c->oldbw = c->bw;
       c->bw    = 0;
 
-      resizeclient(c, m->wx, m->wy, m->ww, m->wh);
+      resizeclient(c, area.x, area.y, area.w, area.h);
     }
   }
 }
@@ -3700,7 +3770,9 @@ textnw(const char *text, unsigned int len)
 static void
 tile(Monitor *m)
 {
+  LayoutArea area;
   int      i, n, h, mw, my, ty;
+  int      master, stack, mgap, sgap, splitgap, sw;
   Client  *c;
 
   for (n = 0, c = nexttiled(m->clients);
@@ -3711,10 +3783,18 @@ tile(Monitor *m)
   if (n == 0)
     return;
 
+  area = layoutarea(m, n);
+  master = MIN(n, m->nmaster);
+  stack = n - master;
+  mgap = fitgap(config.gap_inner, area.h, master);
+  sgap = fitgap(config.gap_inner, area.h, stack);
+  splitgap = (master && stack) ? fitgap(config.gap_inner, area.w, 2) : 0;
+
   if (n > m->nmaster)
-    mw = m->nmaster ? (m->ww * m->mfact) : 0;
+    mw = m->nmaster ? ((area.w - splitgap) * m->mfact) : 0;
   else
-    mw = m->ww;
+    mw = area.w;
+  sw = area.w - mw - splitgap;
 
   for (i = my = ty = 0, c = nexttiled(m->clients);
        c;
@@ -3722,27 +3802,27 @@ tile(Monitor *m)
   {
     if (i < m->nmaster)
     {
-      h = (m->wh - my) / (MIN(n, m->nmaster) - i);
+      h = (area.h - my - mgap * (master - i - 1)) / (master - i);
       resize(c,
-             m->wx,
-             m->wy + my,
+             area.x,
+             area.y + my,
              mw - (2 * c->bw),
              h  - (2 * c->bw),
              false
              );
-      my += HEIGHT(c);
+      my += HEIGHT(c) + mgap;
     }
     else
     {
-      h = (m->wh - ty) / (n - i);
+      h = (area.h - ty - sgap * (n - i - 1)) / (n - i);
       resize(c,
-             m->wx + mw,
-             m->wy + ty,
-             m->ww - mw - (2 * c->bw),
+             area.x + mw + splitgap,
+             area.y + ty,
+             sw - (2 * c->bw),
                       h - (2 * c->bw),
              false
              );
-      ty += HEIGHT(c);
+      ty += HEIGHT(c) + sgap;
     }
   }
 }
