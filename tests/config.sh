@@ -150,6 +150,44 @@ input = { keys = (
 EOC
 expect_fail "$tmp/factor.conf"
 
+cat >"$tmp/reference.conf" <<'EOC'
+ui = {
+  font = "${ui.colors.normal.foreground}";
+  colors = {
+    normal = { foreground = "monospace:size=12"; };
+    selected = { background = "${ui.colors.normal.background}"; };
+  };
+};
+commands = {
+  probe = ("printf", "%s\\n", "${ui.font}", "${ui.opacity}", "$${HOME}");
+};
+EOC
+expect_ok "$tmp/reference.conf"
+
+cat >"$tmp/reference-unknown.conf" <<'EOC'
+commands = { probe = ("printf", "${ui.does_not_exist}"); };
+EOC
+expect_fail "$tmp/reference-unknown.conf"
+grep -q "unknown reference" "$tmp/stderr" ||
+  fail "unknown reference did not produce a useful diagnostic"
+
+cat >"$tmp/reference-cycle.conf" <<'EOC'
+ui = { colors = {
+  normal = { foreground = "${ui.colors.selected.foreground}"; };
+  selected = { foreground = "${ui.colors.normal.foreground}"; };
+}; };
+EOC
+expect_fail "$tmp/reference-cycle.conf"
+grep -q "cyclic reference" "$tmp/stderr" ||
+  fail "reference cycle did not produce a useful diagnostic"
+
+cat >"$tmp/reference-unclosed.conf" <<'EOC'
+commands = { probe = ("printf", "${ui.font"); };
+EOC
+expect_fail "$tmp/reference-unclosed.conf"
+grep -q "unterminated reference" "$tmp/stderr" ||
+  fail "unterminated reference did not produce a useful diagnostic"
+
 mkdir -p "$tmp/home/.config/rawm"
 cat >"$tmp/home/.config/rawm/rawm.conf" <<'EOC'
 this_setting_does_not_exist = true;
