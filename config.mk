@@ -18,6 +18,7 @@ WINTITLE      = -DWINTITLE
 # paths
 PREFIX        = /usr/local
 MANPREFIX     = ${PREFIX}/share/man
+SYSCONFDIR    = /etc
 
 # DragonFlyBSD, FreeBSD
 #X11INC       = /usr/local/include
@@ -37,11 +38,11 @@ FT2LIB        = -lfontconfig -lXft
 
 # includes and libs
 INCS          = -I${X11INC} -I${FT2INC}
-LIBS          = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS}
+LIBS          = -L${X11LIB} -lX11 ${FT2LIB} ${XINERAMALIBS} -lconfig
 
 # flags
 CPPFLAGS      = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L \
-                -DVERSION=\"${VERSION}\" \
+                -DVERSION=\"${VERSION}\" -DSYSCONFDIR=\"${SYSCONFDIR}\" \
                 ${XINERAMA} ${SYSTRAY} ${PWKL} ${WINTITLE}
 CFLAGS        = -pedantic -Wall -Wextra -Wformat ${INCS} ${CPPFLAGS}
 LDFLAGS       = ${LIBS}

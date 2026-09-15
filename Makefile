@@ -2,15 +2,16 @@
 
 include config.mk
 
-all: config.h rawm rawm.1
+all: rawm rawm.1
 
-rawm: rawm.o
+rawm: rawm.o rawm-config.o
+	${CC} -o $@ rawm.o rawm-config.o ${LDFLAGS}
+
+rawm.o: rawm.c rawm-config.h
+rawm-config.o: rawm-config.c rawm-config.h
 
 rawm.1: rawm.1.scdoc
 	scdoc < rawm.1.scdoc > rawm.1
-
-config.h:
-	cp config.def.h $@
 
 install: all
 	mkdir -p     ${DESTDIR}${PREFIX}/bin
@@ -25,7 +26,7 @@ uninstall:
 	rm -f ${DESTDIR}${MANPREFIX}/man1/rawm.1
 
 clean:
-	rm -f rawm rawm.o rawm.1
+	rm -f rawm rawm.o rawm-config.o rawm.1 rawm.conf.5
 
 release:
 	git tag -a v${VERSION} -m v${VERSION}

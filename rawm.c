@@ -17,8 +17,7 @@
  * remembered through a stack list on each monitor.  Each client
  * contains a bit array to indicate the tags of a client.
  *
- * Keys and tagging rules are organized as arrays and defined in
- * config.h.
+ * Keys, rules, appearance, and policy are loaded from rawm.conf.
  *
  * To understand everything else, start reading main().
  */
@@ -41,6 +40,8 @@
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 #include <X11/Xft/Xft.h>
+
+#include "rawm-config.h"
 
 /* Per-window keyboard layout support. */
 #ifdef PWKL
@@ -112,7 +113,8 @@
 #define MIN(A, B)  ((A) < (B) ? (A) : (B))
 
 /** Maximum number of colors used for drawing. */
-#define MAXCOLORS  8
+#define MAXCOLORS  RAWM_COLOR_SCHEMES
+#define NUMCOLORS  RAWM_COLOR_SCHEMES
 
 /** Mouse mask for grabbing pointer motion and button events */
 #define MOUSEMASK  (BUTTONMASK|PointerMotionMask)
@@ -131,8 +133,8 @@
  */
 #define HEIGHT(X)  ((X)->h + 2 * (X)->bw)
 
-/** Mask for all possible tags. TAGS is defined in config.h. */
-#define TAGMASK    ((1 << TAGS) - 1)
+/** Mask for all configured tags. */
+#define TAGMASK    (config.tag_count == 31 ? 0x7fffffffu : ((1u << config.tag_count) - 1u))
 
 /**
  * @brief Calculate the width of text plus padding.
@@ -251,7 +253,7 @@ typedef struct {
   unsigned int mask;            /**< Modifier mask (e.g., MODKEY). */
   unsigned int button;          /**< Mouse button (e.g., Button1). */
   void (*func)(const Arg *arg); /**< Function to execute. */
-  const Arg arg;                /**< Argument for the function. */
+  Arg arg;                      /**< Argument for the function. */
 } Button;
 
 /* Forward declarations. */
@@ -286,7 +288,7 @@ struct Client {
  */
 typedef struct {
   int x, y, w, h;    /**< Current drawing area geometry. */
-  XftColor colors[MAXCOLORS][ColLast]; /**< Array of color schemes (NUMCOLORS from config.h). */
+  XftColor colors[MAXCOLORS][ColLast]; /**< Runtime color schemes. */
   Drawable drawable; /**< Pixmap for double buffering. */
   GC gc;             /**< Graphics context. */
   struct {
@@ -304,7 +306,7 @@ typedef struct {
   unsigned int mod; /**< Modifier mask (e.g., MODKEY). */
   KeySym keysym;    /**< Key symbol (e.g., XK_Return). */
   void (*func)(const Arg *); /**< Function to execute. */
-  const Arg arg;    /**< Argument for the function. */
+  Arg arg;          /**< Argument for the function. */
 } Key;
 
 /**
@@ -317,16 +319,6 @@ typedef struct {
   void (*arrange)(Monitor *); /**< Function to arrange clients on a monitor (e.g., tile, monocle). NULL means floating. */
 } Layout;
 
-/**
- * @brief Structure to store layout index for custom tag names.
- *
- * Used in the 'tags' array from config.h.
- */
-typedef struct {
-  char tagname[MAX_TAGLEN]; /**< Custom name for the tag. */
-  int layout_idx; /**< Index into the 'layouts' array for the default layout of this tag. */
-} CustomTagLayout;
-
 /* Forware declaration for Pertag structure. */
 typedef struct Pertag Pertag;
 
@@ -335,6 +327,7 @@ typedef struct Pertag Pertag;
  */
 struct Monitor {
   char ltsymbol[16];      /**< Layout symbol string displayed in the bar. */
+  char tag_names[RAWM_MAX_TAGS][MAX_TAGLEN]; /**< Runtime tag labels. */
   float mfact;            /**< Master area factor [0.05..0.95] (per tag). */
   int nmaster;            /**< Number of clients in master area (per tag). */
   int num;                /**< Monitor number (0, 1, ...). */
@@ -354,22 +347,6 @@ struct Monitor {
   const Layout *lt[2];    /**< Array holding current and previous layout (per tag). */
   Pertag *pertag;         /**< Pointer to the per-tag configuration for this monitor. */
 };
-
-/**
- * @brief Rule structure for automatic client tagging and properties on creation.
- *
- * Used in the 'rules' array from `config.h'.
- */
-typedef struct {
-  const char *class;    /**< WM_CLASS class hint (substring match). */
-  const char *instance; /**< WM_CLASS instance hint (substring match). */
-  const char *title;    /**< WM_NAME or _NET_WM_NAME (substring match). */
-  const char *role;     /**< WM_WINDOW_ROLE (substring match). */
-  unsigned int tags;    /**< Tags to assign (0 means current tags). */
-  bool iscentered;      /**< Whether to center the window. */
-  bool isfloating;      /**< Whether the window should be floating. */
-  int monitor;          /**< Monitor to spawn on (-1 for current). */
-} Rule;
 
 #ifdef SYSTRAY
 /**
@@ -520,6 +497,9 @@ static int            xerror(Display *dpy, XErrorEvent *ee);
 static int            xerrordummy(Display *dpy, XErrorEvent *ee);
 static int            xerrorstart(Display *dpy, XErrorEvent *ee);
 static void           zoom(const Arg *arg);
+static int            initruntimeconfig(FILE *err);
+static void           freeruntimeconfig(void);
+static unsigned int   runtime_modifiers(unsigned int modifiers);
 
 /*********************************************************************
  * Global variables.
@@ -571,28 +551,216 @@ static DC             dc;
 static Monitor       *mons = NULL, *selmon = NULL;
 static Window         root;
 
-/* Configuration, allows nested code to access above variables. */
-#include "config.h"
-
-static unsigned int   opacity = defaultopacity * 0xffffffff;
+static RawmConfig     config;
+static Layout         layouts[RAWM_LAYOUT_COUNT] = {
+  { NULL, tile },
+  { NULL, NULL },
+  { NULL, monocle },
+  { NULL, bstack },
+  { NULL, bstackhoriz },
+  { NULL, gaplessgrid },
+};
+static Key           *keys = NULL;
+static size_t         key_count = 0;
+static Button        *buttons = NULL;
+static size_t         button_count = 0;
+static unsigned int   opacity = 0xffffffffu;
 
 struct Pertag {
   unsigned int  curtag, prevtag;     /* current and previous tag           */
-  int           nmasters[TAGS + 1];  /* number of windows in master area   */
-  float         mfacts[TAGS + 1];    /* mfacts per tag                     */
-  unsigned int  sellts[TAGS + 1];    /* selected layouts                   */
-  const Layout *ltidxs[TAGS + 1][2]; /* matrix of tags and layouts indexes */
-  bool          showbars[TAGS + 1];  /* display bar for the current tag    */
-};
-
-/* Compile-time check if all tags fit into an unsigned int bit array. */
-struct NumTags {
-  char limitexceeded[TAGS > 31 ? -1 : 1];
+  int           nmasters[RAWM_MAX_TAGS + 1];  /* number of windows in master area   */
+  float         mfacts[RAWM_MAX_TAGS + 1];    /* mfacts per tag                     */
+  unsigned int  sellts[RAWM_MAX_TAGS + 1];    /* selected layouts                   */
+  const Layout *ltidxs[RAWM_MAX_TAGS + 1][2]; /* matrix of tags and layouts indexes */
+  bool          showbars[RAWM_MAX_TAGS + 1];  /* display bar for the current tag    */
 };
 
 /*********************************************************************
  * Function implementations.
  */
+
+static unsigned int
+runtime_modifiers(unsigned int modifiers)
+{
+  unsigned int mask = 0;
+
+  if (modifiers & RAWM_MOD_SHIFT)   mask |= ShiftMask;
+  if (modifiers & RAWM_MOD_CONTROL) mask |= ControlMask;
+  if (modifiers & RAWM_MOD_1)       mask |= Mod1Mask;
+  if (modifiers & RAWM_MOD_2)       mask |= Mod2Mask;
+  if (modifiers & RAWM_MOD_3)       mask |= Mod3Mask;
+  if (modifiers & RAWM_MOD_4)       mask |= Mod4Mask;
+  if (modifiers & RAWM_MOD_5)       mask |= Mod5Mask;
+
+  return mask;
+}
+
+static void (*
+action_function(RawmAction action))(const Arg *)
+{
+  switch (action)
+  {
+    case RAWM_ACTION_SPAWN:             return spawn;
+    case RAWM_ACTION_TOGGLE_BAR:        return togglebar;
+    case RAWM_ACTION_RENAME_TAG:        return nametag;
+    case RAWM_ACTION_FOCUS_STACK:       return focusstack;
+    case RAWM_ACTION_FOCUS_INDEX:       return focusnstack;
+    case RAWM_ACTION_INC_MASTER:        return incnmaster;
+    case RAWM_ACTION_SET_MASTER_FACTOR: return setmfact;
+    case RAWM_ACTION_ZOOM:              return zoom;
+    case RAWM_ACTION_VIEW:              return view;
+    case RAWM_ACTION_TOGGLE_VIEW:       return toggleview;
+    case RAWM_ACTION_KILL_CLIENT:       return killclient;
+    case RAWM_ACTION_SET_LAYOUT:        return setlayout;
+    case RAWM_ACTION_TOGGLE_FLOATING:   return togglefloating;
+    case RAWM_ACTION_TAG:               return tag;
+    case RAWM_ACTION_TOGGLE_TAG:        return toggletag;
+    case RAWM_ACTION_WINDOW_VIEW:       return winview;
+    case RAWM_ACTION_TOGGLE_FULLSCREEN: return togglefullscr;
+    case RAWM_ACTION_FOCUS_MONITOR:     return focusmon;
+    case RAWM_ACTION_TAG_MONITOR:       return tagmon;
+    case RAWM_ACTION_QUIT:              return quit;
+    case RAWM_ACTION_MOVE:              return movemouse;
+    case RAWM_ACTION_RESIZE:            return resizemouse;
+  }
+  return NULL;
+}
+
+static Arg
+runtime_argument(const RawmBinding *binding)
+{
+  Arg arg = {0};
+  const RawmCommand *command;
+
+  switch (binding->action)
+  {
+    case RAWM_ACTION_SPAWN:
+      command = rawm_config_find_command(&config, binding->command);
+      arg.v = command ? command->argv : NULL;
+      break;
+    case RAWM_ACTION_FOCUS_STACK:
+    case RAWM_ACTION_FOCUS_INDEX:
+    case RAWM_ACTION_INC_MASTER:
+    case RAWM_ACTION_FOCUS_MONITOR:
+    case RAWM_ACTION_TAG_MONITOR:
+      arg.i = binding->number;
+      break;
+    case RAWM_ACTION_SET_MASTER_FACTOR:
+      arg.f = (float)binding->factor;
+      break;
+    case RAWM_ACTION_VIEW:
+    case RAWM_ACTION_TOGGLE_VIEW:
+    case RAWM_ACTION_TAG:
+    case RAWM_ACTION_TOGGLE_TAG:
+      if (binding->has_tag)
+        arg.ui = binding->all_tags ? ~0u : 1u << (binding->tag - 1);
+      break;
+    case RAWM_ACTION_SET_LAYOUT:
+      if (binding->has_layout)
+        arg.v = &layouts[binding->layout];
+      break;
+    case RAWM_ACTION_QUIT:
+      arg.i = binding->restart ? 1 : 0;
+      break;
+    default:
+      break;
+  }
+  return arg;
+}
+
+static unsigned int
+runtime_click(RawmClick click)
+{
+  switch (click)
+  {
+    case RAWM_CLICK_TAG_BAR: return ClkTagBar;
+    case RAWM_CLICK_LAYOUT:  return ClkLtSymbol;
+    case RAWM_CLICK_STATUS:  return ClkStatusText;
+#ifdef WINTITLE
+    case RAWM_CLICK_TITLE:   return ClkWinTitle;
+#else
+    case RAWM_CLICK_TITLE:   return ClkLast;
+#endif
+    case RAWM_CLICK_CLIENT:  return ClkClientWin;
+    case RAWM_CLICK_ROOT:    return ClkRootWin;
+  }
+  return ClkLast;
+}
+
+static int
+initruntimeconfig(FILE *err)
+{
+  size_t i, j;
+
+  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
+    layouts[i].symbol = config.layout_symbols[i];
+
+  keys = calloc(config.key_count, sizeof(*keys));
+  buttons = calloc(config.button_count, sizeof(*buttons));
+  if ((config.key_count && !keys) || (config.button_count && !buttons))
+  {
+    fputs("rawm: out of memory while building input configuration\n", err);
+    freeruntimeconfig();
+    return -1;
+  }
+  key_count = config.key_count;
+  button_count = config.button_count;
+
+  for (i = 0; i < key_count; ++i)
+  {
+    keys[i].mod = runtime_modifiers(config.keys[i].modifiers);
+    keys[i].keysym = XStringToKeysym(config.keys[i].key);
+    if (keys[i].keysym == NoSymbol)
+    {
+      fprintf(err, "rawm: configuration error: unknown key symbol '%s'\n",
+              config.keys[i].key);
+      freeruntimeconfig();
+      return -1;
+    }
+    keys[i].func = action_function(config.keys[i].binding.action);
+    keys[i].arg = runtime_argument(&config.keys[i].binding);
+    for (j = 0; j < i; ++j)
+    {
+      if (keys[j].mod == keys[i].mod && keys[j].keysym == keys[i].keysym)
+      {
+        fprintf(err, "rawm: configuration error: duplicate resolved key binding '%s'\n",
+                config.keys[i].key);
+        freeruntimeconfig();
+        return -1;
+      }
+    }
+  }
+
+  for (i = 0; i < button_count; ++i)
+  {
+    buttons[i].click = runtime_click(config.buttons[i].click);
+    if (buttons[i].click == ClkLast)
+    {
+      fputs("rawm: configuration error: title click bindings require WINTITLE support\n",
+            err);
+      freeruntimeconfig();
+      return -1;
+    }
+    buttons[i].mask = runtime_modifiers(config.buttons[i].modifiers);
+    buttons[i].button = config.buttons[i].button;
+    buttons[i].func = action_function(config.buttons[i].binding.action);
+    buttons[i].arg = runtime_argument(&config.buttons[i].binding);
+  }
+
+  opacity = (unsigned int)(config.opacity * 4294967295.0);
+  return 0;
+}
+
+static void
+freeruntimeconfig(void)
+{
+  free(keys);
+  free(buttons);
+  keys = NULL;
+  buttons = NULL;
+  key_count = 0;
+  button_count = 0;
+}
 
 char *
 getprop(Window w, const char *prop)
@@ -618,7 +786,7 @@ applyrules(Client *c)
 {
   unsigned int   i;
   const char    *class, *instance, *role;
-  const Rule    *r;
+  const RawmRule *r;
   Monitor       *m;
   XClassHint     ch = { NULL, NULL };
 
@@ -633,18 +801,18 @@ applyrules(Client *c)
             ? role
             : broken;
 
-  for (i = 0; i < LENGTH(rules); i++)
+  for (i = 0; i < config.rule_count; i++)
   {
-    r = &rules[i];
+    r = &config.rules[i];
 
     if (   (!r->title    || strstr(c->name,  r->title))
-        && (!r->class    || strstr(class,    r->class))
+        && (!r->class_name    || strstr(class,    r->class_name))
         && (!r->instance || strstr(instance, r->instance))
         && (!r->role     || strstr(role,     r->role))
         )
     {
-      c->iscentered  = r->iscentered;
-      c->isfloating  = r->isfloating;
+      c->iscentered  = r->centered;
+      c->isfloating  = r->floating;
       c->tags       |= r->tags;
 
       for (m = mons;  m && m->num != r->monitor;  m = m->next)
@@ -697,7 +865,7 @@ applysizehints(Client *c, int *x, int *y, int *w, int *h,
   if (*w < bh)
     *w = bh;
 
-  if (    resizehints
+  if (    config.resize_hints
       ||  c->isfloating
       || !c->mon->lt[c->mon->sellt]->arrange
       )
@@ -785,11 +953,11 @@ arrangemon(Monitor *m)
       if (   ISVISIBLE(c)
           && (   !m->lt[m->sellt]->arrange
               || !c->isfloating )
-          && (c->bw != borderpx)
+          && (c->bw != config.border_width)
           )
       {
         c->oldbw = c->bw;
-        c->bw    = borderpx;
+        c->bw    = config.border_width;
         resizeclient(c,
                      m->wx,
                      m->wy,
@@ -969,11 +1137,11 @@ buttonpress(XEvent *e)
       if (!(occ & 1 << i || m->tagset[m->seltags] & 1 << i))
         continue;
 
-      x += TEXTW(tags[m->num][i].tagname);
+      x += TEXTW(m->tag_names[i]);
 
-    } while (ev->x >= x && ++i < TAGS);
+    } while (ev->x >= x && ++i < config.tag_count);
 
-    if (i < TAGS)
+    if (i < config.tag_count)
     {
       click  = ClkTagBar;
       arg.ui = 1 << i;
@@ -996,7 +1164,7 @@ buttonpress(XEvent *e)
     click = ClkClientWin;
   }
 
-  for (size_t i = 0; i < LENGTH(buttons); i++)
+  for (size_t i = 0; i < button_count; i++)
   {
     if (   click                      == buttons[i].click
         && buttons[i].func
@@ -1052,7 +1220,7 @@ cleanup(void)
     cleanupmon(mons);
 
 #ifdef SYSTRAY
-  if (showsystray)
+  if (config.show_systray)
   {
     XUnmapWindow(dpy, systray->win);
     XDestroyWindow(dpy, systray->win);
@@ -1113,7 +1281,7 @@ clientmessage(XEvent *e)
 #ifdef SYSTRAY
   XWindowAttributes    wa;
   XSetWindowAttributes swa;
-  if (   showsystray
+  if (   config.show_systray
       && cme->window       == systray->win
       && cme->message_type == netatom[NetSystemTrayOP]
       )
@@ -1329,49 +1497,42 @@ static Monitor *
 createmon(int idx)
 {
   Monitor *m;
-  int      i;
+  size_t i;
+  const RawmTagConfig *tagcfg;
 
   if (!(m = (Monitor *)calloc(1, sizeof(Monitor))))
     die("fatal: could not malloc() %u bytes\n", sizeof(Monitor));
 
+  tagcfg = rawm_config_tags_for_monitor(&config, idx);
   m->num        = idx;
   m->tagset[0]  = m->tagset[1] = 1;
-  m->mfact      = mfact;
-  m->nmaster    = nmaster;
-  m->showbar    = showbar;
-  m->topbar     = topbar;
-  m->lt[0]      = &layouts[ tags[m->num][0].layout_idx ]; /* current */
-  m->lt[1]      = &layouts[1 % LENGTH(layouts)];          /* previous = float */
+  m->mfact      = (float)config.master_factor;
+  m->nmaster    = config.master_count;
+  m->showbar    = config.show_bar;
+  m->topbar     = config.top_bar;
+  m->lt[0]      = &layouts[tagcfg[0].layout];
+  m->lt[1]      = &layouts[RAWM_LAYOUT_FLOATING];
 
-  strncpy(m->ltsymbol, layouts[0].symbol, sizeof m->ltsymbol);
+  for (i = 0; i < config.tag_count; ++i)
+    snprintf(m->tag_names[i], sizeof m->tag_names[i], "%s", tagcfg[i].name);
+
+  snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s", m->lt[0]->symbol);
 
   if (!(m->pertag = (Pertag *)calloc(1, sizeof(Pertag))))
     die("fatal: could not malloc() %u bytes\n", sizeof(Pertag));
 
   m->pertag->curtag = m->pertag->prevtag = 1;
 
-  for (i = 0; i <= TAGS; i++)
+  for (i = 0; i <= config.tag_count; i++)
   {
-    m->pertag->nmasters[i] = m->nmaster; /* init nmaster */
-    m->pertag->mfacts[i]   = m->mfact;   /* init mfacts  */
-
-    /*
-     * init layouts
-     */
-
-    if ( i == 0 )
-    {
-      /* view all windows in gapless grid layout */
-      m->pertag->ltidxs[0][0] = &layouts[5]; /* current layout */
-      m->pertag->ltidxs[0][1] = &layouts[2]; /* previous layout (monocle) */
-    }
-    else
-    {
-      m->pertag->ltidxs[i][0] = &layouts[ tags[m->num][i-1].layout_idx ];
-      m->pertag->ltidxs[i][1] = &layouts[1 % LENGTH(layouts)];
-    }
+    m->pertag->nmasters[i] = m->nmaster;
+    m->pertag->mfacts[i]   = m->mfact;
+    m->pertag->ltidxs[i][0] = i == 0
+      ? &layouts[tagcfg[0].layout]
+      : &layouts[tagcfg[i - 1].layout];
+    m->pertag->ltidxs[i][1] = &layouts[RAWM_LAYOUT_FLOATING];
     m->pertag->sellts[i]    = m->sellt;
-    m->pertag->showbars[i]  = m->showbar; /* init showbar */
+    m->pertag->showbars[i]  = m->showbar;
   }
 
   return m;
@@ -1490,20 +1651,20 @@ drawbar(Monitor *m)
 
   dc.x = 0;
 
-  for (i = 0; i < TAGS; i++)
+  for (i = 0; i < config.tag_count; i++)
   {
     /* do not draw vacant tags */
     if (!(occ & 1 << i || m->tagset[m->seltags] & 1 << i))
       continue;
 
-    dc.w = TEXTW(tags[m->num][i].tagname);
+    dc.w = TEXTW(m->tag_names[i]);
 
     col = dc.colors[ (  m->tagset[ m->seltags ] & 1 << i
                       ? 1
                       : (urg & 1 << i ? 2 : 0)
                       ) ];
 
-    drawtext(tags[m->num][i].tagname, col, true);
+    drawtext(m->tag_names[i], col, true);
 
     drawsquare(   m == selmon
                && selmon->sel
@@ -1571,7 +1732,7 @@ drawbar(Monitor *m)
     dc.x = m->ww - dc.w;
 
 #ifdef SYSTRAY
-    if (showsystray  &&  m == selmon)
+    if (config.show_systray  &&  m == selmon)
       dc.x -= getsystraywidth();
 #endif /* SYSTRAY */
 
@@ -2084,15 +2245,15 @@ getsystraywidth()
   unsigned int w = 0;
   Client *i;
 
-  if (showsystray)
+  if (config.show_systray)
   {
     for (i = systray->icons;
          i;
-         w += i->w + systrayspacing, i = i->next)
+         w += i->w + config.systray_spacing, i = i->next)
       /* NOTHING */;
   }
 
-  return w ? w + systrayspacing : 1;
+  return w ? w + config.systray_spacing : 1;
 }
 #endif /* SYSTRAY */
 
@@ -2151,7 +2312,7 @@ grabbuttons(Client *c, bool focused)
 
     if (focused)
     {
-      for (unsigned int i = 0; i < LENGTH(buttons); i++)
+      for (unsigned int i = 0; i < button_count; i++)
       {
         if (buttons[i].click == ClkClientWin)
         {
@@ -2200,7 +2361,7 @@ grabkeys(void)
     KeyCode code;
 
     XUngrabKey(dpy, AnyKey, AnyModifier, root);
-    for (unsigned int i = 0; i < LENGTH(keys); i++)
+    for (unsigned int i = 0; i < key_count; i++)
     {
       if ((code = XKeysymToKeycode(dpy, keys[i].keysym)))
       {
@@ -2269,7 +2430,7 @@ keypress(XEvent *e)
   ev     = &e->xkey;
   keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0);
 
-  for (i = 0; i < LENGTH(keys); i++)
+  for (i = 0; i < key_count; i++)
   {
     if (   (keysym == keys[i].keysym)
         && (CLEANMASK(keys[i].mod) == CLEANMASK(ev->state))
@@ -2320,7 +2481,7 @@ manage(Window w, XWindowAttributes *wa)
   c->win = w;
   updatetitle(c);
 
-  if (defaultopacity >= 0  &&  defaultopacity <= 1)
+  if (config.opacity >= 0  &&  config.opacity <= 1)
   {
     XChangeProperty(dpy,
                     c->win,
@@ -2370,7 +2531,7 @@ manage(Window w, XWindowAttributes *wa)
     ) ? bh : c->mon->my
   );
 
-  c->bw = borderpx;
+  c->bw = config.border_width;
 
   wc.border_width = c->bw;
 
@@ -2582,24 +2743,24 @@ movemouse(__attribute__((unused)) const Arg *arg)
           && ny <= selmon->wy + selmon->wh
           )
       {
-        if (abs(selmon->wx - nx) < snap)
+        if (abs(selmon->wx - nx) < config.snap)
           nx = selmon->wx;
 
-        else if (abs((selmon->wx + selmon->ww) - (nx + WIDTH(c))) < snap)
+        else if (abs((selmon->wx + selmon->ww) - (nx + WIDTH(c))) < config.snap)
           nx = selmon->wx + selmon->ww - WIDTH(c);
 
 
-        if (abs(selmon->wy - ny) < snap)
+        if (abs(selmon->wy - ny) < config.snap)
           ny = selmon->wy;
 
-        else if (abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c))) < snap)
+        else if (abs((selmon->wy + selmon->wh) - (ny + HEIGHT(c))) < config.snap)
           ny = selmon->wy + selmon->wh - HEIGHT(c);
 
 
         if (   !c->isfloating
             &&  selmon->lt[ selmon->sellt ]->arrange
-            && (   abs(nx - c->x) > snap
-                || abs(ny - c->y) > snap )
+            && (   abs(nx - c->x) > config.snap
+                || abs(ny - c->y) > config.snap )
             )
           togglefloating(NULL);
       }
@@ -2626,16 +2787,16 @@ nametag(__attribute__((unused)) const Arg *arg)
 {
   char *p, buf[256];
   FILE *f;
-  int   i;
+  size_t i;
 
   snprintf(buf, sizeof(buf),
     "dmenu -p '%s' -fn '%s' -nb '%s' -nf '%s' -sb '%s' -sf '%s' "
     "</dev/null", "Current tag name: ",
-    font,
-    colors[0][ColBG],
-    colors[0][ColFG],
-    colors[1][ColBG],
-    colors[1][ColFG]);
+    config.font,
+    config.colors[0][ColBG],
+    config.colors[0][ColFG],
+    config.colors[1][ColBG],
+    config.colors[1][ColFG]);
 
   errno = 0; /* popen(3p) says on failure it "may" set errno */
   if (!(f = popen(buf, "r")))
@@ -2662,14 +2823,18 @@ nametag(__attribute__((unused)) const Arg *arg)
   if ((p = strchr(buf, '\n')))
     *p = '\0';
 
-  for (i = 0; i < TAGS; i++)
+  for (i = 0; i < config.tag_count; i++)
   {
     if (selmon->tagset[selmon->seltags] & (1 << i))
     {
       if (strlen(buf))
-        sprintf(tags[selmon->num][i].tagname, "%i/%s", i+1, buf);
+      {
+        snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i], "%zu/", i + 1);
+        strncat(selmon->tag_names[i], buf,
+                sizeof selmon->tag_names[i] - strlen(selmon->tag_names[i]) - 1);
+      }
       else
-        sprintf(tags[selmon->num][i].tagname, "%i",    i+1);
+        snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i], "%zu", i + 1);
     }
   }
 
@@ -2740,7 +2905,7 @@ propertynotify(XEvent *e)
       drawbars();
       if (c->isurgent)
       {
-        /* Set urgent/warning border color (from colors[2]) */
+        /* Set urgent/warning border color (from config.colors[2]) */
         XSetWindowBorder(dpy, c->win, dc.colors[2][ColFG].pixel);
       }
       break;
@@ -2798,7 +2963,7 @@ removesystrayicon(Client *i)
 {
   Client **ii;
 
-  if (!showsystray || !i)
+  if (!config.show_systray || !i)
     return;
 
   for (ii = &systray->icons;  *ii && *ii != i;  ii = &(*ii)->next)
@@ -2857,7 +3022,7 @@ resizebarwin(Monitor *m)
 {
   unsigned int w = m->ww;
 
-  if (showsystray  &&  m == selmon)
+  if (config.show_systray  &&  m == selmon)
     w -= getsystraywidth();
 
   XMoveResizeWindow(dpy, m->barwin, m->wx, m->by, w, bh);
@@ -2931,8 +3096,8 @@ resizemouse(__attribute__((unused)) const Arg *arg)
       {
         if (   !c->isfloating
             &&  selmon->lt[selmon->sellt]->arrange
-            && (   abs(nw - c->w) > snap
-                || abs(nh - c->h) > snap )
+            && (   abs(nw - c->w) > config.snap
+                || abs(nh - c->h) > config.snap )
             )
           togglefloating(NULL);
       }
@@ -3334,11 +3499,11 @@ setup(void)
   screen  = DefaultScreen(dpy);
   root    = RootWindow(dpy, screen);
 
-  initfont(font);
+  initfont(config.font);
 
   sw = DisplayWidth(dpy, screen);
   sh = DisplayHeight(dpy, screen);
-  bh = dc.h = user_bh ? user_bh : dc.font.height + 2;
+  bh = dc.h = config.bar_height ? config.bar_height : dc.font.height + 2;
 
   updategeom();
 
@@ -3373,11 +3538,11 @@ setup(void)
   cursor[CurMove]    = XCreateFontCursor(dpy, XC_fleur);
 
   /* init appearance */
-  for (int i = 0; i < NUMCOLORS; i++)
+  for (int i = 0; i < RAWM_COLOR_SCHEMES; i++)
   {
-    dc.colors[i][ColBorder] = getcolor(colors[i][ColBorder]);
-    dc.colors[i][ColFG]     = getcolor(colors[i][ColFG]);
-    dc.colors[i][ColBG]     = getcolor(colors[i][ColBG]);
+    dc.colors[i][ColBorder] = getcolor(config.colors[i][ColBorder]);
+    dc.colors[i][ColFG]     = getcolor(config.colors[i][ColFG]);
+    dc.colors[i][ColBG]     = getcolor(config.colors[i][ColBG]);
   }
 
   dc.drawable        = XCreatePixmap(dpy,
@@ -3592,7 +3757,7 @@ togglebar(__attribute__((unused)) const Arg *arg)
 #ifdef SYSTRAY
   resizebarwin(selmon);
 
-  if (showsystray)
+  if (config.show_systray)
   {
     XWindowChanges wc;
 
@@ -3632,10 +3797,10 @@ togglefloating(__attribute__((unused)) const Arg *arg)
 
   if (selmon->sel->isfloating)
   {
-    if (selmon->sel->bw != borderpx)
+    if (selmon->sel->bw != config.border_width)
     {
       selmon->sel->oldbw = selmon->sel->bw;
-      selmon->sel->bw    = borderpx;
+      selmon->sel->bw    = config.border_width;
     }
     resize(selmon->sel,
            selmon->sel->x,
@@ -3811,7 +3976,7 @@ updatebars(void)
   {
 #ifdef SYSTRAY
     w = m->ww;
-    if (showsystray && m == selmon)
+    if (config.show_systray && m == selmon)
       w -= getsystraywidth();
 
     m->barwin =
@@ -3831,7 +3996,7 @@ updatebars(void)
     XDefineCursor(dpy, m->barwin, cursor[CurNormal]);
     XMapRaised(dpy, m->barwin);
 
-    if (defaultopacity >= 0  &&  defaultopacity <= 1)
+    if (config.opacity >= 0  &&  config.opacity <= 1)
     {
       XChangeProperty(dpy,
                       m->barwin,
@@ -4132,7 +4297,7 @@ updatesystrayiconstate(Client *i, XPropertyEvent *ev)
   long flags;
   int code = 0;
 
-  if (   !showsystray
+  if (   !config.show_systray
       || !i
       || ev->atom != xatom[XembedInfo]
       || !(flags = getatomprop(i, xatom[XembedInfo]))
@@ -4175,7 +4340,7 @@ updatesystray(void)
   unsigned int x = selmon->mx + selmon->mw;
   unsigned int w = 1;
 
-  if (!showsystray)
+  if (!config.show_systray)
     return;
 
   if (!systray)
@@ -4195,7 +4360,7 @@ updatesystray(void)
                                        dc.colors[1][ColBG].pixel
                                        );
 
-    if (defaultopacity >= 0  &&  defaultopacity <= 1)
+    if (config.opacity >= 0  &&  config.opacity <= 1)
     {
       XChangeProperty(dpy,
                       systray->win,
@@ -4267,14 +4432,14 @@ updatesystray(void)
   for (w = 0, i = systray->icons; i; i = i->next)
   {
     XMapRaised(dpy, i->win);
-    w += systrayspacing;
+    w += config.systray_spacing;
     XMoveResizeWindow(dpy, i->win, (i->x = w), 0, i->w, i->h);
     w += i->w;
     if (i->mon != selmon)
       i->mon = selmon;
   }
 
-  w = w ? w + systrayspacing : 1;
+  w = w ? w + config.systray_spacing : 1;
   x -= w;
   XMoveResizeWindow(dpy, systray->win, x, selmon->by, w, bh);
 
@@ -4315,7 +4480,7 @@ updatewindowtype(Client *c)
 
   if (wtype == netatom[NetWMWindowTypeDialog])
   {
-    c->iscentered = autocenter_NetWMWindowTypeDialog;
+    c->iscentered = config.autocenter_dialogs;
     c->isfloating = true;
   }
 }
@@ -4355,7 +4520,7 @@ view(const Arg *arg)
     selmon->pertag->prevtag         = selmon->pertag->curtag;
     selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
 
-    if (arg->ui == ~0)
+    if (arg->ui == ~0u)
       selmon->pertag->curtag = 0;
     else
     {
@@ -4435,7 +4600,7 @@ wintosystrayicon(Window w)
 {
   Client *i = NULL;
 
-  if (!showsystray || !w)
+  if (!config.show_systray || !w)
     return i;
 
   for (i = systray->icons;
@@ -4549,16 +4714,61 @@ zoom(__attribute__((unused)) const Arg *arg)
 int
 main(int argc, char *argv[])
 {
-  if (argc == 2  &&  !strcmp("-v", argv[1]))
-    die("rawm "VERSION"\n");
-  else if (argc != 1)
-    die("usage: rawm [-v]\n");
+  const char *config_path = NULL;
+  bool check_config = false;
+  int i;
 
-  if (!setlocale(LC_CTYPE, "")  ||  !XSupportsLocale())
+  for (i = 1; i < argc; ++i)
+  {
+    if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version"))
+    {
+      printf("rawm " VERSION "\n");
+      return EXIT_SUCCESS;
+    }
+    else if (!strcmp(argv[i], "-C") || !strcmp(argv[i], "--check-config"))
+      check_config = true;
+    else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--config"))
+    {
+      if (++i >= argc)
+      {
+        fputs("rawm: -c/--config requires a path\n", stderr);
+        return EXIT_FAILURE;
+      }
+      config_path = argv[i];
+    }
+    else
+    {
+      fprintf(stderr,
+              "usage: rawm [-C] [-c path] [-v]\n");
+      return EXIT_FAILURE;
+    }
+  }
+
+  rawm_config_init(&config);
+  if (rawm_config_load(&config, config_path, stderr) < 0 ||
+      initruntimeconfig(stderr) < 0)
+  {
+    rawm_config_destroy(&config);
+    return EXIT_FAILURE;
+  }
+
+  if (check_config)
+  {
+    freeruntimeconfig();
+    rawm_config_destroy(&config);
+    return EXIT_SUCCESS;
+  }
+
+  if (!setlocale(LC_CTYPE, "") || !XSupportsLocale())
     fputs("warning: no locale support\n", stderr);
 
   if (!(dpy = XOpenDisplay(NULL)))
-    die("rawm: cannot open display\n");
+  {
+    fputs("rawm: cannot open display\n", stderr);
+    freeruntimeconfig();
+    rawm_config_destroy(&config);
+    return EXIT_FAILURE;
+  }
 
   checkotherwm();
   setup();
@@ -4568,6 +4778,8 @@ main(int argc, char *argv[])
     execvp(argv[0], argv);
   cleanup();
   XCloseDisplay(dpy);
+  freeruntimeconfig();
+  rawm_config_destroy(&config);
 
   return EXIT_SUCCESS;
 }
