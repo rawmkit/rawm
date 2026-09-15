@@ -1263,6 +1263,299 @@ load_file(FILE *err, RawmConfig *cfg, const char *path, bool required)
   return rc;
 }
 
+typedef struct {
+  const char *path;
+  char **slot;
+  unsigned char state;
+} RawmStringReference;
+
+typedef struct {
+  RawmConfig *cfg;
+  RawmStringReference *strings;
+  size_t string_count;
+  FILE *err;
+  const char *stack[64];
+  size_t depth;
+} RawmReferenceResolver;
+
+static int
+append_text(char **buf, size_t *len, size_t *cap, const char *text,
+            size_t text_len)
+{
+  size_t need;
+  char *p;
+
+  if (text_len > SIZE_MAX - *len - 1)
+    return -1;
+  need = *len + text_len + 1;
+  if (need > *cap) {
+    size_t newcap = *cap ? *cap : 64;
+    while (newcap < need) {
+      if (newcap > SIZE_MAX / 2) {
+        newcap = need;
+        break;
+      }
+      newcap *= 2;
+    }
+    p = realloc(*buf, newcap);
+    if (!p)
+      return -1;
+    *buf = p;
+    *cap = newcap;
+  }
+  memcpy(*buf + *len, text, text_len);
+  *len += text_len;
+  (*buf)[*len] = '\0';
+  return 0;
+}
+
+static int
+reference_error(RawmReferenceResolver *resolver, const char *context,
+                const char *fmt, const char *detail)
+{
+  fprintf(resolver->err, "rawm: configuration error: %s: ", context);
+  fprintf(resolver->err, fmt, detail);
+  fputc('\n', resolver->err);
+  return -1;
+}
+
+static int
+find_string_reference(RawmReferenceResolver *resolver, const char *path)
+{
+  size_t i;
+  for (i = 0; i < resolver->string_count; ++i)
+    if (!strcmp(path, resolver->strings[i].path))
+      return (int)i;
+  return -1;
+}
+
+static int
+format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
+                        char *buf, size_t buflen, const char **value)
+{
+  RawmConfig *cfg = resolver->cfg;
+
+  if (!strcmp(path, "ui.border_width"))
+    snprintf(buf, buflen, "%u", cfg->border_width);
+  else if (!strcmp(path, "ui.snap"))
+    snprintf(buf, buflen, "%u", cfg->snap);
+  else if (!strcmp(path, "ui.opacity"))
+    snprintf(buf, buflen, "%.15g", cfg->opacity);
+  else if (!strcmp(path, "ui.bar.show"))
+    snprintf(buf, buflen, "%s", cfg->show_bar ? "true" : "false");
+  else if (!strcmp(path, "ui.bar.position"))
+    snprintf(buf, buflen, "%s", cfg->top_bar ? "top" : "bottom");
+  else if (!strcmp(path, "ui.bar.height"))
+    snprintf(buf, buflen, "%d", cfg->bar_height);
+  else if (!strcmp(path, "ui.systray.show"))
+    snprintf(buf, buflen, "%s", cfg->show_systray ? "true" : "false");
+  else if (!strcmp(path, "ui.systray.spacing"))
+    snprintf(buf, buflen, "%u", cfg->systray_spacing);
+  else if (!strcmp(path, "behavior.autocenter_dialogs"))
+    snprintf(buf, buflen, "%s", cfg->autocenter_dialogs ? "true" : "false");
+  else if (!strcmp(path, "behavior.resize_hints"))
+    snprintf(buf, buflen, "%s", cfg->resize_hints ? "true" : "false");
+  else if (!strcmp(path, "layout.master_factor"))
+    snprintf(buf, buflen, "%.15g", cfg->master_factor);
+  else if (!strcmp(path, "layout.master_count"))
+    snprintf(buf, buflen, "%d", cfg->master_count);
+  else
+    return -1;
+
+  *value = buf;
+  return 0;
+}
+
+static int resolve_string_reference(RawmReferenceResolver *resolver, int index);
+
+static int
+lookup_reference(RawmReferenceResolver *resolver, const char *path,
+                 const char **value, char *scalar, size_t scalar_len)
+{
+  int index = find_string_reference(resolver, path);
+  if (index >= 0) {
+    if (resolve_string_reference(resolver, index) < 0)
+      return -1;
+    *value = *resolver->strings[index].slot;
+    return 0;
+  }
+  if (format_scalar_reference(resolver, path, scalar, scalar_len, value) == 0)
+    return 0;
+  return 1;
+}
+
+static int
+expand_references(RawmReferenceResolver *resolver, const char *input,
+                  const char *context, char **output)
+{
+  const char *p = input;
+  char *result = NULL;
+  size_t len = 0, cap = 0;
+
+  while (*p) {
+    const char *start = strstr(p, "${");
+    const char *end;
+    char *path;
+    const char *value;
+    char scalar[64];
+    int rc;
+
+    if (!start) {
+      if (append_text(&result, &len, &cap, p, strlen(p)) < 0)
+        goto oom;
+      break;
+    }
+
+    if (start > p && start[-1] == '$') {
+      if (append_text(&result, &len, &cap, p,
+                      (size_t)(start - p - 1)) < 0 ||
+          append_text(&result, &len, &cap, "${", 2) < 0)
+        goto oom;
+      p = start + 2;
+      continue;
+    }
+
+    if (append_text(&result, &len, &cap, p, (size_t)(start - p)) < 0)
+      goto oom;
+    end = strchr(start + 2, '}');
+    if (!end) {
+      free(result);
+      return reference_error(resolver, context,
+                             "unterminated reference '%s'", start);
+    }
+    if (end == start + 2) {
+      free(result);
+      return reference_error(resolver, context,
+                             "empty reference '%s'", "${}");
+    }
+
+    path = xcalloc((size_t)(end - (start + 2)) + 1, 1);
+    memcpy(path, start + 2, (size_t)(end - (start + 2)));
+    rc = lookup_reference(resolver, path, &value, scalar, sizeof(scalar));
+    if (rc > 0) {
+      char display[320];
+      snprintf(display, sizeof(display), "${%s}", path);
+      free(path);
+      free(result);
+      return reference_error(resolver, context,
+                             "unknown reference '%s'", display);
+    }
+    if (rc < 0) {
+      free(path);
+      free(result);
+      return -1;
+    }
+    if (append_text(&result, &len, &cap, value, strlen(value)) < 0) {
+      free(path);
+      goto oom;
+    }
+    free(path);
+    p = end + 1;
+  }
+
+  if (!result)
+    result = xstrdup("");
+  *output = result;
+  return 0;
+
+oom:
+  free(result);
+  fputs("rawm: out of memory\n", resolver->err);
+  return -1;
+}
+
+static int
+resolve_string_reference(RawmReferenceResolver *resolver, int index)
+{
+  RawmStringReference *ref = &resolver->strings[index];
+  char *expanded;
+  size_t i;
+
+  if (ref->state == 2)
+    return 0;
+  if (ref->state == 1) {
+    fprintf(resolver->err, "rawm: configuration error: cyclic reference: ");
+    for (i = 0; i < resolver->depth; ++i)
+      fprintf(resolver->err, "%s -> ", resolver->stack[i]);
+    fprintf(resolver->err, "%s\n", ref->path);
+    return -1;
+  }
+  if (resolver->depth >= sizeof(resolver->stack) / sizeof(resolver->stack[0]))
+    return reference_error(resolver, ref->path,
+                           "reference nesting is too deep near '%s'", ref->path);
+
+  ref->state = 1;
+  resolver->stack[resolver->depth++] = ref->path;
+  if (expand_references(resolver, *ref->slot, ref->path, &expanded) < 0) {
+    --resolver->depth;
+    ref->state = 0;
+    return -1;
+  }
+  --resolver->depth;
+  free(*ref->slot);
+  *ref->slot = expanded;
+  ref->state = 2;
+  return 0;
+}
+
+static int
+resolve_config_references(RawmConfig *cfg, FILE *err)
+{
+  static const char *const color_names[] = {
+    "normal", "selected", "urgent", "error"
+  };
+  static const char *const component_names[] = {
+    "border", "foreground", "background"
+  };
+  RawmStringReference strings[1 + RAWM_COLOR_SCHEMES * RAWM_COLOR_COMPONENTS +
+                              RAWM_LAYOUT_COUNT];
+  char color_paths[RAWM_COLOR_SCHEMES][RAWM_COLOR_COMPONENTS][64];
+  char layout_paths[RAWM_LAYOUT_COUNT][64];
+  RawmReferenceResolver resolver;
+  size_t n = 0, i, j;
+
+  memset(&resolver, 0, sizeof(resolver));
+  resolver.cfg = cfg;
+  resolver.strings = strings;
+  resolver.err = err;
+
+  strings[n++] = (RawmStringReference){ "ui.font", &cfg->font, 0 };
+  for (i = 0; i < RAWM_COLOR_SCHEMES; ++i) {
+    for (j = 0; j < RAWM_COLOR_COMPONENTS; ++j) {
+      snprintf(color_paths[i][j], sizeof(color_paths[i][j]),
+               "ui.colors.%s.%s", color_names[i], component_names[j]);
+      strings[n++] = (RawmStringReference){ color_paths[i][j],
+                                            &cfg->colors[i][j], 0 };
+    }
+  }
+  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i) {
+    snprintf(layout_paths[i], sizeof(layout_paths[i]), "layout.symbols.%s",
+             rawm_layout_name((RawmLayoutId)i));
+    strings[n++] = (RawmStringReference){ layout_paths[i],
+                                          &cfg->layout_symbols[i], 0 };
+  }
+  resolver.string_count = n;
+
+  for (i = 0; i < n; ++i)
+    if (resolve_string_reference(&resolver, (int)i) < 0)
+      return -1;
+
+  for (i = 0; i < cfg->command_count; ++i) {
+    for (j = 0; j < cfg->commands[i].argc; ++j) {
+      char context[256];
+      char *expanded;
+      snprintf(context, sizeof(context), "commands.%s[%zu]",
+               cfg->commands[i].name, j);
+      if (expand_references(&resolver, cfg->commands[i].argv[j], context,
+                            &expanded) < 0)
+        return -1;
+      free(cfg->commands[i].argv[j]);
+      cfg->commands[i].argv[j] = expanded;
+    }
+  }
+  return 0;
+}
+
 static char *
 user_config_path(void)
 {
@@ -1292,7 +1585,8 @@ rawm_config_load(RawmConfig *cfg, const char *explicit_path, FILE *err)
   char *user_path;
 
   if (explicit_path) {
-    if (load_file(err, cfg, explicit_path, true) < 0)
+    if (load_file(err, cfg, explicit_path, true) < 0 ||
+        resolve_config_references(cfg, err) < 0)
       return -1;
     return rawm_config_validate(cfg, err);
   }
@@ -1307,6 +1601,8 @@ rawm_config_load(RawmConfig *cfg, const char *explicit_path, FILE *err)
     if (rc < 0)
       return -1;
   }
+  if (resolve_config_references(cfg, err) < 0)
+    return -1;
   return rawm_config_validate(cfg, err);
 }
 
