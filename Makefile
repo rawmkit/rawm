@@ -16,14 +16,18 @@ rawm.1: rawm.1.scdoc
 install: all
 	mkdir -p     ${DESTDIR}${PREFIX}/bin
 	mkdir -p     ${DESTDIR}${MANPREFIX}/man1
+	mkdir -p     ${DESTDIR}${SYSCONFDIR}/rawm
 	cp -f rawm   ${DESTDIR}${PREFIX}/bin/
 	cp -f rawm.1 ${DESTDIR}${MANPREFIX}/man1/
+	cp -f rawm.conf ${DESTDIR}${SYSCONFDIR}/rawm/rawm.conf
 	chmod 0755   ${DESTDIR}${PREFIX}/bin/rawm
 	chmod 0644   ${DESTDIR}${MANPREFIX}/man1/rawm.1
+	chmod 0644   ${DESTDIR}${SYSCONFDIR}/rawm/rawm.conf
 
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/bin/rawm
 	rm -f ${DESTDIR}${MANPREFIX}/man1/rawm.1
+	rm -f ${DESTDIR}${SYSCONFDIR}/rawm/rawm.conf
 
 clean:
 	rm -f rawm rawm.o rawm-config.o rawm.1 rawm.conf.5
