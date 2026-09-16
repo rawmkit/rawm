@@ -80,9 +80,10 @@ int
 main(int argc, char **argv)
 {
   Display *dpy;
-  Window root, bar = None;
+  Window root, bar = None, client;
   Atom status, utf8;
   uint64_t baseline, legacy, normal_hash, warning_hash, critical_hash, multi_hash;
+  uint64_t rightmost_hash;
   uint64_t rejected, malformed, invalid_record, duplicate, boundary, oversized;
   const char normal[] = "probe\tnormal\tRAWM-V2-STATUS\n";
   const char warning[] = "probe\twarning\tRAWM-V2-STATUS\n";
@@ -90,6 +91,7 @@ main(int argc, char **argv)
   const char multi[] =
     "cpu\twarning\tcpu:63%\n"
     "clock\tnormal\t12:00\n";
+  const char rightmost[] = "clock\tnormal\t12:00\n";
   const char bad_state[] = "probe\tunknown\ttext\n";
   const char duplicate_ids[] =
     "probe\tnormal\tone\n"
@@ -115,6 +117,12 @@ main(int argc, char **argv)
   root = DefaultRootWindow(dpy);
   status = XInternAtom(dpy, "_RAWM_STATUS_V2", False);
   utf8 = XInternAtom(dpy, "UTF8_STRING", False);
+
+  client = XCreateSimpleWindow(dpy, root, 40, 40, 320, 200, 0, 0, 0);
+  XStoreName(dpy, client, "RAWM-STATUS-CLIENT-TEST");
+  XMapWindow(dpy, client);
+  XFlush(dpy);
+  pause_for_wm();
 
   for (tries = 0; tries < 50 && bar == None; ++tries) {
     bar = find_bar(dpy, root);
@@ -178,6 +186,16 @@ main(int argc, char **argv)
   multi_hash = checksum_window(dpy, bar);
   if (multi_hash == baseline || multi_hash == critical_hash) {
     fputs("status-client: multi-segment status was not rendered distinctly\n", stderr);
+    XCloseDisplay(dpy);
+    return EXIT_FAILURE;
+  }
+
+  set_status(dpy, root, status, utf8,
+             (const unsigned char *)rightmost, strlen(rightmost));
+  rightmost_hash = checksum_window(dpy, bar);
+  if (multi_hash == rightmost_hash) {
+    fputs("status-client: selected client title obscured leading status segments\n",
+          stderr);
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
   }
