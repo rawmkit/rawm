@@ -16,7 +16,7 @@ typedef enum {
 } RawmCenterMode;
 
 typedef enum {
-  RAWM_STATUS_PROTOCOL_V1
+  RAWM_STATUS_PROTOCOL_V2
 } RawmStatusProtocol;
 
 typedef enum {
@@ -145,6 +145,7 @@ typedef struct {
 
   bool status_enabled;
   RawmStatusProtocol status_protocol;
+  char *status_separator;
 
   RawmCenterMode dialog_center;
   bool resize_hints;

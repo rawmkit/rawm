@@ -54,6 +54,89 @@ replace_string(char **dst, const char *src)
   *dst = xstrdup(src);
 }
 
+static int
+valid_utf8(const unsigned char *text, size_t length)
+{
+  size_t i = 0;
+
+  while (i < length) {
+    unsigned char c = text[i++];
+
+    if (c <= 0x7f)
+      continue;
+    if (c >= 0xc2 && c <= 0xdf) {
+      if (i >= length || text[i] < 0x80 || text[i] > 0xbf)
+        return 0;
+      ++i;
+      continue;
+    }
+    if (c == 0xe0) {
+      if (i + 1 >= length || text[i] < 0xa0 || text[i] > 0xbf ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
+        return 0;
+      i += 2;
+      continue;
+    }
+    if ((c >= 0xe1 && c <= 0xec) || (c >= 0xee && c <= 0xef)) {
+      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0xbf ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
+        return 0;
+      i += 2;
+      continue;
+    }
+    if (c == 0xed) {
+      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0x9f ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
+        return 0;
+      i += 2;
+      continue;
+    }
+    if (c == 0xf0) {
+      if (i + 2 >= length || text[i] < 0x90 || text[i] > 0xbf ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
+          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
+        return 0;
+      i += 3;
+      continue;
+    }
+    if (c >= 0xf1 && c <= 0xf3) {
+      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0xbf ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
+          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
+        return 0;
+      i += 3;
+      continue;
+    }
+    if (c == 0xf4) {
+      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0x8f ||
+          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
+          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
+        return 0;
+      i += 3;
+      continue;
+    }
+    return 0;
+  }
+  return 1;
+}
+
+static int
+status_separator_valid(const char *separator)
+{
+  size_t i, length;
+
+  if (!separator)
+    return 0;
+  length = strlen(separator);
+  if (length > 256 || !valid_utf8((const unsigned char *)separator, length))
+    return 0;
+  for (i = 0; i < length; ++i)
+    if ((unsigned char)separator[i] < 0x20 ||
+        (unsigned char)separator[i] == 0x7f)
+      return 0;
+  return 1;
+}
+
 static void
 free_tags(RawmTagConfig *tags, size_t count)
 {
@@ -154,14 +237,14 @@ center_mode_name(RawmCenterMode mode)
 static const char *
 status_protocol_name(RawmStatusProtocol protocol)
 {
-  return protocol == RAWM_STATUS_PROTOCOL_V1 ? "rawm-v1" : NULL;
+  return protocol == RAWM_STATUS_PROTOCOL_V2 ? "rawm-v2" : NULL;
 }
 
 static int
 parse_status_protocol(const char *name, RawmStatusProtocol *protocol)
 {
-  if (!strcmp(name, "rawm-v1")) {
-    *protocol = RAWM_STATUS_PROTOCOL_V1;
+  if (!strcmp(name, "rawm-v2")) {
+    *protocol = RAWM_STATUS_PROTOCOL_V2;
     return 0;
   }
   return -1;
@@ -299,7 +382,8 @@ rawm_config_init(RawmConfig *cfg)
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
   cfg->status_enabled = true;
-  cfg->status_protocol = RAWM_STATUS_PROTOCOL_V1;
+  cfg->status_protocol = RAWM_STATUS_PROTOCOL_V2;
+  cfg->status_separator = xstrdup(" | ");
   cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->resize_hints = false;
   cfg->master_factor = 0.55;
@@ -404,6 +488,7 @@ rawm_config_destroy(RawmConfig *cfg)
 {
   size_t i, j;
   free(cfg->font);
+  free(cfg->status_separator);
   for (i = 0; i < RAWM_COLOR_SCHEMES; ++i)
     for (j = 0; j < RAWM_COLOR_COMPONENTS; ++j)
       free(cfg->colors[i][j]);
@@ -635,24 +720,31 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 static int
 parse_status(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
-  static const char *const allowed[] = { "enabled", "protocol" };
+  static const char *const allowed[] = { "enabled", "protocol", "separator" };
   config_setting_t *setting;
   const char *value;
 
   if (config_setting_type(group) != CONFIG_TYPE_GROUP)
     return cfg_error(err, group, "status must be a group", "");
-  if (validate_members(err, group, allowed, 2) < 0 ||
+  if (validate_members(err, group, allowed, 3) < 0 ||
       read_bool(err, group, "enabled", &cfg->status_enabled) < 0)
     return -1;
 
   setting = config_setting_get_member(group, "protocol");
-  if (!setting)
-    return 0;
-  if (config_setting_type(setting) != CONFIG_TYPE_STRING)
-    return cfg_error(err, setting, "status.protocol must be a string", "");
-  value = config_setting_get_string(setting);
-  if (parse_status_protocol(value, &cfg->status_protocol) < 0)
-    return cfg_error(err, setting, "unsupported status protocol '%s'", value);
+  if (setting) {
+    if (config_setting_type(setting) != CONFIG_TYPE_STRING)
+      return cfg_error(err, setting, "status.protocol must be a string", "");
+    value = config_setting_get_string(setting);
+    if (parse_status_protocol(value, &cfg->status_protocol) < 0)
+      return cfg_error(err, setting, "unsupported status protocol '%s'", value);
+  }
+
+  setting = config_setting_get_member(group, "separator");
+  if (setting) {
+    if (config_setting_type(setting) != CONFIG_TYPE_STRING)
+      return cfg_error(err, setting, "status.separator must be a string", "");
+    replace_string(&cfg->status_separator, config_setting_get_string(setting));
+  }
   return 0;
 }
 
@@ -1474,6 +1566,10 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%s", cfg->status_enabled ? "true" : "false");
   else if (!strcmp(path, "status.protocol"))
     snprintf(buf, buflen, "%s", status_protocol_name(cfg->status_protocol));
+  else if (!strcmp(path, "status.separator")) {
+    *value = cfg->status_separator;
+    return 0;
+  }
   else if (!strcmp(path, "behavior.dialog_center"))
     snprintf(buf, buflen, "%s", center_mode_name(cfg->dialog_center));
   else if (!strcmp(path, "behavior.resize_hints"))
@@ -1866,6 +1962,15 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
 
   if (!cfg->font || !*cfg->font) {
     fputs("rawm: configuration error: ui.font must not be empty\n", err);
+    return -1;
+  }
+  if (!status_protocol_name(cfg->status_protocol)) {
+    fputs("rawm: configuration error: invalid status protocol\n", err);
+    return -1;
+  }
+  if (!status_separator_valid(cfg->status_separator)) {
+    fputs("rawm: configuration error: status.separator must be printable UTF-8 no longer than 256 bytes\n",
+          err);
     return -1;
   }
   for (i = 0; i < cfg->monitor_tag_count; ++i) {

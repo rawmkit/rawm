@@ -191,6 +191,23 @@ enum {
   ColLast    /**< Sentinel value for the last color type. */
 };
 
+typedef enum {
+  StatusNormal,
+  StatusWarning,
+  StatusCritical
+} StatusState;
+
+typedef struct {
+  char *id;
+  char *text;
+  StatusState state;
+} StatusSegment;
+
+typedef struct {
+  StatusSegment *segments;
+  size_t count;
+} StatusData;
+
 /** EWMH atoms used for window properties and communication. */
 enum {
   NetSupported,             /**< _NET_SUPPORTED atom. */
@@ -395,6 +412,7 @@ static void           die(const char *errstr, ...);
 static Monitor       *dirtomon(int dir);
 static void           drawbar(Monitor *m);
 static void           drawbars(void);
+static void           drawstatus(int x, int right);
 static void           drawsquare(bool filled, bool empty,
                                  XftColor col[ColLast]);
 static void           drawtext(const char *text, XftColor col[ColLast],
@@ -424,7 +442,10 @@ static XftColor       getcolor(const char *colstr);
 static bool           getrootptr(int *x, int *y);
 static long           getstate(Window w);
 static bool           validutf8(const unsigned char *text, size_t length);
-static bool           getstatusprop(char **text);
+static void           freestatus(StatusData *status);
+static bool           getstatusprop(StatusData *status);
+static int            statusscheme(StatusState state);
+static int            statuswidth(void);
 static bool           gettextprop(Window w, Atom atom, char *text,
                                   unsigned int size);
 static void           grabbuttons(Client *c, bool focused);
@@ -519,8 +540,9 @@ static unsigned long systrayorientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 #endif /* SYSTRAY */
 
 static const char     broken[] = "broken";
-#define RAWM_STATUS_V1_MAX 4096u
-static char          *stext = NULL;
+#define RAWM_STATUS_V2_MAX 4096u
+#define RAWM_STATUS_ID_MAX 64u
+static StatusData     statusdata = {0};
 static Atom           statusatom, utf8atom;
 static int            screen;
 static int            sw, sh; /* X display screen geometry width, height */
@@ -1251,16 +1273,18 @@ buttonpress(XEvent *e)
       click = ClkLtSymbol;
     else
     {
-      int status_x = selmon->ww;
-      int status_w = stext && stext[0] ? TEXTW(stext) : 0;
+      int status_x, status_right = selmon->ww;
+      int status_w = statuswidth();
 
 #ifdef SYSTRAY
       if (config.show_systray)
-        status_x -= getsystraywidth();
+        status_right -= getsystraywidth();
 #endif /* SYSTRAY */
-      status_x -= status_w;
+      status_x = status_right - status_w;
+      if (status_x < x + blw)
+        status_x = x + blw;
 
-      if (status_w && ev->x >= status_x)
+      if (status_w && ev->x >= status_x && ev->x < status_right)
         click = ClkStatusText;
 #ifdef WINTITLE
       else
@@ -1341,8 +1365,7 @@ cleanup(void)
   XSync(dpy, false);
   XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
   XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
-  free(stext);
-  stext = NULL;
+  freestatus(&statusdata);
   if (signalpipe[0] >= 0)
     close(signalpipe[0]);
   if (signalpipe[1] >= 0)
@@ -1844,22 +1867,21 @@ drawbar(Monitor *m)
 
   if (m == selmon)
   {
-    /* status is only drawn on selected monitor */
-    dc.w = stext && stext[0] ? TEXTW(stext) : 0;
-    dc.x = m->ww - dc.w;
+    int status_right = m->ww;
+    int status_w = statuswidth();
 
+    /* status is only drawn on selected monitor */
 #ifdef SYSTRAY
     if (config.show_systray  &&  m == selmon)
-      dc.x -= getsystraywidth();
+      status_right -= getsystraywidth();
 #endif /* SYSTRAY */
 
+    dc.x = status_right - status_w;
+
     if (dc.x < x)
-    {
       dc.x = x;
-      dc.w = m->ww - x;
-    }
-    if (stext && stext[0])
-      drawtext(stext, dc.colors[0], true);
+    if (status_w)
+      drawstatus(dc.x, status_right);
   }
   else
     dc.x = m->ww;
@@ -1915,6 +1937,41 @@ drawsquare(bool filled, bool empty, XftColor col[ColLast])
     XFillRectangle(dpy, dc.drawable, dc.gc, dc.x+1, dc.y+1, x+1, x+1);
   else if (empty)
     XDrawRectangle(dpy, dc.drawable, dc.gc, dc.x+1, dc.y+1, x,   x);
+}
+
+static void
+drawstatus(int x, int right)
+{
+  size_t i;
+  int cursor = x;
+  int separator_width = 0;
+
+  if (config.status_separator && config.status_separator[0])
+    separator_width = (int)textnw(config.status_separator,
+                                  strlen(config.status_separator));
+
+  for (i = 0; i < statusdata.count && cursor < right; ++i)
+  {
+    int width;
+
+    if (i && separator_width)
+    {
+      width = MIN(separator_width, right - cursor);
+      dc.x = cursor;
+      dc.w = width;
+      drawtext(config.status_separator, dc.colors[0], false);
+      cursor += separator_width;
+      if (cursor >= right)
+        break;
+    }
+
+    width = TEXTW(statusdata.segments[i].text);
+    dc.x = cursor;
+    dc.w = MIN(width, right - cursor);
+    drawtext(statusdata.segments[i].text,
+             dc.colors[statusscheme(statusdata.segments[i].state)], true);
+    cursor += width;
+  }
 }
 
 static void
@@ -2416,20 +2473,163 @@ validutf8(const unsigned char *text, size_t length)
   return true;
 }
 
+static void
+freestatus(StatusData *status)
+{
+  size_t i;
+
+  if (!status)
+    return;
+  for (i = 0; i < status->count; ++i)
+  {
+    free(status->segments[i].id);
+    free(status->segments[i].text);
+  }
+  free(status->segments);
+  status->segments = NULL;
+  status->count = 0;
+}
+
 static bool
-getstatusprop(char **text)
+statusidvalid(const unsigned char *id, size_t length)
+{
+  size_t i;
+
+  if (!id || !length || length > RAWM_STATUS_ID_MAX)
+    return false;
+  for (i = 0; i < length; ++i)
+  {
+    unsigned char c = id[i];
+
+    if (   (c >= 'a' && c <= 'z')
+        || (c >= 'A' && c <= 'Z')
+        || (c >= '0' && c <= '9')
+        || c == '.' || c == '_' || c == '-')
+      continue;
+    return false;
+  }
+  return true;
+}
+
+static bool
+statustextvalid(const unsigned char *text, size_t length)
+{
+  size_t i;
+
+  if (!text || !length || !validutf8(text, length))
+    return false;
+  for (i = 0; i < length; ++i)
+    if (text[i] < 0x20 || text[i] == 0x7f)
+      return false;
+  return true;
+}
+
+static bool
+parsestatusstate(const unsigned char *text, size_t length, StatusState *state)
+{
+  if (length == 6 && !memcmp(text, "normal", 6))
+    *state = StatusNormal;
+  else if (length == 7 && !memcmp(text, "warning", 7))
+    *state = StatusWarning;
+  else if (length == 8 && !memcmp(text, "critical", 8))
+    *state = StatusCritical;
+  else
+    return false;
+  return true;
+}
+
+static bool
+parsestatus(const unsigned char *value, size_t length, StatusData *status)
+{
+  StatusData parsed = {0};
+  size_t pos = 0;
+
+  if (!status)
+    return false;
+  if (!length)
+  {
+    *status = parsed;
+    return true;
+  }
+  if (!value || length > RAWM_STATUS_V2_MAX || value[length - 1] != '\n')
+    return false;
+
+  while (pos < length)
+  {
+    const unsigned char *line = value + pos;
+    const unsigned char *newline = memchr(line, '\n', length - pos);
+    const unsigned char *first, *second;
+    size_t line_len, id_len, state_len, text_len, i;
+    StatusSegment *segments;
+    StatusSegment *segment;
+    StatusState state;
+
+    if (!newline)
+      goto fail;
+    line_len = (size_t)(newline - line);
+    first = memchr(line, '\t', line_len);
+    if (!first)
+      goto fail;
+    second = memchr(first + 1, '\t', line_len - (size_t)(first + 1 - line));
+    if (!second)
+      goto fail;
+
+    id_len = (size_t)(first - line);
+    state_len = (size_t)(second - first - 1);
+    text_len = line_len - (size_t)(second + 1 - line);
+    if (!statusidvalid(line, id_len) ||
+        !parsestatusstate(first + 1, state_len, &state) ||
+        !statustextvalid(second + 1, text_len))
+      goto fail;
+
+    for (i = 0; i < parsed.count; ++i)
+      if (strlen(parsed.segments[i].id) == id_len &&
+          !memcmp(parsed.segments[i].id, line, id_len))
+        goto fail;
+
+    segments = realloc(parsed.segments,
+                       (parsed.count + 1) * sizeof(*parsed.segments));
+    if (!segments)
+      die("fatal: could not realloc status segments\n");
+    parsed.segments = segments;
+    segment = &parsed.segments[parsed.count];
+    memset(segment, 0, sizeof(*segment));
+
+    segment->id = malloc(id_len + 1);
+    segment->text = malloc(text_len + 1);
+    if (!segment->id || !segment->text)
+      die("fatal: could not allocate status segment\n");
+    memcpy(segment->id, line, id_len);
+    segment->id[id_len] = '\0';
+    memcpy(segment->text, second + 1, text_len);
+    segment->text[text_len] = '\0';
+    segment->state = state;
+
+    parsed.count++;
+    pos += line_len + 1;
+  }
+
+  *status = parsed;
+  return true;
+
+fail:
+  freestatus(&parsed);
+  return false;
+}
+
+static bool
+getstatusprop(StatusData *status)
 {
   Atom actual_type;
   int actual_format;
   unsigned long nitems, bytes_after;
   unsigned char *value = NULL;
-  char *copy = NULL;
   bool ok = false;
-  long request_units = (long)((RAWM_STATUS_V1_MAX + 3u) / 4u + 1u);
+  long request_units = (long)((RAWM_STATUS_V2_MAX + 3u) / 4u + 1u);
 
-  if (!text)
+  if (!status)
     return false;
-  *text = NULL;
+  memset(status, 0, sizeof(*status));
 
   if (   XGetWindowProperty(dpy, root, statusatom, 0, request_units, False,
                             AnyPropertyType, &actual_type, &actual_format,
@@ -2437,26 +2637,53 @@ getstatusprop(char **text)
       || actual_type != utf8atom
       || actual_format != 8
       || bytes_after != 0
-      || nitems > RAWM_STATUS_V1_MAX
+      || nitems > RAWM_STATUS_V2_MAX
       || (nitems && memchr(value, '\0', nitems))
-      || !validutf8(value, nitems)
       )
     goto out;
 
-  if (!(copy = malloc((size_t)nitems + 1)))
-    die("fatal: could not malloc() %lu bytes\n", nitems + 1);
-  if (nitems)
-    memcpy(copy, value, nitems);
-  copy[nitems] = '\0';
-  *text = copy;
-  copy = NULL;
-  ok = true;
+  ok = parsestatus(value, (size_t)nitems, status);
 
 out:
-  free(copy);
   if (value)
     XFree(value);
   return ok;
+}
+
+static int
+statusscheme(StatusState state)
+{
+  switch (state)
+  {
+  case StatusWarning:
+    return 2;
+  case StatusCritical:
+    return 3;
+  case StatusNormal:
+  default:
+    return 0;
+  }
+}
+
+static int
+statuswidth(void)
+{
+  size_t i;
+  int width = 0;
+  int separator_width = 0;
+
+  if (!statusdata.count)
+    return 0;
+  if (config.status_separator && config.status_separator[0])
+    separator_width = (int)textnw(config.status_separator,
+                                  strlen(config.status_separator));
+  for (i = 0; i < statusdata.count; ++i)
+  {
+    if (i)
+      width += separator_width;
+    width += TEXTW(statusdata.segments[i].text);
+  }
+  return width;
 }
 
 static bool
@@ -3779,7 +4006,7 @@ setup(void)
   netatom[NetWMWindowType]          = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",          false);
   netatom[NetWMWindowTypeDialog]    = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",   false);
   utf8atom                           = XInternAtom(dpy, "UTF8_STRING",                   false);
-  statusatom                         = XInternAtom(dpy, "_RAWM_STATUS_V1",               false);
+  statusatom                         = XInternAtom(dpy, "_RAWM_STATUS_V2",               false);
 #ifdef SYSTRAY
   xatom[Manager]                    = XInternAtom(dpy, "MANAGER",                      false);
   xatom[Xembed]                     = XInternAtom(dpy, "_XEMBED",                      false);
@@ -4779,12 +5006,12 @@ updatetitle(Client *c)
 static void
 updatestatus(void)
 {
-  char *next = NULL;
+  StatusData next = {0};
 
   if (config.status_enabled)
     (void)getstatusprop(&next);
-  free(stext);
-  stext = next;
+  freestatus(&statusdata);
+  statusdata = next;
 
   drawbar(selmon);
 }
