@@ -23,6 +23,8 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
 #include <locale.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -466,6 +468,9 @@ static void           setlayout(const Arg *arg);
 static void           setmfact(const Arg *arg);
 static void           setup(void);
 static void           showhide(Client *c);
+static int            setsignalpipeflags(int fd);
+static int            installsignalhandler(int signum, void (*handler)(int));
+static void           drainsignalpipe(void);
 static void           sigchld(int sig);
 static void           sighup(int sig);
 static void           sigterm(int sig);
@@ -547,8 +552,9 @@ static Atom           wmatom[WMLast], netatom[NetLast], xatom[XLast];
 static Atom           wmatom[WMLast], netatom[NetLast];
 #endif /* SYSTRAY */
 
-static bool           restart = false;
-static bool           running = true;
+static volatile sig_atomic_t restart = 0;
+static volatile sig_atomic_t running = 1;
+static int            signalpipe[2] = { -1, -1 };
 static Cursor         cursor[CurLast];
 static Display       *dpy;
 static DC             dc;
@@ -1334,6 +1340,11 @@ cleanup(void)
   XSync(dpy, false);
   XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
   XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+  if (signalpipe[0] >= 0)
+    close(signalpipe[0]);
+  if (signalpipe[1] >= 0)
+    close(signalpipe[1]);
+  signalpipe[0] = signalpipe[1] = -1;
 }
 
 static void
@@ -3383,13 +3394,33 @@ static void
 run(void)
 {
   XEvent ev;
+  struct pollfd fds[2];
 
-  /* main event loop */
+  fds[0].fd = ConnectionNumber(dpy);
+  fds[0].events = POLLIN;
+  fds[1].fd = signalpipe[0];
+  fds[1].events = POLLIN;
+
   XSync(dpy, false);
-  while (running  &&  !XNextEvent(dpy, &ev))
+  while (running)
   {
-    if (handler[ev.type])
-      handler[ev.type](&ev); /* call handler */
+    while (running && XPending(dpy))
+    {
+      XNextEvent(dpy, &ev);
+      if (handler[ev.type])
+        handler[ev.type](&ev);
+    }
+    if (!running)
+      break;
+
+    if (poll(fds, 2, -1) < 0)
+    {
+      if (errno == EINTR)
+        continue;
+      die("fatal: poll failed: %s\n", strerror(errno));
+    }
+    if (fds[1].revents & POLLIN)
+      drainsignalpipe();
   }
 }
 
@@ -3684,11 +3715,20 @@ setup(void)
 {
   XSetWindowAttributes wa;
 
-  /* clean up any zombies immediately */
-  sigchld(0);
+  if (pipe(signalpipe) < 0 ||
+      setsignalpipeflags(signalpipe[0]) < 0 ||
+      setsignalpipeflags(signalpipe[1]) < 0)
+    die("fatal: could not create signal pipe: %s\n", strerror(errno));
 
-  signal(SIGHUP,  sighup);
-  signal(SIGTERM, sigterm);
+  /* Clean up any inherited zombies before entering the event loop. */
+  while (waitpid(-1, NULL, WNOHANG) > 0)
+    /* NOTHING */;
+
+  if (installsignalhandler(SIGCHLD, sigchld) < 0 ||
+      installsignalhandler(SIGHUP, sighup) < 0 ||
+      installsignalhandler(SIGTERM, sigterm) < 0 ||
+      installsignalhandler(SIGINT, sigterm) < 0)
+    die("fatal: could not install signal handler: %s\n", strerror(errno));
 
   /* init screen */
   screen  = DefaultScreen(dpy);
@@ -3821,28 +3861,80 @@ showhide(Client *c)
   }
 }
 
-static void
-sigchld(__attribute__((unused)) int sig)
+static int
+setsignalpipeflags(int fd)
 {
-  if (signal(SIGCHLD, sigchld) == SIG_ERR)
-    die("Can't install SIGCHLD handler");
+  int flags;
 
-  while (0 < waitpid(-1, NULL, WNOHANG))
-    /* NOTHING */;
+  flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    return -1;
+  flags = fcntl(fd, F_GETFD, 0);
+  if (flags < 0 || fcntl(fd, F_SETFD, flags | FD_CLOEXEC) < 0)
+    return -1;
+  return 0;
+}
+
+static int
+installsignalhandler(int signum, void (*handlerfn)(int))
+{
+  struct sigaction action;
+
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = handlerfn;
+  sigemptyset(&action.sa_mask);
+  return sigaction(signum, &action, NULL);
 }
 
 static void
-sighup(__attribute__((unused)) int sig)
+wakesignalpipe(int signum)
 {
-  Arg a = {.i = 1};
-  quit(&a);
+  unsigned char byte = (unsigned char)signum;
+  int saved_errno = errno;
+
+  if (signalpipe[1] >= 0)
+    (void)write(signalpipe[1], &byte, 1);
+  errno = saved_errno;
 }
 
 static void
-sigterm(__attribute__((unused)) int sig)
+drainsignalpipe(void)
 {
-  Arg a = {.i = 0};
-  quit(&a);
+  unsigned char bytes[64];
+  ssize_t n;
+  bool reap = false;
+
+  while ((n = read(signalpipe[0], bytes, sizeof(bytes))) > 0)
+  {
+    ssize_t i;
+    for (i = 0; i < n; ++i)
+      if (bytes[i] == (unsigned char)SIGCHLD)
+        reap = true;
+  }
+  if (reap)
+    while (waitpid(-1, NULL, WNOHANG) > 0)
+      /* NOTHING */;
+}
+
+static void
+sigchld(int sig)
+{
+  wakesignalpipe(sig);
+}
+
+static void
+sighup(int sig)
+{
+  restart = 1;
+  running = 0;
+  wakesignalpipe(sig);
+}
+
+static void
+sigterm(int sig)
+{
+  running = 0;
+  wakesignalpipe(sig);
 }
 
 static void
