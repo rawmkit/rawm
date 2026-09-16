@@ -424,7 +424,7 @@ static XftColor       getcolor(const char *colstr);
 static bool           getrootptr(int *x, int *y);
 static long           getstate(Window w);
 static bool           validutf8(const unsigned char *text, size_t length);
-static bool           getstatusprop(char *text, unsigned int size);
+static bool           getstatusprop(char **text);
 static bool           gettextprop(Window w, Atom atom, char *text,
                                   unsigned int size);
 static void           grabbuttons(Client *c, bool focused);
@@ -519,7 +519,8 @@ static unsigned long systrayorientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 #endif /* SYSTRAY */
 
 static const char     broken[] = "broken";
-static char           stext[256];
+#define RAWM_STATUS_V1_MAX 4096u
+static char          *stext = NULL;
 static Atom           statusatom, utf8atom;
 static int            screen;
 static int            sw, sh; /* X display screen geometry width, height */
@@ -1251,7 +1252,7 @@ buttonpress(XEvent *e)
     else
     {
       int status_x = selmon->ww;
-      int status_w = stext[0] ? TEXTW(stext) : 0;
+      int status_w = stext && stext[0] ? TEXTW(stext) : 0;
 
 #ifdef SYSTRAY
       if (config.show_systray)
@@ -1340,6 +1341,8 @@ cleanup(void)
   XSync(dpy, false);
   XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
   XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+  free(stext);
+  stext = NULL;
   if (signalpipe[0] >= 0)
     close(signalpipe[0]);
   if (signalpipe[1] >= 0)
@@ -1842,7 +1845,7 @@ drawbar(Monitor *m)
   if (m == selmon)
   {
     /* status is only drawn on selected monitor */
-    dc.w = stext[0] ? TEXTW(stext) : 0;
+    dc.w = stext && stext[0] ? TEXTW(stext) : 0;
     dc.x = m->ww - dc.w;
 
 #ifdef SYSTRAY
@@ -1855,7 +1858,7 @@ drawbar(Monitor *m)
       dc.x = x;
       dc.w = m->ww - x;
     }
-    if (stext[0])
+    if (stext && stext[0])
       drawtext(stext, dc.colors[0], true);
   }
   else
@@ -1917,9 +1920,10 @@ drawsquare(bool filled, bool empty, XftColor col[ColLast])
 static void
 drawtext(const char *text, XftColor col[ColLast], bool pad)
 {
-  char     buf[256];
-  int      x, y, h, len, olen;
-  XftDraw *d;
+  char     *buf;
+  int       x, y, h;
+  size_t    len, olen;
+  XftDraw  *d;
 
   XSetForeground(dpy, dc.gc, col[ColBG].pixel);
   XFillRectangle(dpy, dc.drawable, dc.gc, dc.x, dc.y, dc.w, dc.h);
@@ -1932,21 +1936,26 @@ drawtext(const char *text, XftColor col[ColLast], bool pad)
   y = dc.y + (dc.h + dc.font.ascent - dc.font.descent) / 2;
   x = dc.x + (h / 2);
 
-  /* shorten text if necessary */
-  for (len = MIN(olen, sizeof buf);
-       len  &&  (textnw(text, len) > (dc.w - h));
+  for (len = olen;
+       len && textnw(text, (unsigned int)len) > (dc.w - h);
        len--)
     /* NOTHING */;
 
   if (!len)
     return;
 
+  if (!(buf = malloc(len + 1)))
+    die("fatal: could not malloc() %lu bytes\n", (unsigned long)(len + 1));
   memcpy(buf, text, len);
+  buf[len] = '\0';
 
   if (len < olen)
   {
-    for (int i = len;  i && (i > (len - 3));  buf[--i] = '.')
-      /* NOTHING */;
+    size_t dots = MIN(len, 3u);
+    size_t i;
+
+    for (i = 0; i < dots; ++i)
+      buf[len - 1 - i] = '.';
   }
 
   d = XftDrawCreate(dpy,
@@ -1961,10 +1970,11 @@ drawtext(const char *text, XftColor col[ColLast], bool pad)
                     x,
                     y,
                     (XftChar8 *)buf,
-                    len
+                    (int)len
                     );
 
   XftDrawDestroy(d);
+  free(buf);
 }
 
 static void
@@ -2407,36 +2417,43 @@ validutf8(const unsigned char *text, size_t length)
 }
 
 static bool
-getstatusprop(char *text, unsigned int size)
+getstatusprop(char **text)
 {
   Atom actual_type;
   int actual_format;
   unsigned long nitems, bytes_after;
   unsigned char *value = NULL;
+  char *copy = NULL;
   bool ok = false;
+  long request_units = (long)((RAWM_STATUS_V1_MAX + 3u) / 4u + 1u);
 
-  if (!text || size == 0)
+  if (!text)
     return false;
-  text[0] = '\0';
+  *text = NULL;
 
-  if (   XGetWindowProperty(dpy, root, statusatom, 0, 64, False,
+  if (   XGetWindowProperty(dpy, root, statusatom, 0, request_units, False,
                             AnyPropertyType, &actual_type, &actual_format,
                             &nitems, &bytes_after, &value) != Success
       || actual_type != utf8atom
       || actual_format != 8
       || bytes_after != 0
-      || nitems >= size
+      || nitems > RAWM_STATUS_V1_MAX
       || (nitems && memchr(value, '\0', nitems))
       || !validutf8(value, nitems)
       )
     goto out;
 
+  if (!(copy = malloc((size_t)nitems + 1)))
+    die("fatal: could not malloc() %lu bytes\n", nitems + 1);
   if (nitems)
-    memcpy(text, value, nitems);
-  text[nitems] = '\0';
+    memcpy(copy, value, nitems);
+  copy[nitems] = '\0';
+  *text = copy;
+  copy = NULL;
   ok = true;
 
 out:
+  free(copy);
   if (value)
     XFree(value);
   return ok;
@@ -4762,8 +4779,12 @@ updatetitle(Client *c)
 static void
 updatestatus(void)
 {
-  if (!config.status_enabled || !getstatusprop(stext, sizeof(stext)))
-    stext[0] = '\0';
+  char *next = NULL;
+
+  if (config.status_enabled)
+    (void)getstatusprop(&next);
+  free(stext);
+  stext = next;
 
   drawbar(selmon);
 }
