@@ -57,6 +57,7 @@ check: rawm tests/config-reference-test tests/dialog-center-client tests/status-
 	./tests/gaps.sh ./rawm
 	./tests/dialog-center.sh ./rawm ./tests/dialog-center-client
 	./tests/status.sh ./rawm ./tests/status-client
+	./tests/signals.sh ./rawm
 
 release:
 	git tag -a v${VERSION} -m v${VERSION}
