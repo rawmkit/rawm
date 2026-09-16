@@ -1773,7 +1773,7 @@ dirtomon(int dir)
 static void
 drawbar(Monitor *m)
 {
-  int           x;
+  int           x, title_right;
   unsigned int  i, occ = 0, urg = 0;
   XftColor     *col;
   Client       *c;
@@ -1863,12 +1863,14 @@ drawbar(Monitor *m)
   dc.w  = blw = TEXTW(m->ltsymbol);
   drawtext(m->ltsymbol, dc.colors[0], true);
   dc.x += dc.w;
-  x     = dc.x;
+  x = dc.x;
+  title_right = m->ww;
 
   if (m == selmon)
   {
     int status_right = m->ww;
     int status_w = statuswidth();
+    int status_x;
 
     /* status is only drawn on selected monitor */
 #ifdef SYSTRAY
@@ -1876,17 +1878,15 @@ drawbar(Monitor *m)
       status_right -= getsystraywidth();
 #endif /* SYSTRAY */
 
-    dc.x = status_right - status_w;
-
-    if (dc.x < x)
-      dc.x = x;
+    status_x = status_right - status_w;
+    if (status_x < x)
+      status_x = x;
     if (status_w)
-      drawstatus(dc.x, status_right);
+      drawstatus(status_x, status_right);
+    title_right = status_x;
   }
-  else
-    dc.x = m->ww;
 
-  if ((dc.w = dc.x - x) > bh)
+  if ((dc.w = title_right - x) > bh)
   {
     dc.x = x;
 #ifdef WINTITLE
