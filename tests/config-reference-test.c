@@ -39,13 +39,14 @@ main(void)
     "           \"--smart=${layout.gaps.smart}\",\n"
     "           \"--status=${status.enabled}\",\n"
     "           \"--protocol=${status.protocol}\",\n"
+    "           \"--separator=${status.separator}\",\n"
     "           \"--center=${behavior.dialog_center}\",\n"
     "           \"--bar=${ui.bar.position}\",\n"
     "           \"--tray=${ui.systray.show}\",\n"
     "           \"${ui.colors.selected.background}\",\n"
     "           \"$${HOME}\");\n"
     "};\n"
-    "status = { enabled = true; protocol = \"rawm-v1\"; };\n"
+    "status = { enabled = true; protocol = \"rawm-v2\"; separator = \" :: \"; };\n"
     "behavior = { dialog_center = \"parent\"; };\n"
     "ui = {\n"
     "  font = \"face-${ui.colors.selected.foreground}\";\n"
@@ -63,7 +64,8 @@ main(void)
     "layout = { gaps = { inner = 7; outer = 11; smart = true; }; };\n";
   static const char *const expected[] = {
     "probe", "-fn", "face-#111111", "--opacity=0.85", "--inner=7",
-    "--outer=11", "--smart=true", "--status=true", "--protocol=rawm-v1",
+    "--outer=11", "--smart=true", "--status=true", "--protocol=rawm-v2",
+    "--separator= :: ",
     "--center=parent", "--bar=top", "--tray=false",
     "#222222", "${HOME}"
   };

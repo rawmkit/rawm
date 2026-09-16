@@ -34,7 +34,7 @@ ui = {
   font = "monospace:size=11";
   bar = { position = "top"; };
 };
-status = { enabled = true; protocol = "rawm-v1"; };
+status = { enabled = true; protocol = "rawm-v2"; separator = " :: "; };
 behavior = { dialog_center = "parent"; };
 layout = {
   master_factor = 0.60;
@@ -70,7 +70,7 @@ EOC
 expect_ok "$tmp/valid.conf"
 
 cat >"$tmp/status-disabled.conf" <<'EOC'
-status = { enabled = false; protocol = "rawm-v1"; };
+status = { enabled = false; protocol = "rawm-v2"; };
 EOC
 expect_ok "$tmp/status-disabled.conf"
 
@@ -82,7 +82,7 @@ grep -q "unsupported status protocol" "$tmp/stderr" ||
   fail "unsupported status protocol diagnostic missing"
 
 cat >"$tmp/status-member.conf" <<'EOC'
-status = { enabled = true; protcol = "rawm-v1"; };
+status = { enabled = true; protcol = "rawm-v2"; };
 EOC
 expect_fail "$tmp/status-member.conf"
 
@@ -90,6 +90,11 @@ cat >"$tmp/status-type.conf" <<'EOC'
 status = { enabled = "yes"; };
 EOC
 expect_fail "$tmp/status-type.conf"
+
+cat >"$tmp/status-separator-type.conf" <<'EOC'
+status = { separator = 1; };
+EOC
+expect_fail "$tmp/status-separator-type.conf"
 
 cat >"$tmp/center-mode.conf" <<'EOC'
 behavior = { dialog_center = "monitor"; };

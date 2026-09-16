@@ -48,7 +48,7 @@ ui = {
   bar = { show = true; position = "bottom"; height = 24; };
   systray = { show = false; };
 };
-status = { enabled = false; protocol = "rawm-v1"; };
+status = { enabled = false; protocol = "rawm-v2"; };
 input = { keys = (); buttons = (); };
 EOC
 }

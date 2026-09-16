@@ -82,8 +82,21 @@ main(int argc, char **argv)
   Display *dpy;
   Window root, bar = None;
   Atom status, utf8;
-  uint64_t baseline, legacy, active, rejected, malformed, boundary, oversized;
-  unsigned char invalid_utf8[] = { 0xc0, 0xaf };
+  uint64_t baseline, legacy, normal_hash, warning_hash, critical_hash, multi_hash;
+  uint64_t rejected, malformed, invalid_record, duplicate, boundary, oversized;
+  const char normal[] = "probe\tnormal\tRAWM-V2-STATUS\n";
+  const char warning[] = "probe\twarning\tRAWM-V2-STATUS\n";
+  const char critical[] = "probe\tcritical\tRAWM-V2-STATUS\n";
+  const char multi[] =
+    "cpu\twarning\tcpu:63%\n"
+    "clock\tnormal\t12:00\n";
+  const char bad_state[] = "probe\tunknown\ttext\n";
+  const char duplicate_ids[] =
+    "probe\tnormal\tone\n"
+    "probe\twarning\ttwo\n";
+  unsigned char invalid_utf8[] = {
+    'p','r','o','b','e','\t','n','o','r','m','a','l','\t',0xc0,0xaf,'\n'
+  };
   unsigned char boundary_text[4096];
   unsigned char oversized_text[4097];
   int disabled = argc == 2 && !strcmp(argv[1], "--disabled");
@@ -100,7 +113,7 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
   root = DefaultRootWindow(dpy);
-  status = XInternAtom(dpy, "_RAWM_STATUS_V1", False);
+  status = XInternAtom(dpy, "_RAWM_STATUS_V2", False);
   utf8 = XInternAtom(dpy, "UTF8_STRING", False);
 
   for (tries = 0; tries < 50 && bar == None; ++tries) {
@@ -126,12 +139,13 @@ main(int argc, char **argv)
   }
 
   set_status(dpy, root, status, utf8,
-             (const unsigned char *)"RAWM-V1-STATUS", 14);
-  active = checksum_window(dpy, bar);
-  if ((!disabled && active == baseline) || (disabled && active != baseline)) {
+             (const unsigned char *)normal, strlen(normal));
+  normal_hash = checksum_window(dpy, bar);
+  if ((!disabled && normal_hash == baseline) ||
+      (disabled && normal_hash != baseline)) {
     fputs(disabled
             ? "status-client: disabled status protocol changed the bar\n"
-            : "status-client: rawm-v1 status did not change the bar\n",
+            : "status-client: rawm-v2 status did not change the bar\n",
           stderr);
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
@@ -141,8 +155,35 @@ main(int argc, char **argv)
     return EXIT_SUCCESS;
   }
 
+  set_status(dpy, root, status, utf8,
+             (const unsigned char *)warning, strlen(warning));
+  warning_hash = checksum_window(dpy, bar);
+  if (warning_hash == normal_hash) {
+    fputs("status-client: warning state did not change status rendering\n", stderr);
+    XCloseDisplay(dpy);
+    return EXIT_FAILURE;
+  }
+
+  set_status(dpy, root, status, utf8,
+             (const unsigned char *)critical, strlen(critical));
+  critical_hash = checksum_window(dpy, bar);
+  if (critical_hash == normal_hash || critical_hash == warning_hash) {
+    fputs("status-client: critical state did not use its own rendering\n", stderr);
+    XCloseDisplay(dpy);
+    return EXIT_FAILURE;
+  }
+
+  set_status(dpy, root, status, utf8,
+             (const unsigned char *)multi, strlen(multi));
+  multi_hash = checksum_window(dpy, bar);
+  if (multi_hash == baseline || multi_hash == critical_hash) {
+    fputs("status-client: multi-segment status was not rendered distinctly\n", stderr);
+    XCloseDisplay(dpy);
+    return EXIT_FAILURE;
+  }
+
   set_status(dpy, root, status, XA_STRING,
-             (const unsigned char *)"WRONG-TYPE", 10);
+             (const unsigned char *)normal, strlen(normal));
   rejected = checksum_window(dpy, bar);
   if (rejected != baseline) {
     fputs("status-client: non-UTF8_STRING status was accepted\n", stderr);
@@ -158,20 +199,48 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  memset(boundary_text, 'x', sizeof(boundary_text));
-  set_status(dpy, root, status, utf8, boundary_text, sizeof(boundary_text));
-  boundary = checksum_window(dpy, bar);
-  if (boundary == baseline) {
-    fputs("status-client: rawm-v1 maximum-size status was rejected\n", stderr);
+  set_status(dpy, root, status, utf8,
+             (const unsigned char *)bad_state, strlen(bad_state));
+  invalid_record = checksum_window(dpy, bar);
+  if (invalid_record != baseline) {
+    fputs("status-client: unknown semantic state was accepted\n", stderr);
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
   }
 
-  memset(oversized_text, 'x', sizeof(oversized_text));
+  set_status(dpy, root, status, utf8,
+             (const unsigned char *)duplicate_ids, strlen(duplicate_ids));
+  duplicate = checksum_window(dpy, bar);
+  if (duplicate != baseline) {
+    fputs("status-client: duplicate segment ids were accepted\n", stderr);
+    XCloseDisplay(dpy);
+    return EXIT_FAILURE;
+  }
+
+  boundary_text[0] = 'x';
+  boundary_text[1] = '\t';
+  memcpy(boundary_text + 2, "normal", 6);
+  boundary_text[8] = '\t';
+  memset(boundary_text + 9, 'x', 4086);
+  boundary_text[4095] = '\n';
+  set_status(dpy, root, status, utf8, boundary_text, sizeof(boundary_text));
+  boundary = checksum_window(dpy, bar);
+  if (boundary == baseline) {
+    fputs("status-client: rawm-v2 maximum-size status was rejected\n", stderr);
+    XCloseDisplay(dpy);
+    return EXIT_FAILURE;
+  }
+
+  oversized_text[0] = 'x';
+  oversized_text[1] = '\t';
+  memcpy(oversized_text + 2, "normal", 6);
+  oversized_text[8] = '\t';
+  memset(oversized_text + 9, 'x', 4087);
+  oversized_text[4096] = '\n';
   set_status(dpy, root, status, utf8, oversized_text, sizeof(oversized_text));
   oversized = checksum_window(dpy, bar);
   if (oversized != baseline) {
-    fputs("status-client: oversized rawm-v1 status was accepted\n", stderr);
+    fputs("status-client: oversized rawm-v2 status was accepted\n", stderr);
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
   }

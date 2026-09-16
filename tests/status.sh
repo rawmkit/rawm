@@ -53,8 +53,14 @@ ui = {
   font = "monospace:size=9";
   bar = { show = true; position = "bottom"; height = 24; };
   systray = { show = false; };
+  colors = {
+    normal = { border = "#000000"; foreground = "#ffffff"; background = "#000000"; };
+    selected = { border = "#000000"; foreground = "#ffffff"; background = "#000000"; };
+    urgent = { border = "#000000"; foreground = "#ffff00"; background = "#000000"; };
+    error = { border = "#000000"; foreground = "#ff0000"; background = "#000000"; };
+  };
 };
-status = { enabled = $enabled; protocol = "rawm-v1"; };
+status = { enabled = $enabled; protocol = "rawm-v2"; separator = " | "; };
 input = { keys = (); buttons = (); };
 EOC
   "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
