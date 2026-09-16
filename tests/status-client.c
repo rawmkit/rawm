@@ -82,9 +82,10 @@ main(int argc, char **argv)
   Display *dpy;
   Window root, bar = None;
   Atom status, utf8;
-  uint64_t baseline, legacy, active, rejected, malformed, oversized;
+  uint64_t baseline, legacy, active, rejected, malformed, boundary, oversized;
   unsigned char invalid_utf8[] = { 0xc0, 0xaf };
-  unsigned char long_text[300];
+  unsigned char boundary_text[4096];
+  unsigned char oversized_text[4097];
   int disabled = argc == 2 && !strcmp(argv[1], "--disabled");
   int tries;
 
@@ -157,8 +158,17 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  memset(long_text, 'x', sizeof(long_text));
-  set_status(dpy, root, status, utf8, long_text, sizeof(long_text));
+  memset(boundary_text, 'x', sizeof(boundary_text));
+  set_status(dpy, root, status, utf8, boundary_text, sizeof(boundary_text));
+  boundary = checksum_window(dpy, bar);
+  if (boundary == baseline) {
+    fputs("status-client: rawm-v1 maximum-size status was rejected\n", stderr);
+    XCloseDisplay(dpy);
+    return EXIT_FAILURE;
+  }
+
+  memset(oversized_text, 'x', sizeof(oversized_text));
+  set_status(dpy, root, status, utf8, oversized_text, sizeof(oversized_text));
   oversized = checksum_window(dpy, bar);
   if (oversized != baseline) {
     fputs("status-client: oversized rawm-v1 status was accepted\n", stderr);
