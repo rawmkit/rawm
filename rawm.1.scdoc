@@ -129,17 +129,19 @@ The options are as follows:
 
 ## Status bar
 
-*rawm-v1 status*
-	When *status.enabled* is true and *status.protocol* is *"rawm-v1"*,
-	rawm reads plain UTF-8 text from the *\_RAWM\_STATUS\_V1* property on
-	the X root window. The property must have type *UTF8_STRING*, contain
-	no embedded NUL byte, and contain at most 4096 bytes. Invalid or
-	missing status data is displayed as an empty status area.
+*rawm-v2 status*
+	When *status.enabled* is true and *status.protocol* is *"rawm-v2"*,
+	rawm reads semantic status segments from the *\_RAWM\_STATUS\_V2*
+	property on the X root window. Each segment carries a stable identifier,
+	text, and one of the states *normal*, *warning*, or *critical*. rawm maps
+	those states to its normal, urgent, and error color schemes and owns the
+	separator drawn between segments. Invalid or missing status data produces
+	an empty status area.
 
-	The root *WM_NAME* property is not used for status. The protocol has
-	no in-band color or click-control bytes; rawm owns presentation.
-	*rawmstat*(1) is the companion producer, but any X11 client may
-	publish the property. See *rawm.conf*(5) for the protocol contract.
+	The root *WM_NAME* property is not used for status. The protocol contains
+	no color values or presentation markup. *rawmstat*(1) is the companion
+	producer, but any X11 client may publish the property. See *rawm.conf*(5)
+	for the complete wire contract.
 
 *Button1*
 	Click on a tag label to display all windows with that tag,

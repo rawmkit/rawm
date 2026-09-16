@@ -13,4 +13,4 @@ Next Release
 - [x] Replace iscentered with explicit monitor/parent centering policy.
 - [x] Fix windows counter.
 - [x] pertag layout ignores permonitor setups.
-- [x] Document the rawm-v1 status boundary.
+- [x] Document the rawm-v2 semantic status boundary.

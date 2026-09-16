@@ -22,7 +22,7 @@ the following applied patches:
   * `restartsig`
   * `_NET_CLIENT_LIST`
   * optional systray support (`-DSYSTRAY`)
-  * dedicated `_RAWM_STATUS_V1` UTF-8 root-property status protocol
+  * dedicated `_RAWM_STATUS_V2` semantic root-property status protocol
   * optional auto centering of floating popup windows
   * configurable inner/outer layout gaps with optional smart outer gaps
 
@@ -77,9 +77,11 @@ Tiled layouts support runtime-configured inner and outer gaps through
 `layout.gaps`; smart gaps may suppress the outer margin when only one tiled
 client is visible.
 
-Status input is explicit policy too. `status.protocol = "rawm-v1"` consumes
-plain UTF-8 from the `_RAWM_STATUS_V1` root property; the legacy root `WM_NAME`
-channel and in-band status-color control bytes are not used.
+Status input is explicit policy too. `status.protocol = "rawm-v2"` consumes
+semantic `id/state/text` records from the `_RAWM_STATUS_V2` root property.
+`normal`, `warning`, and `critical` map to rawm's normal, urgent, and error
+palettes; separators and all presentation remain rawm policy. The legacy root
+`WM_NAME` channel and in-band color controls are not used.
 
 Use `rawm -C` to validate the effective configuration without opening the X
 display, or `rawm -C -c ./rawm.conf` to validate one explicit file over the
