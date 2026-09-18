@@ -235,6 +235,30 @@ center_mode_name(RawmCenterMode mode)
 }
 
 static const char *
+attention_mode_name(RawmAttentionMode mode)
+{
+  static const char *const names[] = { "none", "urgent" };
+
+  return mode >= RAWM_ATTENTION_NONE && mode <= RAWM_ATTENTION_URGENT
+           ? names[mode]
+           : NULL;
+}
+
+static int
+parse_attention_mode(const char *name, RawmAttentionMode *mode)
+{
+  int i;
+
+  for (i = RAWM_ATTENTION_NONE; i <= RAWM_ATTENTION_URGENT; ++i) {
+    if (!strcmp(name, attention_mode_name((RawmAttentionMode)i))) {
+      *mode = (RawmAttentionMode)i;
+      return 0;
+    }
+  }
+  return -1;
+}
+
+static const char *
 status_protocol_name(RawmStatusProtocol protocol)
 {
   return protocol == RAWM_STATUS_PROTOCOL_V2 ? "rawm-v2" : NULL;
@@ -976,7 +1000,8 @@ static int
 parse_rules(FILE *err, RawmConfig *cfg, const config_setting_t *list)
 {
   static const char *const allowed[] = {
-    "class", "instance", "title", "role", "tags", "floating", "center", "fullscreen", "monitor"
+    "class", "instance", "title", "role", "tags", "floating", "center",
+    "fullscreen", "attention", "monitor"
   };
   RawmRule *rules;
   int i, n;
@@ -994,7 +1019,7 @@ parse_rules(FILE *err, RawmConfig *cfg, const config_setting_t *list)
                         &rules[i].title, &rules[i].role };
     int j;
     rules[i].monitor = -1;
-    if (validate_members(err, entry, allowed, 9) < 0)
+    if (validate_members(err, entry, allowed, 10) < 0)
       goto fail;
     for (j = 0; j < 4; ++j) {
       s = config_setting_get_member(entry, names[j]);
@@ -1037,6 +1062,22 @@ parse_rules(FILE *err, RawmConfig *cfg, const config_setting_t *list)
       }
       rules[i].fullscreen = config_setting_get_bool(s) != 0;
       rules[i].has_fullscreen = true;
+    }
+
+    s = config_setting_get_member(entry, "attention");
+    if (s) {
+      const char *value;
+
+      if (config_setting_type(s) != CONFIG_TYPE_STRING) {
+        cfg_error(err, s, "%s", "attention must be a string");
+        goto fail;
+      }
+      value = config_setting_get_string(s);
+      if (parse_attention_mode(value, &rules[i].attention) < 0) {
+        cfg_error(err, s, "invalid attention mode '%s'", value);
+        goto fail;
+      }
+      rules[i].has_attention = true;
     }
   }
   free_rules(cfg->rules, cfg->rule_count);

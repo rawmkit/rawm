@@ -16,6 +16,11 @@ typedef enum {
 } RawmCenterMode;
 
 typedef enum {
+  RAWM_ATTENTION_NONE,
+  RAWM_ATTENTION_URGENT
+} RawmAttentionMode;
+
+typedef enum {
   RAWM_STATUS_PROTOCOL_V2
 } RawmStatusProtocol;
 
@@ -95,6 +100,8 @@ typedef struct {
   RawmCenterMode center;
   bool has_fullscreen;
   bool fullscreen;
+  bool has_attention;
+  RawmAttentionMode attention;
   int monitor;
 } RawmRule;
 

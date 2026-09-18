@@ -385,7 +385,11 @@ struct Systray {
  * Function declarations.
  */
 
-static void           applyrules(Client *c, bool *has_fullscreen, bool *fullscreen);
+static void           applyrules(Client *c,
+                                 bool *has_fullscreen,
+                                 bool *fullscreen,
+                                 bool *has_attention,
+                                 RawmAttentionMode *attention);
 static bool           applysizehints(Client *c, int *x, int *y,
                                      int *w, int *h, bool interact);
 static void           arrange(Monitor *m);
@@ -820,7 +824,11 @@ getprop(Window w, const char *prop)
 }
 
 static void
-applyrules(Client *c, bool *has_fullscreen, bool *fullscreen)
+applyrules(Client *c,
+           bool *has_fullscreen,
+           bool *fullscreen,
+           bool *has_attention,
+           RawmAttentionMode *attention)
 {
   unsigned int   i;
   const char    *class, *instance, *role;
@@ -858,6 +866,11 @@ applyrules(Client *c, bool *has_fullscreen, bool *fullscreen)
       if (r->has_fullscreen) {
         *fullscreen = r->fullscreen;
         *has_fullscreen = true;
+      }
+
+      if (r->has_attention) {
+        *attention = r->attention;
+        *has_attention = true;
       }
 
       for (m = mons;  m && m->num != r->monitor;  m = m->next)
@@ -2998,6 +3011,8 @@ manage(Window w, XWindowAttributes *wa)
   XWindowChanges  wc;
   bool            has_rule_fullscreen = false;
   bool            initial_fullscreen = false;
+  bool            has_rule_attention = false;
+  RawmAttentionMode initial_attention = RAWM_ATTENTION_NONE;
 #ifdef PWKL
   XkbStateRec     kbd_state;
 #endif /* PWKL */
@@ -3031,7 +3046,8 @@ manage(Window w, XWindowAttributes *wa)
   else
     c->mon = selmon;
 
-  applyrules(c, &has_rule_fullscreen, &initial_fullscreen);
+  applyrules(c, &has_rule_fullscreen, &initial_fullscreen,
+             &has_rule_attention, &initial_attention);
   if (!has_rule_fullscreen)
     initial_fullscreen = atomlistcontains(c->win, netatom[NetWMState],
                                           netatom[NetWMFullscreen]);
@@ -3096,6 +3112,11 @@ manage(Window w, XWindowAttributes *wa)
 
   if (initial_fullscreen)
     setfullscreen(c, true);
+
+  if (   has_rule_attention
+      && initial_attention == RAWM_ATTENTION_URGENT
+      && !ISVISIBLE(c))
+    c->wm_urgent = true;
 
   if (c->isfloating)
     XRaiseWindow(dpy, c->win);
