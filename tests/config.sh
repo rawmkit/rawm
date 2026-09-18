@@ -126,6 +126,19 @@ rules = ({ class = "Old"; centered = true; });
 EOC
 expect_fail "$tmp/legacy-centered.conf"
 
+cat >"$tmp/fullscreen-rule.conf" <<'EOC'
+rules = (
+  { class = "VideoPlayer"; tags = (8); fullscreen = true; },
+  { class = "NeverFullscreen"; fullscreen = false; }
+);
+EOC
+expect_ok "$tmp/fullscreen-rule.conf"
+
+cat >"$tmp/fullscreen-rule-type.conf" <<'EOC'
+rules = ({ class = "Broken"; fullscreen = "yes"; });
+EOC
+expect_fail "$tmp/fullscreen-rule-type.conf"
+
 cat >"$tmp/gap-range.conf" <<'EOC'
 layout = { gaps = { inner = -1; }; };
 EOC

@@ -40,6 +40,7 @@ clean:
 	rm -f rawm rawm.o rawm-config.o rawm.1 rawm.conf.5 \
 	      tests/config-reference-test tests/config-reference-test.o \
 	      tests/dialog-center-client tests/dialog-center-client.o \
+	      tests/fullscreen-rule-client tests/fullscreen-rule-client.o \
 	      tests/status-client tests/status-client.o
 
 tests/config-reference-test: tests/config-reference-test.o rawm-config.o
@@ -48,14 +49,18 @@ tests/config-reference-test: tests/config-reference-test.o rawm-config.o
 tests/dialog-center-client: tests/dialog-center-client.o
 	${CC} -o $@ tests/dialog-center-client.o -L${X11LIB} -lX11
 
+tests/fullscreen-rule-client: tests/fullscreen-rule-client.o
+	${CC} -o $@ tests/fullscreen-rule-client.o -L${X11LIB} -lX11
+
 tests/status-client: tests/status-client.o
 	${CC} -o $@ tests/status-client.o -L${X11LIB} -lX11
 
-check: rawm tests/config-reference-test tests/dialog-center-client tests/status-client
+check: rawm tests/config-reference-test tests/dialog-center-client tests/fullscreen-rule-client tests/status-client
 	./tests/config.sh ./rawm
 	./tests/config-reference-test
 	./tests/gaps.sh ./rawm
 	./tests/dialog-center.sh ./rawm ./tests/dialog-center-client
+	./tests/fullscreen-rule.sh ./rawm ./tests/fullscreen-rule-client
 	./tests/status.sh ./rawm ./tests/status-client
 	./tests/signals.sh ./rawm
 
