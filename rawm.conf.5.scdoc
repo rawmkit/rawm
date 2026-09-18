@@ -403,7 +403,7 @@ A rule accepts:
 	fullscreen on its assigned monitor after monitor, tags, floating state, and
 	other rule placement have been resolved. *false* explicitly suppresses an
 	application-requested initial fullscreen state. If omitted, the client's
-	initial *_NET_WM_STATE_FULLSCREEN* request is honored. This is an initial
+	initial *\_NET\_WM\_STATE\_FULLSCREEN* request is honored. This is an initial
 	placement policy only; later EWMH fullscreen requests and the
 	*toggle_fullscreen* action remain effective.
 
