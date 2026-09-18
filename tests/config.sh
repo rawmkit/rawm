@@ -139,6 +139,24 @@ rules = ({ class = "Broken"; fullscreen = "yes"; });
 EOC
 expect_fail "$tmp/fullscreen-rule-type.conf"
 
+cat >"$tmp/attention-rule.conf" <<'EOC'
+rules = (
+  { class = "BackgroundVideo"; tags = (8); attention = "urgent"; },
+  { class = "QuietVideo"; attention = "none"; }
+);
+EOC
+expect_ok "$tmp/attention-rule.conf"
+
+cat >"$tmp/attention-rule-value.conf" <<'EOC'
+rules = ({ class = "Broken"; attention = "loud"; });
+EOC
+expect_fail "$tmp/attention-rule-value.conf"
+
+cat >"$tmp/attention-rule-type.conf" <<'EOC'
+rules = ({ class = "Broken"; attention = true; });
+EOC
+expect_fail "$tmp/attention-rule-type.conf"
+
 cat >"$tmp/gap-range.conf" <<'EOC'
 layout = { gaps = { inner = -1; }; };
 EOC
