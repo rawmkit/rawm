@@ -398,6 +398,15 @@ A rule accepts:
 	precedence over *behavior.dialog_center*. If omitted, non-dialog clients are
 	not centered and dialogs use *behavior.dialog_center*.
 
+*fullscreen* = boolean
+	Set the matching client's initial fullscreen state. *true* starts the client
+	fullscreen on its assigned monitor after monitor, tags, floating state, and
+	other rule placement have been resolved. *false* explicitly suppresses an
+	application-requested initial fullscreen state. If omitted, the client's
+	initial *_NET_WM_STATE_FULLSCREEN* request is honored. This is an initial
+	placement policy only; later EWMH fullscreen requests and the
+	*toggle_fullscreen* action remain effective.
+
 *monitor* = integer
 	Zero-based destination monitor. *-1* means the current monitor and is the
 	default.
@@ -413,8 +422,9 @@ rules = (
     monitor = -1;
   },
   {
-    class = "Firefox";
-    tags = (2);
+    class = "mpv";
+    tags = (8);
+    fullscreen = true;
   }
 );
 ```
