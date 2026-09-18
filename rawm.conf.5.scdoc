@@ -407,6 +407,20 @@ A rule accepts:
 	placement policy only; later EWMH fullscreen requests and the
 	*toggle_fullscreen* action remain effective.
 
+*attention* = "none" | "urgent"
+	Initial attention policy for the matching client. *"urgent"* latches
+	rawm-owned attention only when the client's resolved tags are not visible on
+	its destination monitor. The hidden tag is then rendered with
+	*ui.colors.urgent* until the client is focused. *"none"* explicitly cancels
+	an attention policy established by an earlier matching rule. If omitted, the
+	rule does not modify attention policy.
+
+	Rule-owned attention is separate from the application's ICCCM
+	*XUrgencyHint*. rawm does not manufacture or overwrite that client-owned hint
+	when a rule requests attention. Application urgency and rawm-owned attention
+	are combined only for presentation and are both consumed when the client is
+	focused. This is an initial notification policy, not continuous enforcement.
+
 *monitor* = integer
 	Zero-based destination monitor. *-1* means the current monitor and is the
 	default.
@@ -425,6 +439,7 @@ rules = (
     class = "mpv";
     tags = (8);
     fullscreen = true;
+    attention = "urgent";
   }
 );
 ```
@@ -433,6 +448,10 @@ Rules are evaluated for transient clients as well as ordinary top-level
 clients. A transient first inherits its managed owner's monitor and tags, then
 matching rules may refine that placement policy. This allows per-application
 dialog rules to override the global dialog-centering mode.
+
+When several rules match, an explicitly present *attention* value overrides an
+earlier matching rule's attention policy. A client placed on a tag that is
+already visible on its destination monitor does not acquire rule-owned urgency.
 
 An explicitly present *rules* list replaces the inherited rule list.
 
