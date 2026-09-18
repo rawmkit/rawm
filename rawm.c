@@ -290,7 +290,7 @@ struct Client {
   int basew, baseh, incw, inch, maxw, maxh, minw, minh; /**< Size hints. */
   int bw, oldbw;        /**< Current and previous border width. */
   unsigned int tags;    /**< Tag mask indicating which tags the client is on. */
-  bool isfixed, isfloating, center_explicit, isurgent, neverfocus, oldstate, isfullscreen; /**< Various state flags. */
+  bool isfixed, isfloating, center_explicit, app_urgent, wm_urgent, neverfocus, oldstate, isfullscreen; /**< Various state flags. */
   RawmCenterMode center; /**< Placement policy for centered windows. */
   Client *next;         /**< Next client in the client list for the monitor. */
   Client *snext;        /**< Next client in the stack list for the monitor (focus history). */
@@ -400,6 +400,7 @@ static void           cleanup(void);
 static void           cleanupmon(Monitor *mon);
 static void           centerclient(Client *c, RawmCenterMode mode);
 static void           clearurgent(Client *c);
+static bool           clienturgent(const Client *c);
 static void           clientmessage(XEvent *e);
 static void           configure(Client *c);
 static void           configurenotify(XEvent *e);
@@ -1404,12 +1405,19 @@ cleanupmon(Monitor *mon)
   free(mon);
 }
 
+static bool
+clienturgent(const Client *c)
+{
+  return c->app_urgent || c->wm_urgent;
+}
+
 static void
 clearurgent(Client *c)
 {
   XWMHints *wmh;
 
-  c->isurgent = false;
+  c->app_urgent = false;
+  c->wm_urgent  = false;
 
   if (!(wmh = XGetWMHints(dpy, c->win)))
     return;
@@ -1792,7 +1800,7 @@ drawbar(Monitor *m)
   for (c = m->clients;  c;  c = c->next)
   {
     occ |= c->tags == 255 ? 0 : c->tags;
-    if (c->isurgent)
+    if (clienturgent(c))
       urg |= c->tags;
   }
 
@@ -2101,7 +2109,7 @@ focus(Client *c)
     if (c->mon != selmon)
       selmon = c->mon;
 
-    if (c->isurgent)
+    if (clienturgent(c))
       clearurgent(c);
 
 #ifdef PWKL
@@ -3447,7 +3455,7 @@ propertynotify(XEvent *e)
     case XA_WM_HINTS:
       updatewmhints(c);
       drawbars();
-      if (c->isurgent)
+      if (clienturgent(c))
       {
         /* Set urgent/warning border color (from config.colors[2]) */
         XSetWindowBorder(dpy, c->win, dc.colors[2][ColFG].pixel);
@@ -5126,9 +5134,10 @@ updatewmhints(Client *c)
     {
       wmh->flags &= ~XUrgencyHint;
       XSetWMHints(dpy, c->win, wmh);
+      c->app_urgent = false;
     }
     else
-      c->isurgent = (wmh->flags & XUrgencyHint) ? true : false;
+      c->app_urgent = (wmh->flags & XUrgencyHint) ? true : false;
 
     c->neverfocus = (wmh->flags & InputHint) ? (!wmh->input) : false;
     XFree(wmh);
