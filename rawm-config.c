@@ -976,7 +976,7 @@ static int
 parse_rules(FILE *err, RawmConfig *cfg, const config_setting_t *list)
 {
   static const char *const allowed[] = {
-    "class", "instance", "title", "role", "tags", "floating", "center", "monitor"
+    "class", "instance", "title", "role", "tags", "floating", "center", "fullscreen", "monitor"
   };
   RawmRule *rules;
   int i, n;
@@ -994,7 +994,7 @@ parse_rules(FILE *err, RawmConfig *cfg, const config_setting_t *list)
                         &rules[i].title, &rules[i].role };
     int j;
     rules[i].monitor = -1;
-    if (validate_members(err, entry, allowed, 8) < 0)
+    if (validate_members(err, entry, allowed, 9) < 0)
       goto fail;
     for (j = 0; j < 4; ++j) {
       s = config_setting_get_member(entry, names[j]);
@@ -1027,6 +1027,16 @@ parse_rules(FILE *err, RawmConfig *cfg, const config_setting_t *list)
         goto fail;
       }
       rules[i].has_center = true;
+    }
+
+    s = config_setting_get_member(entry, "fullscreen");
+    if (s) {
+      if (config_setting_type(s) != CONFIG_TYPE_BOOL) {
+        cfg_error(err, s, "%s", "fullscreen must be boolean");
+        goto fail;
+      }
+      rules[i].fullscreen = config_setting_get_bool(s) != 0;
+      rules[i].has_fullscreen = true;
     }
   }
   free_rules(cfg->rules, cfg->rule_count);

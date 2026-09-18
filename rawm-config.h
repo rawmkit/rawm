@@ -93,6 +93,8 @@ typedef struct {
   bool floating;
   bool has_center;
   RawmCenterMode center;
+  bool has_fullscreen;
+  bool fullscreen;
   int monitor;
 } RawmRule;
 
