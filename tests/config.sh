@@ -96,6 +96,31 @@ status = { separator = 1; };
 EOC
 expect_fail "$tmp/status-separator-type.conf"
 
+cat >"$tmp/size-hints.conf" <<'EOC'
+behavior = { size_hints = "never"; };
+EOC
+expect_ok "$tmp/size-hints.conf"
+cat >"$tmp/size-hints-floating.conf" <<'EOC'
+behavior = { size_hints = "floating"; };
+EOC
+expect_ok "$tmp/size-hints-floating.conf"
+cat >"$tmp/size-hints-always.conf" <<'EOC'
+behavior = { size_hints = "always"; };
+EOC
+expect_ok "$tmp/size-hints-always.conf"
+cat >"$tmp/size-hints-invalid.conf" <<'EOC'
+behavior = { size_hints = "sometimes"; };
+EOC
+expect_fail "$tmp/size-hints-invalid.conf"
+cat >"$tmp/size-hints-type.conf" <<'EOC'
+behavior = { size_hints = true; };
+EOC
+expect_fail "$tmp/size-hints-type.conf"
+cat >"$tmp/legacy-resize-hints.conf" <<'EOC'
+behavior = { resize_hints = false; };
+EOC
+expect_fail "$tmp/legacy-resize-hints.conf"
+
 cat >"$tmp/center-mode.conf" <<'EOC'
 behavior = { dialog_center = "monitor"; };
 rules = (

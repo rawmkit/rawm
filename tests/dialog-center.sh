@@ -60,7 +60,7 @@ ui = {
 };
 behavior = {
   dialog_center = "$mode";
-  resize_hints = false;
+  size_hints = "floating";
 };
 rules = (
   { class = "RawmCenterParent"; floating = true; }$override
