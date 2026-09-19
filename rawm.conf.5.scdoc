@@ -109,7 +109,7 @@ The reference namespace contains these scalar paths:
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
   *urgent*, or *error*, and _component_ is *border*, *foreground*, or
   *background*
-- *behavior.dialog_center*, *behavior.resize_hints*
+- *behavior.dialog_center*, *behavior.size_hints*
 - *layout.master_factor*, *layout.master_count*
 - *layout.gaps.inner*, *layout.gaps.outer*, *layout.gaps.smart*
 - *layout.symbols.<layout>*, where _layout_ is one of the stable layout names
@@ -261,8 +261,11 @@ The *behavior* group accepts:
 	usable managed owner exists, rawm falls back to monitor centering. Default
 	*"none"*.
 
-*resize_hints* = boolean
-	Respect application size hints while tiled. Default false.
+*size_hints* = "never" | "floating" | "always"
+	Controls when rawm applies ICCCM *WM_NORMAL_HINTS* while it owns a resize.
+	*"never"* ignores application size hints, *"floating"* applies them only
+	when geometry is free (a floating client or the floating layout), and
+	*"always"* also applies them to arranged layouts. Default *"floating"*.
 
 # LAYOUT
 
@@ -322,6 +325,22 @@ an excessively large value cannot produce negative layout dimensions.
 
 Configuration refers to layouts by these names, never by implementation array
 indexes.
+
+Arranged layouts and free geometry are separate authorities. When rawm first
+manages a client, it records the admitted client geometry (after monitor
+placement and any configured centering) as that client's free geometry. Tile,
+monocle, bstack, bstack_horizontal, and grid may replace the live rectangle
+without overwriting the saved free rectangle. Entering the *floating* layout,
+or toggling an individual client floating, restores the saved free geometry.
+Moves, resizes, and accepted client ConfigureRequest geometry while free update
+that saved rectangle. Fullscreen is temporary state and does not replace it.
+
+The *behavior.size_hints* policy is applied when rawm materializes a rectangle.
+With the default *"floating"* policy, a terminal's resize increments or another
+client's min/max/aspect hints may therefore adjust the restored free rectangle,
+while arranged layout geometry remains exact. Use *"never"* to restore the
+saved rectangle without applying those hints, or *"always"* to apply hints to
+arranged layouts as well.
 
 # TAGS
 
