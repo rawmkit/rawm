@@ -43,6 +43,7 @@ clean:
 	      tests/fullscreen-rule-client tests/fullscreen-rule-client.o \
 	      tests/attention-rule-client tests/attention-rule-client.o \
 	      tests/geometry-client tests/geometry-client.o \
+	      tests/tagbar-client tests/tagbar-client.o \
 	      tests/send-key tests/send-key.o \
 	      tests/status-client tests/status-client.o
 
@@ -61,13 +62,16 @@ tests/attention-rule-client: tests/attention-rule-client.o
 tests/geometry-client: tests/geometry-client.o
 	${CC} -o $@ tests/geometry-client.o -L${X11LIB} -lX11
 
+tests/tagbar-client: tests/tagbar-client.o
+	${CC} -o $@ tests/tagbar-client.o -L${X11LIB} -lX11
+
 tests/send-key: tests/send-key.o
 	${CC} -o $@ tests/send-key.o -L${X11LIB} -lX11 -ldl
 
 tests/status-client: tests/status-client.o
 	${CC} -o $@ tests/status-client.o -L${X11LIB} -lX11
 
-check: rawm tests/config-reference-test tests/dialog-center-client tests/fullscreen-rule-client tests/attention-rule-client tests/geometry-client tests/send-key tests/status-client
+check: rawm tests/config-reference-test tests/dialog-center-client tests/fullscreen-rule-client tests/attention-rule-client tests/geometry-client tests/tagbar-client tests/send-key tests/status-client
 	./tests/config.sh ./rawm
 	./tests/config-reference-test
 	./tests/gaps.sh ./rawm
@@ -76,6 +80,7 @@ check: rawm tests/config-reference-test tests/dialog-center-client tests/fullscr
 	./tests/attention-rule.sh ./rawm ./tests/attention-rule-client
 	./tests/geometry.sh ./rawm ./tests/geometry-client ./tests/send-key
 	./tests/placement.sh ./rawm ./tests/geometry-client
+	./tests/tagbar.sh ./rawm ./tests/tagbar-client
 	./tests/status.sh ./rawm ./tests/status-client
 	./tests/signals.sh ./rawm
 

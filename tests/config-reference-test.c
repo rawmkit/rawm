@@ -45,6 +45,7 @@ main(void)
     "           \"--placement=${behavior.floating_placement}\",\n"
     "           \"--cascade=${behavior.cascade_step}\",\n"
     "           \"--bar=${ui.bar.position}\",\n"
+    "           \"--tags=${ui.bar.tags.visibility}\",\n"
     "           \"--tray=${ui.systray.show}\",\n"
     "           \"${ui.colors.selected.background}\",\n"
     "           \"$${HOME}\");\n"
@@ -54,7 +55,7 @@ main(void)
     "ui = {\n"
     "  font = \"face-${ui.colors.selected.foreground}\";\n"
     "  opacity = 0.85;\n"
-    "  bar = { position = \"top\"; };\n"
+    "  bar = { position = \"top\"; tags = { visibility = \"all\"; }; };\n"
     "  systray = { show = false; };\n"
     "  colors = {\n"
     "    normal = { foreground = \"#111111\"; background = \"#222222\"; };\n"
@@ -70,7 +71,7 @@ main(void)
     "--outer=11", "--smart=true", "--status=true", "--protocol=rawm-v2",
     "--separator= :: ",
     "--center=parent", "--hints=always", "--placement=client",
-    "--cascade=48", "--bar=top", "--tray=false",
+    "--cascade=48", "--bar=top", "--tags=all", "--tray=false",
     "#222222", "${HOME}"
   };
   char path[] = "/tmp/rawm-config-reference.XXXXXX";

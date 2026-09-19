@@ -74,6 +74,28 @@ status = { enabled = false; protocol = "rawm-v2"; };
 EOC
 expect_ok "$tmp/status-disabled.conf"
 
+cat >"$tmp/tag-visibility-occupied.conf" <<'EOC'
+ui = { bar = { tags = { visibility = "occupied"; }; }; };
+EOC
+expect_ok "$tmp/tag-visibility-occupied.conf"
+
+cat >"$tmp/tag-visibility-all.conf" <<'EOC'
+ui = { bar = { tags = { visibility = "all"; }; }; };
+EOC
+expect_ok "$tmp/tag-visibility-all.conf"
+
+cat >"$tmp/tag-visibility-invalid.conf" <<'EOC'
+ui = { bar = { tags = { visibility = "smart"; }; }; };
+EOC
+expect_fail "$tmp/tag-visibility-invalid.conf"
+grep -q "invalid tag visibility" "$tmp/stderr" ||
+  fail "invalid tag visibility diagnostic missing"
+
+cat >"$tmp/tag-visibility-type.conf" <<'EOC'
+ui = { bar = { tags = { visibility = true; }; }; };
+EOC
+expect_fail "$tmp/tag-visibility-type.conf"
+
 cat >"$tmp/status-protocol.conf" <<'EOC'
 status = { enabled = true; protocol = "root-name"; };
 EOC
