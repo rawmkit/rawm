@@ -23,7 +23,7 @@ the following applied patches:
   * `_NET_CLIENT_LIST`
   * optional systray support (`-DSYSTRAY`)
   * dedicated `_RAWM_STATUS_V2` semantic root-property status protocol
-  * optional auto centering of floating popup windows
+  * explicit free-window placement with deterministic cascading
   * configurable inner/outer layout gaps with optional smart outer gaps
 
 Unlike original `dwm` version 6.0 this distribution depends on
@@ -75,7 +75,10 @@ for example, a dmenu command may use `${ui.font}` and
 
 Tiled layouts support runtime-configured inner and outer gaps through
 `layout.gaps`; smart gaps may suppress the outer margin when only one tiled
-client is visible.
+client is visible. Newly managed free normal windows use the explicit
+`behavior.floating_placement` policy; the default cascade offsets each new
+window from the selected visible free client while preserving user-authoritative
+ICCCM `USPosition`.
 
 Status input is explicit policy too. `status.protocol = "rawm-v2"` consumes
 semantic `id/state/text` records from the `_RAWM_STATUS_V2` root property.
