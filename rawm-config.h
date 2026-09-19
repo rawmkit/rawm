@@ -32,6 +32,11 @@ typedef enum {
 } RawmFloatingPlacement;
 
 typedef enum {
+  RAWM_TAG_VISIBILITY_OCCUPIED,
+  RAWM_TAG_VISIBILITY_ALL
+} RawmTagVisibility;
+
+typedef enum {
   RAWM_STATUS_PROTOCOL_V2
 } RawmStatusProtocol;
 
@@ -160,6 +165,7 @@ typedef struct {
   bool show_bar;
   bool top_bar;
   int bar_height;
+  RawmTagVisibility tag_visibility;
   bool show_systray;
   unsigned int systray_spacing;
 

@@ -1826,6 +1826,9 @@ tagbarvisible(const TagBarState *state, unsigned int tag)
 {
   unsigned int mask = 1u << tag;
 
+  if (config.tag_visibility == RAWM_TAG_VISIBILITY_ALL)
+    return true;
+
   return (state->occupied | state->viewed) & mask;
 }
 

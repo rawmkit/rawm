@@ -265,6 +265,34 @@ floating_placement_name(RawmFloatingPlacement mode)
            : NULL;
 }
 
+static const char *
+tag_visibility_name(RawmTagVisibility visibility)
+{
+  static const char *const names[] = { "occupied", "all" };
+
+  return visibility >= RAWM_TAG_VISIBILITY_OCCUPIED &&
+         visibility <= RAWM_TAG_VISIBILITY_ALL
+           ? names[visibility]
+           : NULL;
+}
+
+static int
+parse_tag_visibility(const char *name, RawmTagVisibility *visibility)
+{
+  int i;
+
+  for (i = RAWM_TAG_VISIBILITY_OCCUPIED; i <= RAWM_TAG_VISIBILITY_ALL; ++i)
+  {
+    if (!strcmp(name, tag_visibility_name((RawmTagVisibility)i)))
+    {
+      *visibility = (RawmTagVisibility)i;
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
 static int
 parse_floating_placement(const char *name, RawmFloatingPlacement *mode)
 {
@@ -453,6 +481,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->show_bar = true;
   cfg->top_bar = false;
   cfg->bar_height = 0;
+  cfg->tag_visibility = RAWM_TAG_VISIBILITY_OCCUPIED;
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
   cfg->status_enabled = true;
@@ -734,7 +763,10 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
   static const char *const allowed[] = {
     "font", "border_width", "snap", "opacity", "bar", "systray", "colors"
   };
-  static const char *const bar_allowed[] = { "show", "position", "height" };
+  static const char *const bar_allowed[] = {
+    "show", "position", "height", "tags"
+  };
+  static const char *const bar_tags_allowed[] = { "visibility" };
   static const char *const tray_allowed[] = { "show", "spacing" };
   static const char *const color_allowed[] = { "normal", "selected", "urgent", "error" };
   config_setting_t *group;
@@ -752,7 +784,7 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
   if (group) {
     config_setting_t *position;
     const char *value;
-    if (validate_members(err, group, bar_allowed, 3) < 0 ||
+    if (validate_members(err, group, bar_allowed, 4) < 0 ||
         read_bool(err, group, "show", &cfg->show_bar) < 0)
       return -1;
     h = cfg->bar_height;
@@ -770,6 +802,32 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
         cfg->top_bar = false;
       else
         return cfg_error(err, position, "invalid bar position '%s'", value);
+    }
+
+    {
+      config_setting_t *tags = config_setting_get_member(group, "tags");
+
+      if (tags)
+      {
+        config_setting_t *visibility;
+
+        if (validate_members(err, tags, bar_tags_allowed, 1) < 0)
+          return -1;
+
+        visibility = config_setting_get_member(tags, "visibility");
+        if (visibility)
+        {
+          if (config_setting_type(visibility) != CONFIG_TYPE_STRING)
+            return cfg_error(err, visibility,
+                             "bar.tags.visibility must be a string",
+                             "bar.tags.visibility");
+
+          value = config_setting_get_string(visibility);
+          if (parse_tag_visibility(value, &cfg->tag_visibility) < 0)
+            return cfg_error(err, visibility,
+                             "invalid tag visibility '%s'", value);
+        }
+      }
     }
   }
 
@@ -1684,6 +1742,8 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%s", cfg->top_bar ? "top" : "bottom");
   else if (!strcmp(path, "ui.bar.height"))
     snprintf(buf, buflen, "%d", cfg->bar_height);
+  else if (!strcmp(path, "ui.bar.tags.visibility"))
+    snprintf(buf, buflen, "%s", tag_visibility_name(cfg->tag_visibility));
   else if (!strcmp(path, "ui.systray.show"))
     snprintf(buf, buflen, "%s", cfg->show_systray ? "true" : "false");
   else if (!strcmp(path, "ui.systray.spacing"))
@@ -2100,6 +2160,10 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
   }
   if (!size_hints_mode_name(cfg->size_hints)) {
     fputs("rawm: configuration error: invalid size-hint policy\n", err);
+    return -1;
+  }
+  if (!tag_visibility_name(cfg->tag_visibility)) {
+    fputs("rawm: configuration error: invalid tag-visibility policy\n", err);
     return -1;
   }
   if (!floating_placement_name(cfg->floating_placement)) {
