@@ -27,6 +27,11 @@ typedef enum {
 } RawmSizeHintsMode;
 
 typedef enum {
+  RAWM_FLOATING_PLACEMENT_CLIENT,
+  RAWM_FLOATING_PLACEMENT_CASCADE
+} RawmFloatingPlacement;
+
+typedef enum {
   RAWM_STATUS_PROTOCOL_V2
 } RawmStatusProtocol;
 
@@ -164,6 +169,8 @@ typedef struct {
 
   RawmCenterMode dialog_center;
   RawmSizeHintsMode size_hints;
+  RawmFloatingPlacement floating_placement;
+  unsigned int cascade_step;
 
   double master_factor;
   int master_count;

@@ -283,6 +283,12 @@ typedef struct {
   int x, y, w, h;
 } RawmGeometry;
 
+typedef enum {
+  RAWM_POSITION_UNSPECIFIED,
+  RAWM_POSITION_PROGRAM,
+  RAWM_POSITION_USER
+} RawmPositionAuthority;
+
 /**
  * @brief Client structure to manage individual windows.
  */
@@ -296,8 +302,9 @@ struct Client {
   int basew, baseh, incw, inch, maxw, maxh, minw, minh; /**< Size hints. */
   int bw, oldbw;        /**< Current and previous border width. */
   unsigned int tags;    /**< Tag mask indicating which tags the client is on. */
-  bool isfixed, isfloating, center_explicit, app_urgent, wm_urgent, neverfocus, oldstate, isfullscreen; /**< Various state flags. */
+  bool isfixed, isfloating, isdialog, istransient, center_explicit, app_urgent, wm_urgent, neverfocus, oldstate, isfullscreen; /**< Various state flags. */
   RawmCenterMode center; /**< Placement policy for centered windows. */
+  RawmPositionAuthority position_authority; /**< Initial client position authority. */
   Client *next;         /**< Next client in the client list for the monitor. */
   Client *snext;        /**< Next client in the stack list for the monitor (focus history). */
   Monitor *mon;         /**< Pointer to the monitor the client is on. */
@@ -483,6 +490,7 @@ static void           resize(Client *c, int x, int y, int w, int h,
                              bool interact);
 static void           resizeclient(Client *c, int x, int y, int w, int h);
 static bool           clientisfree(const Client *c);
+static void           placefreeclient(Client *c);
 static void           savefreegeometry(Client *c);
 static void           restorefreegeometry(Client *c);
 static void           resizemouse(const Arg *arg);
@@ -3024,12 +3032,16 @@ manage(Window w, XWindowAttributes *wa)
                     );
   }
 
-  if (    XGetTransientForHint(dpy, w, &trans)
-      && (t = wintoclient(trans))
-      )
+  if (XGetTransientForHint(dpy, w, &trans))
   {
-    c->mon  = t->mon;
-    c->tags = t->tags;
+    c->istransient = true;
+    if ((t = wintoclient(trans)))
+    {
+      c->mon  = t->mon;
+      c->tags = t->tags;
+    }
+    else
+      c->mon = selmon;
   }
   else
     c->mon = selmon;
@@ -3076,8 +3088,13 @@ manage(Window w, XWindowAttributes *wa)
   updatesizehints(c);
   updatewmhints(c);
 
+  if (!c->isfloating)
+    c->isfloating = c->istransient || c->isfixed;
+
   if (c->center != RAWM_CENTER_NONE)
     centerclient(c, c->center);
+  else
+    placefreeclient(c);
 
   XSelectInput(dpy,
                w,
@@ -3087,10 +3104,6 @@ manage(Window w, XWindowAttributes *wa)
                | StructureNotifyMask
                );
   grabbuttons(c, false);
-
-  if (!c->isfloating)
-    c->isfloating = c->oldstate =
-      ((trans != None) || c->isfixed);
 
   savefreegeometry(c);
 
@@ -3540,6 +3553,57 @@ static bool
 clientisfree(const Client *c)
 {
   return c->isfloating || !c->mon->lt[c->mon->sellt]->arrange;
+}
+
+static void
+placefreeclient(Client *c)
+{
+  Client *reference;
+  Monitor *m;
+  int maxx, maxy, startx, starty, x, y;
+  int step;
+
+  if (!c || !clientisfree(c) || c->isfullscreen ||
+      config.floating_placement != RAWM_FLOATING_PLACEMENT_CASCADE ||
+      c->position_authority == RAWM_POSITION_USER ||
+      c->isdialog || c->istransient)
+    return;
+
+  m = c->mon;
+  step = (int)config.cascade_step;
+  maxx = m->wx + m->ww - WIDTH(c);
+  maxy = m->wy + m->wh - HEIGHT(c);
+  if (maxx < m->wx)
+    maxx = m->wx;
+  if (maxy < m->wy)
+    maxy = m->wy;
+
+  startx = MIN(m->wx + step, maxx);
+  starty = MIN(m->wy + step, maxy);
+  x = startx;
+  y = starty;
+
+  reference = m->sel;
+  if (reference && reference != c && reference->mon == m &&
+      ISVISIBLE(reference) && clientisfree(reference) &&
+      !reference->isfullscreen)
+  {
+    x = reference->x + step;
+    y = reference->y + step;
+    if (x > maxx || y > maxy)
+    {
+      x = startx;
+      y = starty;
+    }
+    else
+    {
+      x = MAX(m->wx, x);
+      y = MAX(m->wy, y);
+    }
+  }
+
+  c->x = x;
+  c->y = y;
 }
 
 static void
@@ -4853,6 +4917,13 @@ updatesizehints(Client *c)
     size.flags = PSize;
   }
 
+  if (size.flags & USPosition)
+    c->position_authority = RAWM_POSITION_USER;
+  else if (size.flags & PPosition)
+    c->position_authority = RAWM_POSITION_PROGRAM;
+  else
+    c->position_authority = RAWM_POSITION_UNSPECIFIED;
+
   if (size.flags & PBaseSize)
   {
     c->basew = size.base_width;
@@ -5129,7 +5200,8 @@ updatewindowtype(Client *c)
 {
   Atom wtype = getatomprop(c, netatom[NetWMWindowType]);
 
-  if (wtype == netatom[NetWMWindowTypeDialog])
+  c->isdialog = wtype == netatom[NetWMWindowTypeDialog];
+  if (c->isdialog)
   {
     if (!c->center_explicit)
       c->center = config.dialog_center;

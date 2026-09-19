@@ -254,6 +254,32 @@ size_hints_mode_name(RawmSizeHintsMode mode)
            : NULL;
 }
 
+static const char *
+floating_placement_name(RawmFloatingPlacement mode)
+{
+  static const char *const names[] = { "client", "cascade" };
+
+  return mode >= RAWM_FLOATING_PLACEMENT_CLIENT &&
+         mode <= RAWM_FLOATING_PLACEMENT_CASCADE
+           ? names[mode]
+           : NULL;
+}
+
+static int
+parse_floating_placement(const char *name, RawmFloatingPlacement *mode)
+{
+  int i;
+
+  for (i = RAWM_FLOATING_PLACEMENT_CLIENT;
+       i <= RAWM_FLOATING_PLACEMENT_CASCADE; ++i) {
+    if (!strcmp(name, floating_placement_name((RawmFloatingPlacement)i))) {
+      *mode = (RawmFloatingPlacement)i;
+      return 0;
+    }
+  }
+  return -1;
+}
+
 static int
 parse_size_hints_mode(const char *name, RawmSizeHintsMode *mode)
 {
@@ -434,6 +460,8 @@ rawm_config_init(RawmConfig *cfg)
   cfg->status_separator = xstrdup(" | ");
   cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->size_hints = RAWM_SIZE_HINTS_FLOATING;
+  cfg->floating_placement = RAWM_FLOATING_PLACEMENT_CASCADE;
+  cfg->cascade_step = 32;
   cfg->master_factor = 0.55;
   cfg->master_count = 1;
   cfg->gap_inner = 0;
@@ -799,11 +827,13 @@ parse_status(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 static int
 parse_behavior(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
-  static const char *const allowed[] = { "dialog_center", "size_hints" };
+  static const char *const allowed[] = {
+    "dialog_center", "size_hints", "floating_placement", "cascade_step"
+  };
   config_setting_t *setting;
   const char *value;
 
-  if (validate_members(err, group, allowed, 2) < 0)
+  if (validate_members(err, group, allowed, 4) < 0)
     return -1;
 
   setting = config_setting_get_member(group, "dialog_center");
@@ -823,6 +853,20 @@ parse_behavior(FILE *err, RawmConfig *cfg, const config_setting_t *group)
     if (parse_size_hints_mode(value, &cfg->size_hints) < 0)
       return cfg_error(err, setting, "invalid size_hints '%s'", value);
   }
+
+  setting = config_setting_get_member(group, "floating_placement");
+  if (setting) {
+    if (config_setting_type(setting) != CONFIG_TYPE_STRING)
+      return cfg_error(err, setting, "%s", "floating_placement must be a string");
+    value = config_setting_get_string(setting);
+    if (parse_floating_placement(value, &cfg->floating_placement) < 0)
+      return cfg_error(err, setting, "invalid floating_placement '%s'", value);
+  }
+
+  if (read_uint_range(err, group, "cascade_step", 1, 4096,
+                      &cfg->cascade_step) < 0)
+    return -1;
+
   return 0;
 }
 
@@ -1656,6 +1700,10 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%s", center_mode_name(cfg->dialog_center));
   else if (!strcmp(path, "behavior.size_hints"))
     snprintf(buf, buflen, "%s", size_hints_mode_name(cfg->size_hints));
+  else if (!strcmp(path, "behavior.floating_placement"))
+    snprintf(buf, buflen, "%s", floating_placement_name(cfg->floating_placement));
+  else if (!strcmp(path, "behavior.cascade_step"))
+    snprintf(buf, buflen, "%u", cfg->cascade_step);
   else if (!strcmp(path, "layout.master_factor"))
     snprintf(buf, buflen, "%.15g", cfg->master_factor);
   else if (!strcmp(path, "layout.master_count"))
@@ -2052,6 +2100,10 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
   }
   if (!size_hints_mode_name(cfg->size_hints)) {
     fputs("rawm: configuration error: invalid size-hint policy\n", err);
+    return -1;
+  }
+  if (!floating_placement_name(cfg->floating_placement)) {
+    fputs("rawm: configuration error: invalid floating-placement policy\n", err);
     return -1;
   }
   if (!status_separator_valid(cfg->status_separator)) {
