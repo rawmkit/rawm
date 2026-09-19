@@ -1859,14 +1859,6 @@ drawbar(Monitor *m)
                       : (state.urgent & 1u << i ? 2 : 0)];
 
     drawtext(m->tag_names[i], col, true);
-
-    drawsquare(   m == selmon
-               && selmon->sel
-               && selmon->sel->tags & 1 << i,
-               state.occupied & 1u << i,
-               col
-               );
-
     dc.x += dc.w;
   }
 
