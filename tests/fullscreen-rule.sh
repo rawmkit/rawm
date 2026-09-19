@@ -103,6 +103,7 @@ stop_case()
 # client keeps fullscreen geometry but showhide() moves it two widths left.
 cat >"$tmp/rawm.conf" <<'EOC'
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+behavior = { floating_placement = "client"; };
 tags = { default = ({ name = "one"; }, { name = "video"; }); };
 input = { keys = (); buttons = (); };
 rules = (
@@ -121,6 +122,7 @@ stop_case
 # state, original geometry, and configured border width.
 cat >"$tmp/rawm.conf" <<'EOC'
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+behavior = { floating_placement = "client"; };
 rules = (
   { class = "RawmFullscreenRule"; floating = true; fullscreen = true; }
 );
@@ -148,6 +150,7 @@ stop_case
 # without becoming a permanent policy.
 cat >"$tmp/rawm.conf" <<'EOC'
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+behavior = { floating_placement = "client"; };
 rules = (
   { class = "RawmFullscreenRule"; floating = true; fullscreen = false; }
 );

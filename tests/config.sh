@@ -121,6 +121,31 @@ behavior = { resize_hints = false; };
 EOC
 expect_fail "$tmp/legacy-resize-hints.conf"
 
+cat >"$tmp/floating-placement-cascade.conf" <<'EOC'
+behavior = { floating_placement = "cascade"; cascade_step = 24; };
+EOC
+expect_ok "$tmp/floating-placement-cascade.conf"
+cat >"$tmp/floating-placement-client.conf" <<'EOC'
+behavior = { floating_placement = "client"; };
+EOC
+expect_ok "$tmp/floating-placement-client.conf"
+cat >"$tmp/floating-placement-invalid.conf" <<'EOC'
+behavior = { floating_placement = "smart"; };
+EOC
+expect_fail "$tmp/floating-placement-invalid.conf"
+cat >"$tmp/floating-placement-type.conf" <<'EOC'
+behavior = { floating_placement = true; };
+EOC
+expect_fail "$tmp/floating-placement-type.conf"
+cat >"$tmp/cascade-step-zero.conf" <<'EOC'
+behavior = { cascade_step = 0; };
+EOC
+expect_fail "$tmp/cascade-step-zero.conf"
+cat >"$tmp/cascade-step-type.conf" <<'EOC'
+behavior = { cascade_step = "32"; };
+EOC
+expect_fail "$tmp/cascade-step-type.conf"
+
 cat >"$tmp/center-mode.conf" <<'EOC'
 behavior = { dialog_center = "monitor"; };
 rules = (

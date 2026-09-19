@@ -61,6 +61,7 @@ ui = {
 behavior = {
   dialog_center = "$mode";
   size_hints = "floating";
+  floating_placement = "client";
 };
 rules = (
   { class = "RawmCenterParent"; floating = true; }$override

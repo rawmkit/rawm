@@ -44,6 +44,7 @@ main(int argc, char **argv)
   const char *name = "rawm-geometry-client";
   int x = 40, y = 60, w = 323, h = 217;
   int incw = 1, inch = 1;
+  int position_flag = 0;
   long resize_after = 0;
   int rx = 0, ry = 0, rw = 0, rh = 0;
   int i;
@@ -59,6 +60,19 @@ main(int argc, char **argv)
     } else if (!strcmp(argv[i], "--increment") && i + 2 < argc) {
       incw = (int)number(argv[++i], "width increment");
       inch = (int)number(argv[++i], "height increment");
+    } else if (!strcmp(argv[i], "--position") && i + 1 < argc) {
+      const char *kind = argv[++i];
+      if (!strcmp(kind, "none"))
+        position_flag = 0;
+      else if (!strcmp(kind, "program"))
+        position_flag = PPosition;
+      else if (!strcmp(kind, "user"))
+        position_flag = USPosition;
+      else {
+        fprintf(stderr, "geometry-client: invalid position authority: %s\n",
+                kind);
+        return EXIT_FAILURE;
+      }
     } else if (!strcmp(argv[i], "--resize-after") && i + 5 < argc) {
       resize_after = number(argv[++i], "resize delay");
       rx = (int)number(argv[++i], "resize x");
@@ -68,7 +82,8 @@ main(int argc, char **argv)
     } else {
       fprintf(stderr,
               "usage: %s [--name NAME] [--geometry X Y W H] "
-              "[--increment W H] [--resize-after MS X Y W H]\n",
+              "[--increment W H] [--position none|program|user] "
+              "[--resize-after MS X Y W H]\n",
               argv[0]);
       return EXIT_FAILURE;
     }
@@ -95,7 +110,9 @@ main(int argc, char **argv)
   XSetClassHint(dpy, win, &class_hint);
 
   memset(&hints, 0, sizeof(hints));
-  hints.flags = PBaseSize | PMinSize | PResizeInc;
+  hints.flags = PBaseSize | PMinSize | PResizeInc | position_flag;
+  hints.x = x;
+  hints.y = y;
   hints.base_width = 0;
   hints.base_height = 0;
   hints.min_width = 1;

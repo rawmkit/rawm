@@ -42,13 +42,15 @@ main(void)
     "           \"--separator=${status.separator}\",\n"
     "           \"--center=${behavior.dialog_center}\",\n"
     "           \"--hints=${behavior.size_hints}\",\n"
+    "           \"--placement=${behavior.floating_placement}\",\n"
+    "           \"--cascade=${behavior.cascade_step}\",\n"
     "           \"--bar=${ui.bar.position}\",\n"
     "           \"--tray=${ui.systray.show}\",\n"
     "           \"${ui.colors.selected.background}\",\n"
     "           \"$${HOME}\");\n"
     "};\n"
     "status = { enabled = true; protocol = \"rawm-v2\"; separator = \" :: \"; };\n"
-    "behavior = { dialog_center = \"parent\"; size_hints = \"always\"; };\n"
+    "behavior = { dialog_center = \"parent\"; size_hints = \"always\"; floating_placement = \"client\"; cascade_step = 48; };\n"
     "ui = {\n"
     "  font = \"face-${ui.colors.selected.foreground}\";\n"
     "  opacity = 0.85;\n"
@@ -67,7 +69,8 @@ main(void)
     "probe", "-fn", "face-#111111", "--opacity=0.85", "--inner=7",
     "--outer=11", "--smart=true", "--status=true", "--protocol=rawm-v2",
     "--separator= :: ",
-    "--center=parent", "--hints=always", "--bar=top", "--tray=false",
+    "--center=parent", "--hints=always", "--placement=client",
+    "--cascade=48", "--bar=top", "--tray=false",
     "#222222", "${HOME}"
   };
   char path[] = "/tmp/rawm-config-reference.XXXXXX";

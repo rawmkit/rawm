@@ -75,6 +75,7 @@ check: rawm tests/config-reference-test tests/dialog-center-client tests/fullscr
 	./tests/fullscreen-rule.sh ./rawm ./tests/fullscreen-rule-client
 	./tests/attention-rule.sh ./rawm ./tests/attention-rule-client
 	./tests/geometry.sh ./rawm ./tests/geometry-client ./tests/send-key
+	./tests/placement.sh ./rawm ./tests/geometry-client
 	./tests/status.sh ./rawm ./tests/status-client
 	./tests/signals.sh ./rawm
 

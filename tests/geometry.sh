@@ -117,7 +117,7 @@ write_config()
   mode=$1
   cat >"$tmp/rawm.conf" <<EOC
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
-behavior = { size_hints = "$mode"; };
+behavior = { size_hints = "$mode"; floating_placement = "client"; };
 tags = { default = ({ name = "one"; layout = "tile"; }); };
 input = {
   keys = (
