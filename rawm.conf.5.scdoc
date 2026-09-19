@@ -103,7 +103,7 @@ commands = {
 The reference namespace contains these scalar paths:
 
 - *ui.font*, *ui.border_width*, *ui.snap*, *ui.opacity*
-- *ui.bar.show*, *ui.bar.position*, *ui.bar.height*
+- *ui.bar.show*, *ui.bar.position*, *ui.bar.height*, *ui.bar.tags.visibility*
 - *ui.systray.show*, *ui.systray.spacing*
 - *status.enabled*, *status.protocol*, *status.separator*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
@@ -158,6 +158,21 @@ The *ui.bar* group accepts:
 *height* = integer
 	Explicit bar height in pixels, 0..512. Zero derives the height from the
 	font. Default 0.
+
+The nested *ui.bar.tags* group accepts:
+
+*visibility* = "occupied" | "all"
+	Controls which configured tags have labels in the bar. *"occupied"* shows
+	tags containing normal clients plus every currently viewed tag; an all-tags
+	client does not by itself make every tag appear occupied. *"all"* always
+	shows every configured tag. Default *"occupied"*.
+
+Tag labels communicate state through the configured color schemes rather than
+through dwm-style occupancy squares. A viewed tag uses *ui.colors.selected*. A
+hidden urgent tag uses *ui.colors.urgent*. Other visible tags use
+*ui.colors.normal*. Viewed state takes precedence over urgency. Drawing and
+mouse hit testing consume the same visibility policy, so suppressed tags reserve
+no clickable space.
 
 ## System tray
 

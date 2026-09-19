@@ -9,7 +9,7 @@ the following applied patches:
   * `gapless grid`
   * `pertag`
   * `WM_WINDOW_ROLE`
-  * `hide vacant tags`
+  * runtime-configurable tag visibility (`occupied` or `all`)
   * `nametag`
   * multi-monitor configuration
   * `freetype2` support
@@ -79,6 +79,12 @@ client is visible. Newly managed free normal windows use the explicit
 `behavior.floating_placement` policy; the default cascade offsets each new
 window from the selected visible free client while preserving user-authoritative
 ICCCM `USPosition`.
+
+The bar uses semantic tag presentation rather than dwm occupancy markers.
+`ui.bar.tags.visibility = "occupied"` shows only occupied and currently viewed
+tags, while `"all"` keeps the complete configured tag row. Selected, urgent,
+and ordinary visible tags are distinguished by the existing color schemes, and
+rendering and mouse hit testing share the same visibility state.
 
 Status input is explicit policy too. `status.protocol = "rawm-v2"` consumes
 semantic `id/state/text` records from the `_RAWM_STATUS_V2` root property.
