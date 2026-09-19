@@ -1059,10 +1059,6 @@ arrangemon(Monitor *m)
     }
   }
 
-  for (c = m->clients; c; c = c->next)
-    if (ISVISIBLE(c) && !c->isfullscreen && clientisfree(c))
-      restorefreegeometry(c);
-
   if (m->lt[m->sellt]->arrange)
     m->lt[m->sellt]->arrange(m);
 
@@ -3082,8 +3078,6 @@ manage(Window w, XWindowAttributes *wa)
 
   if (c->center != RAWM_CENTER_NONE)
     centerclient(c, c->center);
-  else if (c->mon->lt[c->mon->sellt]->arrange == NULL)
-    centerclient(c, RAWM_CENTER_MONITOR);
 
   XSelectInput(dpy,
                w,
