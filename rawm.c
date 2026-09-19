@@ -1023,44 +1023,37 @@ arrange(Monitor *m)
 static void
 arrangemon(Monitor *m)
 {
-  int n = 0;
+  unsigned int n = 0;
   Client *c;
+  unsigned int border;
+
   strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, sizeof m->ltsymbol);
 
-  for (n = 0, c = nexttiled(m->clients);
-       c;
-       c = nexttiled(c->next), n++)
-    /* NOTHING */;
+  for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
+    n++;
 
-  if (  (   m->lt[m->sellt]->arrange != monocle
-         && n > 1 )
-      || !m->lt[m->sellt]->arrange
-      )
+  for (c = m->clients; c; c = c->next)
   {
-    for (c = m->clients;  c;  c = c->next)
-    {
-      if (   ISVISIBLE(c)
-          && (   !m->lt[m->sellt]->arrange
-              || !c->isfloating )
-          && (c->bw != config.border_width)
-          )
-      {
-        c->oldbw = c->bw;
-        c->bw    = config.border_width;
-        resizeclient(c,
-                     m->wx,
-                     m->wy,
-                     m->ww - (2 * c->bw),
-                     m->wh - (2 * c->bw)
-                     );
-      }
-    }
+    if (!ISVISIBLE(c) || c->isfullscreen)
+      continue;
 
-    if (m->lt[m->sellt]->arrange)
-        m->lt[m->sellt]->arrange(m);
+    border = config.border_width;
+    if (   m->lt[m->sellt]->arrange
+        && !c->isfloating
+        && (m->lt[m->sellt]->arrange == monocle || n == 1))
+      border = 0;
+
+    if (c->bw != (int)border)
+    {
+      c->oldbw = c->bw;
+      c->bw = (int)border;
+      XSetWindowBorderWidth(dpy, c->win, border);
+      configure(c);
+    }
   }
-  else
-    monocle(m);
+
+  if (m->lt[m->sellt]->arrange)
+    m->lt[m->sellt]->arrange(m);
 
   restack(m);
 }
@@ -1603,7 +1596,7 @@ configurerequest(XEvent *e)
   {
     if (ev->value_mask & CWBorderWidth)
       c->bw = ev->border_width;
-    else if (c->isfloating || !selmon->lt[selmon->sellt]->arrange)
+    else if (c->isfloating || !c->mon->lt[c->mon->sellt]->arrange)
     {
       m = c->mon;
 
@@ -3220,13 +3213,6 @@ monocle(Monitor *m)
            false
            );
 
-    if (c->bw)
-    {
-      c->oldbw = c->bw;
-      c->bw    = 0;
-
-      resizeclient(c, area.x, area.y, area.w, area.h);
-    }
   }
 }
 
@@ -3565,27 +3551,13 @@ resize(Client *c, int x, int y, int w, int h, bool interact)
 static void
 resizeclient(Client *c, int x, int y, int w, int h)
 {
-  XWindowChanges  wc;
-  Client         *nbc;
-  unsigned int    n;
+  XWindowChanges wc;
 
   c->oldx = c->x;  c->x = wc.x      = x;
   c->oldy = c->y;  c->y = wc.y      = y;
   c->oldw = c->w;  c->w = wc.width  = w;
   c->oldh = c->h;  c->h = wc.height = h;
-
-  /* Get number of clients for the selected monitor */
-  for (n = 0, nbc = nexttiled(selmon->clients);
-       nbc;
-       nbc = nexttiled(nbc->next), n++)
-    /* NOTHING */;
-
-  /* Remove border if layout is monocle or only one client present */
-  if (   selmon->lt[selmon->sellt]->arrange == monocle
-      || n == 1 )
-    wc.border_width = 0;
-  else
-    wc.border_width = c->bw;
+  wc.border_width = c->bw;
 
   XConfigureWindow(dpy,
                    c->win,
