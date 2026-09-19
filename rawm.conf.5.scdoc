@@ -326,20 +326,28 @@ an excessively large value cannot produce negative layout dimensions.
 Configuration refers to layouts by these names, never by implementation array
 indexes.
 
-Arranged layouts and free geometry are separate authorities. When rawm first
-manages a client, it records the admitted client geometry (after monitor
-placement and any configured centering) as that client's free geometry. Tile,
-monocle, bstack, bstack_horizontal, and grid may replace the live rectangle
-without overwriting the saved free rectangle. Entering the *floating* layout,
-or toggling an individual client floating, restores the saved free geometry.
-Moves, resizes, and accepted client ConfigureRequest geometry while free update
-that saved rectangle. Fullscreen is temporary state and does not replace it.
+Arranged layouts and per-client free geometry are separate authorities. When
+rawm first manages a client, it records the admitted client geometry (after
+monitor placement and any configured centering) as that client's saved free
+geometry. Tile, monocle, bstack, bstack_horizontal, and grid may replace the
+live rectangle without overwriting that saved rectangle.
+
+Switching the monitor to the *floating* layout releases the current live
+rectangles in place. It does not restore historical per-client geometry and does
+not move or resize clients merely because the arranger was removed. Moves,
+resizes, and accepted client ConfigureRequest geometry while the monitor is in
+the floating layout update the client's saved free geometry.
+
+Toggling an individual client floating is a different operation: that explicit
+client transition restores the client's saved free geometry. Fullscreen is
+temporary state and does not replace the saved free rectangle.
 
 The *behavior.size_hints* policy is applied when rawm materializes a rectangle.
 With the default *"floating"* policy, a terminal's resize increments or another
-client's min/max/aspect hints may therefore adjust the restored free rectangle,
-while arranged layout geometry remains exact. Use *"never"* to restore the
-saved rectangle without applying those hints, or *"always"* to apply hints to
+client's min/max/aspect hints may therefore adjust an explicit per-client
+floating restore or a later free resize, while changing the monitor layout to
+*floating* preserves the existing rectangle exactly. Use *"never"* to ignore
+those hints for rawm-owned free resizing, or *"always"* to apply hints to
 arranged layouts as well.
 
 # TAGS
