@@ -122,17 +122,18 @@ tags = { default = ({ name = "one"; layout = "tile"; }); };
 input = {
   keys = (
     { key = "F1"; action = "set_layout"; layout = "floating"; },
-    { key = "F2"; action = "set_layout"; layout = "tile"; }
+    { key = "F2"; action = "set_layout"; layout = "tile"; },
+    { key = "F3"; action = "toggle_floating"; }
   );
   buttons = ();
 };
 EOC
 }
 
-# In the default floating-only hint policy, arranged geometry does not destroy
-# each client's admitted free rectangle.  Entering floating mode restores it
-# and applies WM_NORMAL_HINTS.  A later free resize becomes the next restore
-# point after another trip through an arranged layout.
+# Switching the monitor to the floating layout releases the current arranged
+# rectangles in place. It must not teleport clients back to historical free
+# geometry or apply floating-only size hints merely because the arranger was
+# removed. Accepted geometry changes while free still become saved free state.
 write_config floating
 start_wm
 "$client" --name rawm-geometry-a --geometry 40 60 323 217 --increment 10 10 \
@@ -147,13 +148,13 @@ sleep 0.15
 set -- $(geometry "$a_win")
 [ "$1" -ne 40 ] || [ "$2" -ne 60 ] || [ "$3" -ne 323 ] || [ "$4" -ne 217 ] ||
   fail "client A was not arranged while tiled: $*"
+a_tiled="$1 $2 $3 $4 $5"
+b_tiled=$(geometry "$b_win")
 press F1
-set -- $(geometry "$a_win")
-[ "$1" -eq 40 ] && [ "$2" -eq 60 ] && [ "$3" -eq 320 ] && [ "$4" -eq 210 ] && [ "$5" -eq 2 ] ||
-  fail "floating restore with hints was $*; expected 40 60 320 210 2"
-set -- $(geometry "$b_win")
-[ "$1" -eq 420 ] && [ "$2" -eq 80 ] && [ "$3" -eq 281 ] && [ "$4" -eq 183 ] && [ "$5" -eq 2 ] ||
-  fail "second floating restore was $*; expected 420 80 281 183 2"
+[ "$(geometry "$a_win")" = "$a_tiled" ] ||
+  fail "floating layout moved client A: $(geometry "$a_win"); expected $a_tiled"
+[ "$(geometry "$b_win")" = "$b_tiled" ] ||
+  fail "floating layout moved client B: $(geometry "$b_win"); expected $b_tiled"
 n=0
 while [ "$(wc -l <"$tmp/a.out")" -lt 2 ]; do
   n=$((n + 1))
@@ -165,17 +166,32 @@ set -- $(geometry "$a_win")
 [ "$1" -eq 111 ] && [ "$2" -eq 123 ] && [ "$3" -eq 350 ] && [ "$4" -eq 240 ] && [ "$5" -eq 2 ] ||
   fail "free ConfigureRequest was $*; expected 111 123 350 240 2"
 press F2
-set -- $(geometry "$a_win")
-[ "$1" -ne 111 ] || [ "$2" -ne 123 ] || [ "$3" -ne 350 ] || [ "$4" -ne 240 ] ||
-  fail "client A remained in free geometry after returning to tile: $*"
+a_tiled_again=$(geometry "$a_win")
+[ "$a_tiled_again" != "111 123 350 240 2" ] ||
+  fail "client A remained in free geometry after returning to tile: $a_tiled_again"
 press F1
-set -- $(geometry "$a_win")
-[ "$1" -eq 111 ] && [ "$2" -eq 123 ] && [ "$3" -eq 350 ] && [ "$4" -eq 240 ] && [ "$5" -eq 2 ] ||
-  fail "updated free geometry was not restored: $*"
+[ "$(geometry "$a_win")" = "$a_tiled_again" ] ||
+  fail "second floating layout transition restored historical geometry: $(geometry "$a_win"); expected $a_tiled_again"
 stop_case
 
-# "never" makes the distinction explicit: the same saved free geometry is
-# restored byte-for-byte rather than being rounded to application increments.
+# Toggling an individual client floating is different: it restores that
+# client's saved free rectangle. The floating-only hint policy is applied when
+# materializing that explicit client transition.
+write_config floating
+start_wm
+"$client" --name rawm-geometry-toggle --geometry 40 60 323 217 --increment 10 10 \
+  >"$tmp/a.out" 2>"$tmp/a.err" &
+a_pid=$!
+a_win=$(wait_window "$tmp/a.out")
+sleep 0.12
+press F3
+set -- $(geometry "$a_win")
+[ "$1" -eq 40 ] && [ "$2" -eq 60 ] && [ "$3" -eq 320 ] && [ "$4" -eq 210 ] && [ "$5" -eq 2 ] ||
+  fail "individual floating restore with hints was $*; expected 40 60 320 210 2"
+stop_case
+
+# "never" restores the same per-client free geometry byte-for-byte rather
+# than rounding it to application increments.
 write_config never
 start_wm
 "$client" --name rawm-geometry-never --geometry 40 60 323 217 --increment 10 10 \
@@ -183,10 +199,25 @@ start_wm
 a_pid=$!
 a_win=$(wait_window "$tmp/a.out")
 sleep 0.12
-press F1
+press F3
 set -- $(geometry "$a_win")
 [ "$1" -eq 40 ] && [ "$2" -eq 60 ] && [ "$3" -eq 323 ] && [ "$4" -eq 217 ] && [ "$5" -eq 2 ] ||
   fail "size_hints=never restore was $*; expected 40 60 323 217 2"
+stop_case
+
+# A normal client created while the monitor is already in floating layout keeps
+# its admitted position unless an explicit centering policy says otherwise.
+write_config floating
+start_wm
+press F1
+"$client" --name rawm-geometry-floating-manage --geometry 73 91 321 207 --increment 1 1 \
+  >"$tmp/a.out" 2>"$tmp/a.err" &
+a_pid=$!
+a_win=$(wait_window "$tmp/a.out")
+sleep 0.12
+set -- $(geometry "$a_win")
+[ "$1" -eq 73 ] && [ "$2" -eq 91 ] && [ "$3" -eq 321 ] && [ "$4" -eq 207 ] && [ "$5" -eq 2 ] ||
+  fail "floating-layout manage implicitly centered/resized client: $*"
 stop_case
 
 echo "geometry tests: ok"
