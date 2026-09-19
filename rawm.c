@@ -208,6 +208,12 @@ typedef struct {
   size_t count;
 } StatusData;
 
+typedef struct {
+  unsigned int occupied;
+  unsigned int urgent;
+  unsigned int viewed;
+} TagBarState;
+
 /** EWMH atoms used for window properties and communication. */
 enum {
   NetSupported,             /**< _NET_SUPPORTED atom. */
@@ -431,6 +437,8 @@ static Monitor       *dirtomon(int dir);
 static void           drawbar(Monitor *m);
 static void           drawbars(void);
 static void           drawstatus(int x, int right);
+static TagBarState    tagbarstate(const Monitor *m);
+static bool           tagbarvisible(const TagBarState *state, unsigned int tag);
 static void           drawsquare(bool filled, bool empty,
                                  XftColor col[ColLast]);
 static void           drawtext(const char *text, XftColor col[ColLast],
@@ -1277,16 +1285,13 @@ buttonpress(XEvent *e)
 
   if (ev->window == selmon->barwin)
   {
-    unsigned int i = 0, occ = 0;
+    TagBarState state = tagbarstate(m);
+    unsigned int i = 0;
     int          x = 0;
-
-    for (c = m->clients; c; c = c->next)
-      occ |= (c->tags == 255) ? 0 : c->tags;
 
     do
     {
-      /* do not reserve space for vacant tags */
-      if (!(occ & 1 << i || m->tagset[m->seltags] & 1 << i))
+      if (!tagbarvisible(&state, i))
         continue;
 
       x += TEXTW(m->tag_names[i]);
@@ -1794,46 +1799,68 @@ dirtomon(int dir)
   return m;
 }
 
+static TagBarState
+tagbarstate(const Monitor *m)
+{
+  TagBarState state = {
+    .viewed = m->tagset[m->seltags] & TAGMASK
+  };
+  const Client *c;
+
+  for (c = m->clients; c; c = c->next)
+  {
+    unsigned int tags = c->tags & TAGMASK;
+
+    /* An all-tags client does not make every tag appear occupied. */
+    if (tags != TAGMASK)
+      state.occupied |= tags;
+    if (clienturgent(c))
+      state.urgent |= tags;
+  }
+
+  return state;
+}
+
+static bool
+tagbarvisible(const TagBarState *state, unsigned int tag)
+{
+  unsigned int mask = 1u << tag;
+
+  return (state->occupied | state->viewed) & mask;
+}
+
 static void
 drawbar(Monitor *m)
 {
-  int           x, title_right;
-  unsigned int  i, occ = 0, urg = 0;
-  XftColor     *col;
-  Client       *c;
+  TagBarState  state = tagbarstate(m);
+  int          x, title_right;
+  unsigned int i;
+  XftColor    *col;
+  Client      *c;
 
 #ifdef SYSTRAY
   resizebarwin(m);
 #endif /* SYSTRAY */
 
-  for (c = m->clients;  c;  c = c->next)
-  {
-    occ |= c->tags == 255 ? 0 : c->tags;
-    if (clienturgent(c))
-      urg |= c->tags;
-  }
-
   dc.x = 0;
 
   for (i = 0; i < config.tag_count; i++)
   {
-    /* do not draw vacant tags */
-    if (!(occ & 1 << i || m->tagset[m->seltags] & 1 << i))
+    if (!tagbarvisible(&state, i))
       continue;
 
     dc.w = TEXTW(m->tag_names[i]);
 
-    col = dc.colors[ (  m->tagset[ m->seltags ] & 1 << i
+    col = dc.colors[(state.viewed & 1u << i)
                       ? 1
-                      : (urg & 1 << i ? 2 : 0)
-                      ) ];
+                      : (state.urgent & 1u << i ? 2 : 0)];
 
     drawtext(m->tag_names[i], col, true);
 
     drawsquare(   m == selmon
                && selmon->sel
                && selmon->sel->tags & 1 << i,
-               occ & 1 << i,
+               state.occupied & 1u << i,
                col
                );
 
