@@ -21,6 +21,12 @@ typedef enum {
 } RawmAttentionMode;
 
 typedef enum {
+  RAWM_SIZE_HINTS_NEVER,
+  RAWM_SIZE_HINTS_FLOATING,
+  RAWM_SIZE_HINTS_ALWAYS
+} RawmSizeHintsMode;
+
+typedef enum {
   RAWM_STATUS_PROTOCOL_V2
 } RawmStatusProtocol;
 
@@ -157,7 +163,7 @@ typedef struct {
   char *status_separator;
 
   RawmCenterMode dialog_center;
-  bool resize_hints;
+  RawmSizeHintsMode size_hints;
 
   double master_factor;
   int master_count;

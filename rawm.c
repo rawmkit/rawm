@@ -963,10 +963,8 @@ applysizehints(Client *c, int *x, int *y, int *w, int *h,
   if (*w < bh)
     *w = bh;
 
-  if (    config.resize_hints
-      ||  c->isfloating
-      || !c->mon->lt[c->mon->sellt]->arrange
-      )
+  if (   config.size_hints == RAWM_SIZE_HINTS_ALWAYS
+      || (config.size_hints == RAWM_SIZE_HINTS_FLOATING && clientisfree(c)))
   {
     /* see last two sentences in ICCCM 4.1.2.3 */
     bool baseismin = c->basew == c->minw && c->baseh == c->minh;
@@ -1611,43 +1609,30 @@ configurerequest(XEvent *e)
       c->bw = ev->border_width;
     else if (c->isfloating || !c->mon->lt[c->mon->sellt]->arrange)
     {
+      int x = c->x;
+      int y = c->y;
+      int w = c->w;
+      int h = c->h;
+
       m = c->mon;
-
       if (ev->value_mask & CWX)
-      {
-        c->oldx  = c->x;
-        c->x     = m->mx + ev->x;
-      }
+        x = ev->x;
       if (ev->value_mask & CWY)
-      {
-        c->oldy  = c->y;
-        c->y     = m->my + ev->y;
-      }
+        y = ev->y;
       if (ev->value_mask & CWWidth)
-      {
-        c->oldw  = c->w;
-        c->w     = ev->width;
-      }
+        w = ev->width;
       if (ev->value_mask & CWHeight)
-      {
-        c->oldh  = c->h;
-        c->h     = ev->height;
-      }
+        h = ev->height;
 
-      if ((c->x + c->w) > m->mx + m->mw && c->isfloating)
-        c->x = m->mx + (m->mw / 2 - WIDTH(c)  / 2); /* center in x direction */
+      if ((x + w) > m->mx + m->mw && c->isfloating)
+        x = m->mx + (m->mw / 2 - (w + 2 * c->bw) / 2);
+      if ((y + h) > m->my + m->mh && c->isfloating)
+        y = m->my + (m->mh / 2 - (h + 2 * c->bw) / 2);
 
-      if ((c->y + c->h) > m->my + m->mh && c->isfloating)
-        c->y = m->my + (m->mh / 2 - HEIGHT(c) / 2); /* center in y direction */
-
-      if (    (ev->value_mask & (CWX     | CWY))
-          && !(ev->value_mask & (CWWidth | CWHeight))
-          )
+      resize(c, x, y, w, h, false);
+      if (    (ev->value_mask & (CWX | CWY))
+          && !(ev->value_mask & (CWWidth | CWHeight)))
         configure(c);
-
-      if (ISVISIBLE(c))
-        XMoveResizeWindow(dpy, c->win, c->x, c->y, c->w, c->h);
-      savefreegeometry(c);
     }
     else
       configure(c);

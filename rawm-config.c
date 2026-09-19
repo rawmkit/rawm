@@ -244,6 +244,30 @@ attention_mode_name(RawmAttentionMode mode)
            : NULL;
 }
 
+static const char *
+size_hints_mode_name(RawmSizeHintsMode mode)
+{
+  static const char *const names[] = { "never", "floating", "always" };
+
+  return mode >= RAWM_SIZE_HINTS_NEVER && mode <= RAWM_SIZE_HINTS_ALWAYS
+           ? names[mode]
+           : NULL;
+}
+
+static int
+parse_size_hints_mode(const char *name, RawmSizeHintsMode *mode)
+{
+  int i;
+
+  for (i = RAWM_SIZE_HINTS_NEVER; i <= RAWM_SIZE_HINTS_ALWAYS; ++i) {
+    if (!strcmp(name, size_hints_mode_name((RawmSizeHintsMode)i))) {
+      *mode = (RawmSizeHintsMode)i;
+      return 0;
+    }
+  }
+  return -1;
+}
+
 static int
 parse_attention_mode(const char *name, RawmAttentionMode *mode)
 {
@@ -409,7 +433,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->status_protocol = RAWM_STATUS_PROTOCOL_V2;
   cfg->status_separator = xstrdup(" | ");
   cfg->dialog_center = RAWM_CENTER_NONE;
-  cfg->resize_hints = false;
+  cfg->size_hints = RAWM_SIZE_HINTS_FLOATING;
   cfg->master_factor = 0.55;
   cfg->master_count = 1;
   cfg->gap_inner = 0;
@@ -775,23 +799,30 @@ parse_status(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 static int
 parse_behavior(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
-  static const char *const allowed[] = { "dialog_center", "resize_hints" };
+  static const char *const allowed[] = { "dialog_center", "size_hints" };
   config_setting_t *setting;
   const char *value;
 
-  if (validate_members(err, group, allowed, 2) < 0 ||
-      read_bool(err, group, "resize_hints", &cfg->resize_hints) < 0)
+  if (validate_members(err, group, allowed, 2) < 0)
     return -1;
 
   setting = config_setting_get_member(group, "dialog_center");
-  if (!setting)
-    return 0;
-  if (config_setting_type(setting) != CONFIG_TYPE_STRING)
-    return cfg_error(err, setting, "%s", "dialog_center must be a string");
+  if (setting) {
+    if (config_setting_type(setting) != CONFIG_TYPE_STRING)
+      return cfg_error(err, setting, "%s", "dialog_center must be a string");
+    value = config_setting_get_string(setting);
+    if (parse_center_mode(value, &cfg->dialog_center) < 0)
+      return cfg_error(err, setting, "invalid dialog_center '%s'", value);
+  }
 
-  value = config_setting_get_string(setting);
-  if (parse_center_mode(value, &cfg->dialog_center) < 0)
-    return cfg_error(err, setting, "invalid dialog_center '%s'", value);
+  setting = config_setting_get_member(group, "size_hints");
+  if (setting) {
+    if (config_setting_type(setting) != CONFIG_TYPE_STRING)
+      return cfg_error(err, setting, "%s", "size_hints must be a string");
+    value = config_setting_get_string(setting);
+    if (parse_size_hints_mode(value, &cfg->size_hints) < 0)
+      return cfg_error(err, setting, "invalid size_hints '%s'", value);
+  }
   return 0;
 }
 
@@ -1623,8 +1654,8 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
   }
   else if (!strcmp(path, "behavior.dialog_center"))
     snprintf(buf, buflen, "%s", center_mode_name(cfg->dialog_center));
-  else if (!strcmp(path, "behavior.resize_hints"))
-    snprintf(buf, buflen, "%s", cfg->resize_hints ? "true" : "false");
+  else if (!strcmp(path, "behavior.size_hints"))
+    snprintf(buf, buflen, "%s", size_hints_mode_name(cfg->size_hints));
   else if (!strcmp(path, "layout.master_factor"))
     snprintf(buf, buflen, "%.15g", cfg->master_factor);
   else if (!strcmp(path, "layout.master_count"))
@@ -2017,6 +2048,10 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
   }
   if (!status_protocol_name(cfg->status_protocol)) {
     fputs("rawm: configuration error: invalid status protocol\n", err);
+    return -1;
+  }
+  if (!size_hints_mode_name(cfg->size_hints)) {
+    fputs("rawm: configuration error: invalid size-hint policy\n", err);
     return -1;
   }
   if (!status_separator_valid(cfg->status_separator)) {
