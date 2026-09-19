@@ -279,6 +279,10 @@ typedef struct {
 typedef struct Monitor  Monitor;
 typedef struct Client   Client;
 
+typedef struct {
+  int x, y, w, h;
+} RawmGeometry;
+
 /**
  * @brief Client structure to manage individual windows.
  */
@@ -287,6 +291,8 @@ struct Client {
   float mina, maxa;     /**< Min/max aspect ratios from size hints. */
   int x, y, w, h;       /**< Current geometry (position and size). */
   int oldx, oldy, oldw, oldh; /**< Previous geometry. */
+  RawmGeometry freegeom; /**< Last geometry owned outside an arranger. */
+  bool freegeom_valid;   /**< Whether freegeom contains admitted state. */
   int basew, baseh, incw, inch, maxw, maxh, minw, minh; /**< Size hints. */
   int bw, oldbw;        /**< Current and previous border width. */
   unsigned int tags;    /**< Tag mask indicating which tags the client is on. */
@@ -476,6 +482,9 @@ static Monitor       *recttomon(int x, int y, int w, int h);
 static void           resize(Client *c, int x, int y, int w, int h,
                              bool interact);
 static void           resizeclient(Client *c, int x, int y, int w, int h);
+static bool           clientisfree(const Client *c);
+static void           savefreegeometry(Client *c);
+static void           restorefreegeometry(Client *c);
 static void           resizemouse(const Arg *arg);
 static void           restack(Monitor *m);
 static void           run(void);
@@ -1051,6 +1060,10 @@ arrangemon(Monitor *m)
       configure(c);
     }
   }
+
+  for (c = m->clients; c; c = c->next)
+    if (ISVISIBLE(c) && !c->isfullscreen && clientisfree(c))
+      restorefreegeometry(c);
 
   if (m->lt[m->sellt]->arrange)
     m->lt[m->sellt]->arrange(m);
@@ -1634,6 +1647,7 @@ configurerequest(XEvent *e)
 
       if (ISVISIBLE(c))
         XMoveResizeWindow(dpy, c->win, c->x, c->y, c->w, c->h);
+      savefreegeometry(c);
     }
     else
       configure(c);
@@ -3099,6 +3113,8 @@ manage(Window w, XWindowAttributes *wa)
     c->isfloating = c->oldstate =
       ((trans != None) || c->isfixed);
 
+  savefreegeometry(c);
+
   if (has_rule_fullscreen && !initial_fullscreen)
     setatomlistmember(c->win, netatom[NetWMState], netatom[NetWMFullscreen],
                       false);
@@ -3541,11 +3557,48 @@ removesystrayicon(Client *i)
 }
 #endif /* SYSTRAY */
 
+static bool
+clientisfree(const Client *c)
+{
+  return c->isfloating || !c->mon->lt[c->mon->sellt]->arrange;
+}
+
+static void
+savefreegeometry(Client *c)
+{
+  if (!c || c->isfullscreen)
+    return;
+
+  c->freegeom.x = c->x;
+  c->freegeom.y = c->y;
+  c->freegeom.w = c->w;
+  c->freegeom.h = c->h;
+  c->freegeom_valid = true;
+}
+
+static void
+restorefreegeometry(Client *c)
+{
+  if (!c || c->isfullscreen || !c->freegeom_valid)
+    return;
+
+  resize(c,
+         c->freegeom.x,
+         c->freegeom.y,
+         c->freegeom.w,
+         c->freegeom.h,
+         false);
+}
+
 static void
 resize(Client *c, int x, int y, int w, int h, bool interact)
 {
   if (applysizehints(c, &x, &y, &w, &h, interact))
+  {
     resizeclient(c, x, y, w, h);
+    if (clientisfree(c) && !c->isfullscreen)
+      savefreegeometry(c);
+  }
 }
 
 static void
@@ -4174,12 +4227,6 @@ showhide(Client *c)
     /* show clients top down */
     XMoveWindow(dpy, c->win, c->x, c->y);
 
-    if (  (  !c->mon->lt[c->mon->sellt]->arrange
-           || c->isfloating )
-        && !c->isfullscreen
-        )
-      resize(c, c->x, c->y, c->w, c->h, false);
-
     showhide(c->snext);
   }
   else
@@ -4417,29 +4464,26 @@ togglebar(__attribute__((unused)) const Arg *arg)
 static void
 togglefloating(__attribute__((unused)) const Arg *arg)
 {
-  if (!selmon->sel)
+  Client *c = selmon->sel;
+
+  if (!c || c->isfullscreen)
     return;
 
-  selmon->sel->isfloating =
-    !selmon->sel->isfloating || selmon->sel->isfixed;
+  c->isfloating = !c->isfloating || c->isfixed;
 
-  if (selmon->sel->isfloating)
+  if (c->isfloating)
   {
-    if (selmon->sel->bw != config.border_width)
+    if (c->bw != (int)config.border_width)
     {
-      selmon->sel->oldbw = selmon->sel->bw;
-      selmon->sel->bw    = config.border_width;
+      c->oldbw = c->bw;
+      c->bw = (int)config.border_width;
+      XSetWindowBorderWidth(dpy, c->win, c->bw);
+      configure(c);
     }
-    resize(selmon->sel,
-           selmon->sel->x,
-           selmon->sel->y,
-           selmon->sel->w - selmon->sel->bw * 2,
-           selmon->sel->h - selmon->sel->bw * 2,
-           false
-           );
+    restorefreegeometry(c);
   }
 
-  arrange(selmon);
+  arrange(c->mon);
 }
 
 static void
