@@ -479,6 +479,8 @@ static void           cleanupmon(Monitor *mon);
 static void           centerclient(Client *c, RawmCenterMode mode);
 static void           clearurgent(Client *c);
 static bool           clienturgent(const Client *c);
+static int            capturecommand(char *const argv[], char *buf,
+                                     size_t buflen);
 static uint32_t       clientmessagecard32(const XClientMessageEvent *message,
                                           int index);
 static void           clientmessage(XEvent *e);
@@ -795,6 +797,7 @@ runtime_argument(const RawmBinding *binding)
   switch (binding->action)
   {
     case RAWM_ACTION_SPAWN:
+    case RAWM_ACTION_RENAME_TAG:
       command = rawm_config_find_command(&config, binding->command);
       arg.v = command ? command->argv : NULL;
       break;
@@ -1576,6 +1579,115 @@ buttonpress(XEvent *e)
     if (click == ClkStatusText && !status_specific && fallback)
       fallback->func(&fallback->arg);
   }
+}
+
+static int
+capturecommand(char *const argv[], char *buf, size_t buflen)
+{
+  int pipefd[2];
+  int status;
+  pid_t pid;
+  size_t used = 0;
+  bool first_line_done = false;
+  bool saw_output = false;
+
+  if (!argv || !argv[0] || !buf || !buflen)
+    return -1;
+
+  buf[0] = '\0';
+  if (pipe(pipefd) < 0)
+  {
+    fprintf(stderr, "rawm: capture command: pipe failed: %s\n",
+            strerror(errno));
+    return -1;
+  }
+
+  pid = fork();
+  if (pid < 0)
+  {
+    fprintf(stderr, "rawm: capture command: fork failed: %s\n",
+            strerror(errno));
+    close(pipefd[0]);
+    close(pipefd[1]);
+    return -1;
+  }
+
+  if (pid == 0)
+  {
+    int nullfd;
+
+    close(pipefd[0]);
+    nullfd = open("/dev/null", O_RDONLY);
+    if (nullfd < 0 ||
+        dup2(nullfd, STDIN_FILENO) < 0 ||
+        dup2(pipefd[1], STDOUT_FILENO) < 0)
+      _exit(127);
+
+    if (nullfd != STDIN_FILENO)
+      close(nullfd);
+    if (pipefd[1] != STDOUT_FILENO)
+      close(pipefd[1]);
+    if (dpy)
+      close(ConnectionNumber(dpy));
+
+    (void)setsid();
+    execvp(argv[0], argv);
+    fprintf(stderr, "rawm: execvp %s failed: %s\n",
+            argv[0], strerror(errno));
+    _exit(127);
+  }
+
+  close(pipefd[1]);
+  for (;;)
+  {
+    char chunk[128];
+    ssize_t n;
+
+    n = read(pipefd[0], chunk, sizeof chunk);
+    if (n < 0)
+    {
+      if (errno == EINTR)
+        continue;
+      fprintf(stderr, "rawm: capture command: read failed: %s\n",
+              strerror(errno));
+      close(pipefd[0]);
+      while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+        /* NOTHING */;
+      return -1;
+    }
+    if (n == 0)
+      break;
+
+    saw_output = true;
+    for (ssize_t i = 0; i < n; i++)
+    {
+      if (first_line_done)
+        continue;
+      if (chunk[i] == '\n')
+      {
+        first_line_done = true;
+        continue;
+      }
+      if (chunk[i] == '\r')
+        continue;
+      if (used + 1 < buflen)
+        buf[used++] = chunk[i];
+    }
+  }
+  close(pipefd[0]);
+  buf[used] = '\0';
+
+  while (waitpid(pid, &status, 0) < 0)
+  {
+    if (errno == EINTR)
+      continue;
+    if (errno != ECHILD)
+      fprintf(stderr, "rawm: capture command: waitpid failed: %s\n",
+              strerror(errno));
+    break;
+  }
+
+  return saw_output ? 1 : 0;
 }
 
 static void
@@ -3969,58 +4081,34 @@ movemouse(__attribute__((unused)) const Arg *arg)
 }
 
 static void
-nametag(__attribute__((unused)) const Arg *arg)
+nametag(const Arg *arg)
 {
-  char *p, buf[256];
-  FILE *f;
+  char buf[MAX_TAGNAMELEN];
+  int result;
   size_t i;
 
-  snprintf(buf, sizeof(buf),
-    "dmenu -p '%s' -fn '%s' -nb '%s' -nf '%s' -sb '%s' -sf '%s' "
-    "</dev/null", "tag",
-    config.font,
-    config.colors[0][ColBG],
-    config.colors[0][ColFG],
-    config.colors[1][ColBG],
-    config.colors[1][ColFG]);
-
-  errno = 0; /* popen(3p) says on failure it "may" set errno */
-  if (!(f = popen(buf, "r")))
-  {
-    fprintf(stderr, "rawm: nametag: Could not popen '%s'", buf);
-    if (errno)
-      fprintf(stderr, ": %s\n", strerror(errno));
-    else
-      fprintf(stderr, "\n");
-    return;
-  }
-
-  if (!(p = fgets(buf, MAX_TAGNAMELEN, f))  &&  ferror(f))
-    fprintf(stderr, "rawm: nametag: fgets failed: %s\n",
-            strerror(errno));
-
-  if (pclose(f) < 0)
-    fprintf(stderr, "rawm: nametag: pclose failed: %s\n",
-            strerror(errno));
-
-  if (!p)
+  if (!arg || !arg->v)
     return;
 
-  if ((p = strchr(buf, '\n')))
-    *p = '\0';
+  result = capturecommand((char *const *)arg->v, buf, sizeof buf);
+  if (result <= 0)
+    return;
 
   for (i = 0; i < config.tag_count; i++)
   {
-    if (selmon->tagset[selmon->seltags] & (1 << i))
+    if (selmon->tagset[selmon->seltags] & (1u << i))
     {
-      if (strlen(buf))
+      if (buf[0])
       {
-        snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i], "%zu/", i + 1);
+        snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i],
+                 "%zu/", i + 1);
         strncat(selmon->tag_names[i], buf,
-                sizeof selmon->tag_names[i] - strlen(selmon->tag_names[i]) - 1);
+                sizeof selmon->tag_names[i] -
+                strlen(selmon->tag_names[i]) - 1);
       }
       else
-        snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i], "%zu", i + 1);
+        snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i],
+                 "%zu", i + 1);
     }
   }
 

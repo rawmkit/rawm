@@ -289,7 +289,7 @@ replaces them.
 	only).
 
 *Meta-n*
-	Set current tag name (*dmenu*(1) required).
+	Set the current tag name using the configured *tag_rename* command.
 
 *Meta-c*
 	Close focused window.
