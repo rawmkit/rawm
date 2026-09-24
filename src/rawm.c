@@ -483,6 +483,7 @@ static void           clientmessage(XEvent *e);
 static void           configure(Client *c);
 static void           configurenotify(XEvent *e);
 static void           configurerequest(XEvent *e);
+static void           cyclelayout(const Arg *arg);
 static Monitor       *createmon(int idx);
 static void           destroynotify(XEvent *e);
 static void           detach(Client *c);
@@ -765,6 +766,7 @@ action_function(RawmAction action))(const Arg *)
     case RAWM_ACTION_TOGGLE_VIEW:       return toggleview;
     case RAWM_ACTION_KILL_CLIENT:       return killclient;
     case RAWM_ACTION_SET_LAYOUT:        return setlayout;
+    case RAWM_ACTION_CYCLE_LAYOUT:      return cyclelayout;
     case RAWM_ACTION_TOGGLE_FLOATING:   return togglefloating;
     case RAWM_ACTION_TAG:               return tag;
     case RAWM_ACTION_TOGGLE_TAG:        return toggletag;
@@ -794,6 +796,7 @@ runtime_argument(const RawmBinding *binding)
     case RAWM_ACTION_FOCUS_STACK:
     case RAWM_ACTION_FOCUS_INDEX:
     case RAWM_ACTION_INC_MASTER:
+    case RAWM_ACTION_CYCLE_LAYOUT:
     case RAWM_ACTION_FOCUS_MONITOR:
     case RAWM_ACTION_TAG_MONITOR:
       arg.i = binding->number;
@@ -1936,6 +1939,36 @@ createmon(int idx)
   }
 
   return m;
+}
+
+static void
+cyclelayout(const Arg *arg)
+{
+  const Layout *current;
+  Arg next = {0};
+  int index = -1;
+  int direction;
+
+  if (!arg || !arg->i)
+    return;
+
+  current = selmon->lt[selmon->sellt];
+  for (int i = 0; i < RAWM_LAYOUT_COUNT; i++)
+  {
+    if (current == &layouts[i])
+    {
+      index = i;
+      break;
+    }
+  }
+
+  if (index < 0)
+    return;
+
+  direction = arg->i > 0 ? 1 : -1;
+  index = (index + direction + RAWM_LAYOUT_COUNT) % RAWM_LAYOUT_COUNT;
+  next.v = &layouts[index];
+  setlayout(&next);
 }
 
 static void

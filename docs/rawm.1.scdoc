@@ -159,13 +159,17 @@ The options are as follows:
 	for the complete wire contract.
 
 *Button1*
-	Click on a tag label to display all windows with that tag,
-	click on the layout label toggles between tiled and floating
-	layout.
+	Click on a tag label to display all windows with that tag. Clicking the
+	layout label toggles between the current and previous layout.
 
 *Button3*
-	Click on a tag label adds/removes all windows with that tag
-	to/from the view.
+	Click on a tag label adds/removes all windows with that tag to/from the
+	view. Clicking the layout label selects monocle.
+
+*Button4*, *Button5*
+	Scroll over the layout label to select the previous or next stable layout.
+	The sequence wraps across tile, floating, monocle, bstack,
+	bstack-horizontal, and grid.
 
 *Meta-Button1*
 	Click on a tag label applies that tag to the focused window.
@@ -325,6 +329,15 @@ replaces them.
 
 These are the built-in mouse bindings. An *input.buttons* list in
 *rawm.conf*(5) replaces them.
+
+*Button1* on layout
+	Toggle between the current and previous layout.
+
+*Button3* on layout
+	Select monocle.
+
+*Button4*, *Button5* on layout
+	Cycle backward or forward through the stable layout set.
 
 *Meta-Button1*
 	Move focused window while dragging.  Tiled windows will be
