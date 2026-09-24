@@ -56,12 +56,22 @@ ui = {
   osd = { show = true; position = "bottom"; duration_ms = 300; padding = 6; offset = 12; min_width = 180; };
   systray = { show = false; };
 };
-tags = { default = ({ name = "one"; layout = "tile"; }); };
+tags = {
+  default = (
+    { name = "one"; layout = "tile"; },
+    { name = "two"; layout = "tile"; }
+  );
+};
 input = {
   keys = (
     { key = "F1"; action = "toggle_floating"; },
     { key = "F2"; action = "set_layout"; layout = "floating"; },
-    { key = "F3"; action = "set_layout"; layout = "tile"; }
+    { key = "F3"; action = "set_layout"; layout = "tile"; },
+    { key = "F4"; action = "toggle_bar"; },
+    { key = "F5"; action = "view"; tag = "all"; },
+    { key = "F6"; action = "toggle_view"; tag = 2; },
+    { key = "F7"; action = "tag"; tag = 2; },
+    { key = "F8"; action = "view"; tag = 2; }
   );
   buttons = ();
 };
@@ -149,5 +159,38 @@ press F3
   fail "client A did not return to tiled presentation: $(state "$a_win")"
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=tile monitor=0" ] ||
   fail "explicitly floating client B lost its presentation state: $(state "$b_win")"
+
+sleep 0.35
+[ "$("$client" --surface-state osd)" = "unmapped" ] ||
+  fail "osd did not expire before workspace-feedback checks"
+
+press F4
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "explicit bar toggle did not map osd"
+kill -0 "$wm_pid" 2>/dev/null || fail "rawm exited after bar toggle"
+
+sleep 0.35
+press F5
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "all-tags view did not map osd"
+
+sleep 0.35
+press F6
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "toggle-view from all-tags view did not map osd"
+kill -0 "$wm_pid" 2>/dev/null ||
+  fail "rawm exited while leaving all-tags toggle-view"
+
+sleep 0.35
+press F7
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "tag assignment did not map osd"
+
+sleep 0.35
+press F8
+[ "$(state "$b_win")" = "floating=1 selected=1 layout=tile monitor=0" ] ||
+  fail "tagged client did not become selected on tag two: $(state "$b_win")"
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "tag-two view did not map osd"
 
 echo "compositor state tests: ok"
