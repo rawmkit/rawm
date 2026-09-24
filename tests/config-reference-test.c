@@ -53,6 +53,7 @@ main(void)
     "           \"--tags=${ui.bar.tags.visibility}\",\n"
     "           \"--osd=${ui.osd.show}\",\n"
     "           \"--osd-position=${ui.osd.position}\",\n"
+    "           \"--osd-geometry=${ui.osd.geometry}\",\n"
     "           \"--osd-duration=${ui.osd.duration_ms}\",\n"
     "           \"--osd-padding=${ui.osd.padding}\",\n"
     "           \"--osd-offset=${ui.osd.offset}\",\n"
@@ -70,7 +71,7 @@ main(void)
     "  bar = { position = \"top\"; padding = 6; item_spacing = 4;\n"
     "          section_spacing = 12; cell_margin = 4; indicator_size = 2;\n"
     "          tags = { visibility = \"all\"; }; };\n"
-    "  osd = { show = true; position = \"top\"; duration_ms = 650; padding = 8; offset = 21; min_width = 180; };\n"
+    "  osd = { show = true; position = \"top\"; geometry = true; duration_ms = 650; padding = 8; offset = 21; min_width = 180; };\n"
     "  systray = { show = false; };\n"
     "  colors = {\n"
     "    normal = { foreground = \"#111111\"; background = \"#222222\"; };\n"
@@ -90,7 +91,8 @@ main(void)
     "--cascade=48", "--bar=top", "--bar-padding=6",
     "--bar-item-spacing=4", "--bar-section-spacing=12",
     "--bar-cell-margin=4", "--bar-indicator=2", "--tags=all",
-    "--osd=true", "--osd-position=top", "--osd-duration=650",
+    "--osd=true", "--osd-position=top", "--osd-geometry=true",
+    "--osd-duration=650",
     "--osd-padding=8", "--osd-offset=21", "--osd-min-width=180",
     "--tray=false",
     "#222222", "#aabbcc", "${HOME}"

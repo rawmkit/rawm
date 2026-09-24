@@ -175,6 +175,7 @@ typedef struct {
   RawmTagVisibility tag_visibility;
   bool show_osd;
   bool osd_top;
+  bool osd_geometry;
   unsigned int osd_duration_ms;
   unsigned int osd_padding;
   unsigned int osd_offset;

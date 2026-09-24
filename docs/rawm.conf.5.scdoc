@@ -107,8 +107,9 @@ The reference namespace contains these scalar paths:
   *ui.bar.item_spacing*, *ui.bar.section_spacing*, *ui.bar.cell_margin*,
   *ui.bar.indicator_size*,
   *ui.bar.tags.visibility*
-- *ui.osd.show*, *ui.osd.position*, *ui.osd.duration_ms*,
-  *ui.osd.padding*, *ui.osd.offset*, *ui.osd.min_width*
+- *ui.osd.show*, *ui.osd.position*, *ui.osd.geometry*,
+  *ui.osd.duration_ms*, *ui.osd.padding*, *ui.osd.offset*,
+  *ui.osd.min_width*
 - *ui.systray.show*, *ui.systray.spacing*
 - *status.enabled*, *status.protocol*, *status.separator*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
@@ -222,6 +223,12 @@ The *ui.osd* group controls rawm's transient keyboard-feedback surface.
 	Place the OSD near the corresponding workspace edge. The bar is excluded
 	from workspace geometry, so a bottom OSD naturally sits above a bottom
 	bar. Default "bottom".
+
+*geometry* = boolean
+	Show live admitted client geometry while interactively moving or resizing
+	floating windows. Move feedback reports monitor-local x/y coordinates;
+	resize feedback reports the size after rawm applies size hints. Default
+	false.
 
 *duration_ms* = integer
 	Time the OSD remains visible after the most recent update. Range

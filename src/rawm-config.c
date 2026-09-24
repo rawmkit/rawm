@@ -494,6 +494,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->tag_visibility = RAWM_TAG_VISIBILITY_OCCUPIED;
   cfg->show_osd = false;
   cfg->osd_top = false;
+  cfg->osd_geometry = false;
   cfg->osd_duration_ms = 800;
   cfg->osd_padding = 10;
   cfg->osd_offset = 24;
@@ -867,13 +868,15 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
   group = config_setting_get_member(ui, "osd");
   if (group) {
     static const char *const osd_allowed[] = {
-      "show", "position", "duration_ms", "padding", "offset", "min_width"
+      "show", "position", "geometry", "duration_ms", "padding", "offset",
+      "min_width"
     };
     config_setting_t *position;
     const char *value;
 
-    if (validate_members(err, group, osd_allowed, 6) < 0 ||
+    if (validate_members(err, group, osd_allowed, 7) < 0 ||
         read_bool(err, group, "show", &cfg->show_osd) < 0 ||
+        read_bool(err, group, "geometry", &cfg->osd_geometry) < 0 ||
         read_uint_range(err, group, "duration_ms", 100, 5000,
                         &cfg->osd_duration_ms) < 0 ||
         read_uint_range(err, group, "padding", 0, 64,
@@ -1867,6 +1870,8 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%s", cfg->show_osd ? "true" : "false");
   else if (!strcmp(path, "ui.osd.position"))
     snprintf(buf, buflen, "%s", cfg->osd_top ? "top" : "bottom");
+  else if (!strcmp(path, "ui.osd.geometry"))
+    snprintf(buf, buflen, "%s", cfg->osd_geometry ? "true" : "false");
   else if (!strcmp(path, "ui.osd.duration_ms"))
     snprintf(buf, buflen, "%u", cfg->osd_duration_ms);
   else if (!strcmp(path, "ui.osd.padding"))
