@@ -73,80 +73,262 @@ placement_test = find_program('placement.sh')
 tagbar_test = find_program('tagbar.sh')
 status_test = find_program('status.sh')
 signals_test = find_program('signals.sh')
+skip_test = find_program('support/skip.sh')
+
+# Integration-test fixtures are build-machine programs.  Discover them during
+# Meson setup so missing optional tooling is visible before the suite runs.
+# The shell scripts keep their own guards for direct/manual invocation.
+xvfb_program = find_program('Xvfb', required: false, native: true)
+xwininfo_program = find_program('xwininfo', required: false, native: true)
+xkbcomp_program = find_program('xkbcomp', required: false, native: true)
+xterm_program = find_program('xterm', required: false, native: true)
+awk_program = find_program('awk', required: false, native: true)
+sed_program = find_program('sed', required: false, native: true)
+grep_program = find_program('grep', required: false, native: true)
+sort_program = find_program('sort', required: false, native: true)
+wc_program = find_program('wc', required: false, native: true)
+xkeyboard_config_dep = dependency(
+  'xkeyboard-config',
+  required: false,
+  native: true,
+)
+
+summary(
+  {
+    'Xvfb': xvfb_program.found(),
+    'xwininfo': xwininfo_program.found(),
+    'xkbcomp': xkbcomp_program.found(),
+    'xkeyboard-config': xkeyboard_config_dep.found(),
+    'xterm': xterm_program.found(),
+    'awk': awk_program.found(),
+    'sed': sed_program.found(),
+    'grep': grep_program.found(),
+    'sort': sort_program.found(),
+    'wc': wc_program.found(),
+  },
+  section: 'Test fixtures',
+  bool_yn: true,
+)
+
+x11_missing = []
+if not xvfb_program.found()
+  x11_missing += ['Xvfb']
+endif
+if not xwininfo_program.found()
+  x11_missing += ['xwininfo']
+endif
+if not xkbcomp_program.found()
+  x11_missing += ['xkbcomp']
+endif
+if not xkeyboard_config_dep.found()
+  x11_missing += ['xkeyboard-config']
+endif
 
 test_workdir = meson.project_source_root()
 
-test(
-  'config',
-  config_test,
-  args: [rawm],
-  workdir: test_workdir,
-)
+config_missing = []
+if not grep_program.found()
+  config_missing += ['grep']
+endif
+if config_missing.length() == 0
+  test(
+    'config',
+    config_test,
+    args: [rawm],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'config',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(config_missing))],
+  )
+endif
 
 test(
   'config-reference',
   config_reference_test,
 )
 
-test(
-  'gaps',
-  gaps_test,
-  args: [rawm],
-  workdir: test_workdir,
-)
+gaps_missing = x11_missing
+if not xterm_program.found()
+  gaps_missing += ['xterm']
+endif
+if not sed_program.found()
+  gaps_missing += ['sed']
+endif
+if not sort_program.found()
+  gaps_missing += ['sort']
+endif
+if gaps_missing.length() == 0
+  test(
+    'gaps',
+    gaps_test,
+    args: [rawm],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'gaps',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(gaps_missing))],
+  )
+endif
 
-test(
-  'dialog-center',
-  dialog_center_test,
-  args: [rawm, dialog_center_client],
-  workdir: test_workdir,
-)
+dialog_center_missing = x11_missing
+if not awk_program.found()
+  dialog_center_missing += ['awk']
+endif
+if not sed_program.found()
+  dialog_center_missing += ['sed']
+endif
+if dialog_center_missing.length() == 0
+  test(
+    'dialog-center',
+    dialog_center_test,
+    args: [rawm, dialog_center_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'dialog-center',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(dialog_center_missing))],
+  )
+endif
 
-test(
-  'fullscreen-rule',
-  fullscreen_rule_test,
-  args: [rawm, fullscreen_rule_client],
-  workdir: test_workdir,
-)
+fullscreen_rule_missing = x11_missing
+if not awk_program.found()
+  fullscreen_rule_missing += ['awk']
+endif
+if not sed_program.found()
+  fullscreen_rule_missing += ['sed']
+endif
+if not wc_program.found()
+  fullscreen_rule_missing += ['wc']
+endif
+if fullscreen_rule_missing.length() == 0
+  test(
+    'fullscreen-rule',
+    fullscreen_rule_test,
+    args: [rawm, fullscreen_rule_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'fullscreen-rule',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(fullscreen_rule_missing))],
+  )
+endif
 
-test(
-  'attention-rule',
-  attention_rule_test,
-  args: [rawm, attention_rule_client],
-  workdir: test_workdir,
-)
+if x11_missing.length() == 0
+  test(
+    'attention-rule',
+    attention_rule_test,
+    args: [rawm, attention_rule_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'attention-rule',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
+  )
+endif
 
-test(
-  'geometry',
-  geometry_test,
-  args: [rawm, geometry_client, send_key],
-  workdir: test_workdir,
-)
+geometry_missing = x11_missing
+if not awk_program.found()
+  geometry_missing += ['awk']
+endif
+if not sed_program.found()
+  geometry_missing += ['sed']
+endif
+if not wc_program.found()
+  geometry_missing += ['wc']
+endif
+if geometry_missing.length() == 0
+  test(
+    'geometry',
+    geometry_test,
+    args: [rawm, geometry_client, send_key],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'geometry',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(geometry_missing))],
+  )
+endif
 
-test(
-  'placement',
-  placement_test,
-  args: [rawm, geometry_client],
-  workdir: test_workdir,
-)
+placement_missing = x11_missing
+if not awk_program.found()
+  placement_missing += ['awk']
+endif
+if not sed_program.found()
+  placement_missing += ['sed']
+endif
+if placement_missing.length() == 0
+  test(
+    'placement',
+    placement_test,
+    args: [rawm, geometry_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'placement',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(placement_missing))],
+  )
+endif
 
-test(
-  'tagbar',
-  tagbar_test,
-  args: [rawm, tagbar_client],
-  workdir: test_workdir,
-)
+if x11_missing.length() == 0
+  test(
+    'tagbar',
+    tagbar_test,
+    args: [rawm, tagbar_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'tagbar',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
+  )
+endif
 
-test(
-  'status',
-  status_test,
-  args: [rawm, status_client],
-  workdir: test_workdir,
-)
+if x11_missing.length() == 0
+  test(
+    'status',
+    status_test,
+    args: [rawm, status_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'status',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
+  )
+endif
 
-test(
-  'signals',
-  signals_test,
-  args: [rawm],
-  workdir: test_workdir,
-)
+signals_missing = x11_missing
+if not grep_program.found()
+  signals_missing += ['grep']
+endif
+if signals_missing.length() == 0
+  test(
+    'signals',
+    signals_test,
+    args: [rawm],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'signals',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(signals_missing))],
+  )
+endif
