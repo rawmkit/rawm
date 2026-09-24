@@ -97,7 +97,7 @@ multiple tags.  Selecting certain tags displays all windows with these
 tags.
 
 Each screen contains a small status bar which displays all used tags,
-the layout, the title (if compiled with WIN_TITLE) of the focused
+the layout, the title (when built with *-Dwindow_title=true*) of the focused
 window, and status text received through the configured status protocol
 on the focused screen.
 

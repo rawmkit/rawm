@@ -13,15 +13,15 @@ the following applied patches:
   * `nametag`
   * multi-monitor configuration
   * `freetype2` support
-  * optional per-window keyboard layout (`-DPWKL`)
-  * optional window title (`-DWINTITLE`)
-  * optional `xinerama` support (`-DXINERAMA`)
+  * optional per-window keyboard layout
+  * optional window title
+  * optional `xinerama` support
   * count monocle/float windows in statusbar
   * explicit monitor/parent centering policy for floating windows and dialogs
   * configure layout `pertag` at startup
   * `restartsig`
   * `_NET_CLIENT_LIST`
-  * optional systray support (`-DSYSTRAY`)
+  * optional systray support
   * dedicated `_RAWM_STATUS_V2` semantic root-property status protocol
   * explicit free-window placement with deterministic cascading
   * configurable inner/outer layout gaps with optional smart outer gaps
@@ -43,22 +43,46 @@ REQUIREMENTS
 Build time
 ----------
   * C99 compiler
-  * POSIX `sh(1p)`, `make(1p)` and "mandatory utilities"
+  * Meson >= 1.4.0
   * `libX11`
-  * `freetype2`
+  * `libXft`
   * `fontconfig`
   * `libconfig`
   * `xinerama` is optional, for Xinerama Extension support
-  * `scdoc(1)` to build manual page
+  * `scdoc(1)` to build the manual pages
+
+The integration test suite additionally uses POSIX `sh(1p)` and X11 test
+tools such as Xvfb, xdpyinfo, and xwininfo where available. Individual
+tests skip themselves when an optional test tool is unavailable.
 
 
-INSTALL
-=======
+BUILD AND INSTALL
+=================
 
-The shell commands `make && make install` should build and install
-this package.
+A normal build uses an out-of-tree Meson build directory:
 
-See `config.mk` file for configuration parameters.
+    meson setup build
+    meson compile -C build
+    meson test -C build
+    meson install -C build
+
+`DESTDIR` may be supplied to `meson install` when staging a package. The
+default installation prefix is Meson's `/usr/local`; rawm deliberately keeps
+its system configuration directory at `/etc`. Both may be changed with the
+standard Meson `prefix` and `sysconfdir` options.
+
+Project feature switches live in `meson.options`:
+
+  * `xinerama`: `enabled`, `disabled`, or `auto`; default `enabled`
+  * `systray`: built-in XEmbed system tray; default `true`
+  * `per_window_keyboard_layout`: per-window XKB layout tracking; default `true`
+  * `window_title`: focused-window title rendering in the bar; default `true`
+
+For example, a build without the tray or title support can be configured with:
+
+    meson setup build -Dsystray=false -Dwindow_title=false
+
+Use `meson configure build` to inspect or change an existing build directory.
 
 
 CONFIGURATION

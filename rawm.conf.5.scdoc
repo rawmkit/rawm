@@ -25,8 +25,8 @@ Without *-c*, rawm starts from its compiled-in conservative defaults and then
 loads these files, if present, in order:
 
 _/etc/rawm/rawm.conf_
-	System configuration. The prefix is controlled by *SYSCONFDIR* at build
-	time.
+	System configuration. The directory is controlled by Meson's *sysconfdir*
+	build option.
 
 _$XDG_CONFIG_HOME/rawm/rawm.conf_
 	Per-user configuration when *XDG_CONFIG_HOME* is an absolute path.
@@ -179,8 +179,8 @@ no clickable space.
 The *ui.systray* group accepts:
 
 *show* = boolean
-	Whether the system tray is shown when rawm was built with SYSTRAY support.
-	Default true.
+	Whether the system tray is shown when rawm was built with
+	*-Dsystray=true*. Default true.
 
 *spacing* = integer
 	Spacing around tray icons in pixels. Range 0..64. Default 2.
@@ -591,7 +591,8 @@ Each *input.buttons* entry requires *click*, *button*, and *action*. The
 optional *modifiers* list has the same syntax as key bindings.
 
 *click* may be *"tag_bar"*, *"layout"*, *"status"*, *"title"*, *"client"*,
-or *"root"*. The *"title"* area requires a build with WINTITLE support.
+or *"root"*. The *"title"* area requires a build with
+*-Dwindow_title=true*.
 
 *button* is an integer from 1 through 9.
 

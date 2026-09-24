@@ -1,15 +1,6 @@
-# build files and artefacts
-rawm
-rawm.o
-rawm-config.o
-rawm.1
-rawm.conf.5
-tests/status-client.o
-tests/status-client
-tests/dialog-center-client.o
-tests/dialog-center-client
-tests/config-reference-test.o
-tests/config-reference-test
+# Meson build trees
+/build/
+/build-*/
 
 # vim undo and swap files
 .*.un~
