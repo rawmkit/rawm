@@ -109,7 +109,12 @@ workspace-facing edge. Floating focus therefore differs by authority color,
 not by a legacy square glyph.
 
 Normal status segments remain quiet. Warning and critical segments become
-filled semantic cells using the urgent and error authority colors.
+semantic cells using the urgent and error schemes.
+
+Configured panel actions are discoverable without adding persistent chrome:
+interactive tags, layout/title regions, and status segments use the hand
+cursor while hovered. Quiet regions receive a short workspace-facing marker;
+the focused-title marker widens while the title region is interactive.
 
 *rawm* draws a small border around windows to indicate the focus state.
 

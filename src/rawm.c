@@ -168,6 +168,10 @@
 /** Max tag name length (excluding number and semicolon (3)). */
 #define MAX_TAGNAMELEN (MAX_TAGLEN - 3)
 
+/** Maximum rawm-v2 property and segment identifier sizes. */
+#define RAWM_STATUS_V2_MAX 4096u
+#define RAWM_STATUS_ID_MAX 64u
+
 /*********************************************************************
  * Enums & Typedefs.
  */
@@ -175,6 +179,7 @@
 /** Cursor types used in rawm. */
 enum {
   CurNormal, /**< Normal pointer cursor. */
+  CurHand,   /**< Interactive panel surface cursor. */
   CurResize, /**< Resize cursor. */
   CurMove,   /**< Move cursor. */
   CurLast    /**< Sentinel value for the last cursor type. */
@@ -297,9 +302,22 @@ typedef struct {
   Arg arg;                      /**< Argument for the function. */
 } Button;
 
+typedef struct {
+  unsigned int click;           /**< Resolved click area. */
+  Arg arg;                      /**< Dynamic click argument, e.g. tag mask. */
+  const char *status_id;        /**< rawm-v2 segment under the pointer. */
+} BarHit;
+
 /* Forward declarations. */
 typedef struct Monitor  Monitor;
 typedef struct Client   Client;
+
+typedef struct {
+  Monitor *mon;                 /**< Bar currently under the pointer. */
+  unsigned int click;           /**< Interactive area currently hovered. */
+  unsigned int tagmask;         /**< Dynamic tag identity for ClkTagBar. */
+  char status_id[RAWM_STATUS_ID_MAX + 1]; /**< Stable status identity. */
+} BarHover;
 
 typedef struct {
   int x, y, w, h;
@@ -433,6 +451,12 @@ static void           attach(Client *c);
 static void           attachstack(Client *c);
 static void           bstack(Monitor *m);
 static void           bstackhoriz(Monitor *m);
+static BarHit         barhitat(Monitor *m, int x);
+static bool           barhitbound(const BarHit *hit);
+static bool           barhovermatches(const Monitor *m, unsigned int click,
+                                      unsigned int tagmask,
+                                      const char *status_id);
+static void           clearbarhover(void);
 static void           buttonpress(XEvent *e);
 static void           checkotherwm(void);
 static void           cleanup(void);
@@ -606,8 +630,6 @@ static unsigned long systrayorientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 #endif /* SYSTRAY */
 
 static const char     broken[] = "broken";
-#define RAWM_STATUS_V2_MAX 4096u
-#define RAWM_STATUS_ID_MAX 64u
 static StatusData     statusdata = {0};
 static Atom           dockatom, statusatom, surfaceatom, utf8atom;
 static int            screen;
@@ -625,6 +647,7 @@ static void          (*handler[LASTEvent]) (XEvent *) = {
   [Expose]            = expose,
   [FocusIn]           = focusin,
   [KeyPress]          = keypress,
+  [LeaveNotify]       = leavenotify,
   [MappingNotify]     = mappingnotify,
   [MapRequest]        = maprequest,
   [MotionNotify]      = motionnotify,
@@ -664,6 +687,7 @@ static Key           *keys = NULL;
 static size_t         key_count = 0;
 static Button        *buttons = NULL;
 static size_t         button_count = 0;
+static BarHover       barhover = { .click = ClkRootWin };
 static unsigned int   opacity = 0xffffffffu;
 
 struct Pertag {
@@ -1307,6 +1331,141 @@ bstackhoriz(Monitor *m)
   }
 }
 
+static BarHit
+barhitat(Monitor *m, int x)
+{
+  BarHit hit = { .click = ClkRootWin };
+  TagBarState state;
+  unsigned int i;
+  int cursor;
+  bool drew_tag = false;
+
+  if (!m)
+    return hit;
+
+  state = tagbarstate(m);
+  cursor = (int)config.bar_padding;
+
+  for (i = 0; i < config.tag_count; ++i)
+  {
+    int width;
+
+    if (!tagbarvisible(&state, i))
+      continue;
+    if (drew_tag)
+      cursor += (int)config.bar_item_spacing;
+
+    width = TEXTW(m->tag_names[i]);
+    if (x >= cursor && x < cursor + width)
+    {
+      hit.click = ClkTagBar;
+      hit.arg.ui = 1u << i;
+      return hit;
+    }
+
+    cursor += width;
+    drew_tag = true;
+  }
+
+  if (drew_tag)
+    cursor += (int)config.bar_section_spacing;
+
+  if (x >= cursor && x < cursor + blw)
+  {
+    hit.click = ClkLtSymbol;
+    return hit;
+  }
+
+  {
+    int status_x;
+    int status_right = m->ww - (int)config.bar_padding;
+    int status_w = m == selmon ? statuswidth() : 0;
+    int title_x = cursor + blw + (int)config.bar_section_spacing;
+
+#ifdef SYSTRAY
+    if (config.show_systray && m == selmon)
+    {
+      status_right -= getsystraywidth();
+      status_right -= (int)config.bar_section_spacing;
+    }
+#endif /* SYSTRAY */
+
+    status_x = status_right - status_w;
+    if (status_x < title_x)
+      status_x = title_x;
+
+    if (status_w && x >= status_x && x < status_right)
+    {
+      hit.click = ClkStatusText;
+      hit.status_id = statusidat(x, status_x, status_right);
+      return hit;
+    }
+
+#ifdef WINTITLE
+    if (x >= title_x && x < (status_w ? status_x : status_right))
+      hit.click = ClkWinTitle;
+#endif /* WINTITLE */
+  }
+
+  return hit;
+}
+
+static bool
+barhitbound(const BarHit *hit)
+{
+  size_t i;
+
+  if (!hit || hit->click == ClkRootWin)
+    return false;
+
+  for (i = 0; i < button_count; ++i)
+  {
+    if (buttons[i].click != hit->click || !buttons[i].func)
+      continue;
+
+    if (hit->click == ClkStatusText && buttons[i].status_id)
+    {
+      if (!hit->status_id || strcmp(buttons[i].status_id, hit->status_id))
+        continue;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+static bool
+barhovermatches(const Monitor *m, unsigned int click, unsigned int tagmask,
+                const char *status_id)
+{
+  if (barhover.mon != m || barhover.click != click)
+    return false;
+
+  if (click == ClkTagBar)
+    return barhover.tagmask == tagmask;
+  if (click == ClkStatusText)
+    return status_id && barhover.status_id[0] &&
+           !strcmp(barhover.status_id, status_id);
+  return true;
+}
+
+static void
+clearbarhover(void)
+{
+  Monitor *m = barhover.mon;
+
+  if (!m)
+    return;
+
+  barhover.mon = NULL;
+  barhover.click = ClkRootWin;
+  barhover.tagmask = 0;
+  barhover.status_id[0] = '\0';
+
+  XDefineCursor(dpy, m->barwin, cursor[CurNormal]);
+  drawbar(m);
+}
+
 static void
 buttonpress(XEvent *e)
 {
@@ -1329,72 +1488,11 @@ buttonpress(XEvent *e)
 
   if (ev->window == selmon->barwin)
   {
-    TagBarState state = tagbarstate(m);
-    unsigned int i;
-    int cursor = (int)config.bar_padding;
-    bool drew_tag = false;
-    bool hit_tag = false;
+    BarHit hit = barhitat(selmon, ev->x);
 
-    for (i = 0; i < config.tag_count; ++i)
-    {
-      int width;
-
-      if (!tagbarvisible(&state, i))
-        continue;
-      if (drew_tag)
-        cursor += (int)config.bar_item_spacing;
-
-      width = TEXTW(m->tag_names[i]);
-      if (ev->x >= cursor && ev->x < cursor + width)
-      {
-        click = ClkTagBar;
-        arg.ui = 1u << i;
-        hit_tag = true;
-        break;
-      }
-
-      cursor += width;
-      drew_tag = true;
-    }
-
-    if (!hit_tag)
-    {
-      int layout_x;
-
-      if (drew_tag)
-        cursor += (int)config.bar_section_spacing;
-      layout_x = cursor;
-
-      if (ev->x >= layout_x && ev->x < layout_x + blw)
-        click = ClkLtSymbol;
-      else
-      {
-        int status_x;
-        int status_right = selmon->ww - (int)config.bar_padding;
-        int status_w = statuswidth();
-
-#ifdef SYSTRAY
-        if (config.show_systray)
-        {
-          status_right -= getsystraywidth();
-          status_right -= (int)config.bar_section_spacing;
-        }
-#endif /* SYSTRAY */
-        status_x = status_right - status_w;
-        if (status_x < layout_x + blw + (int)config.bar_section_spacing)
-          status_x = layout_x + blw + (int)config.bar_section_spacing;
-
-        if (status_w && ev->x >= status_x && ev->x < status_right)
-        {
-          click = ClkStatusText;
-          status_id = statusidat(ev->x, status_x, status_right);
-        }
-#ifdef WINTITLE
-        else
-          click = ClkWinTitle;
-#endif /* WINTITLE */
-      }
-    }
+    click = hit.click;
+    arg = hit.arg;
+    status_id = hit.status_id;
   }
   else if ((c = wintoclient(ev->window)))
   {
@@ -1474,6 +1572,7 @@ cleanup(void)
   XFreePixmap(dpy, dc.drawable);
   XFreeGC(dpy, dc.gc);
   XFreeCursor(dpy, cursor[CurNormal]);
+  XFreeCursor(dpy, cursor[CurHand]);
   XFreeCursor(dpy, cursor[CurResize]);
   XFreeCursor(dpy, cursor[CurMove]);
 
@@ -1969,7 +2068,11 @@ drawbar(Monitor *m)
       drawbarindicator(m, dc.x, dc.w, col);
     }
     else
+    {
       drawtext(m->tag_names[i], col, true);
+      if (barhovermatches(m, ClkTagBar, 1u << i, NULL))
+        drawbarindicator(m, dc.x, dc.w, dc.colors[SchemeNorm]);
+    }
 
     dc.x += dc.w;
     drew_tag = true;
@@ -2031,6 +2134,8 @@ drawbar(Monitor *m)
     memcpy(layout_col, dc.colors[SchemeNorm], sizeof layout_col);
     layout_col[ColBG] = dc.colors[SchemeNorm][ColBorder];
     drawtextcell(m->ltsymbol, layout_col, true);
+    if (barhovermatches(m, ClkLtSymbol, 0, NULL))
+      drawbarindicator(m, dc.x, dc.w, dc.colors[SchemeNorm]);
   }
   dc.x += dc.w;
   dc.x += (int)config.bar_section_spacing;
@@ -2085,7 +2190,8 @@ drawbar(Monitor *m)
       if (m == selmon)
       {
         int marker_width =
-            MIN(dc.w, dc.font.ascent + dc.font.descent + 12);
+            MIN(dc.w, dc.font.ascent + dc.font.descent +
+                      (barhovermatches(m, ClkWinTitle, 0, NULL) ? 24 : 12));
         int marker_x = dc.x + (dc.w - marker_width) / 2;
 
         drawbarindicator(m, marker_x, marker_width, col);
@@ -2172,7 +2278,12 @@ drawstatus(int x, int right)
       int scheme = statusscheme(statusdata.segments[i].state);
 
       if (statusdata.segments[i].state == StatusNormal)
+      {
         drawtext(statusdata.segments[i].text, dc.colors[SchemeNorm], true);
+        if (barhovermatches(selmon, ClkStatusText, 0,
+                            statusdata.segments[i].id))
+          drawbarindicator(selmon, dc.x, dc.w, dc.colors[SchemeNorm]);
+      }
       else
       {
         XftColor alert_col[ColLast];
@@ -3508,6 +3619,15 @@ manage(Window w, XWindowAttributes *wa)
 }
 
 static void
+leavenotify(XEvent *e)
+{
+  XCrossingEvent *ev = &e->xcrossing;
+
+  if (barhover.mon && ev->window == barhover.mon->barwin)
+    clearbarhover();
+}
+
+static void
 mappingnotify(XEvent *e)
 {
   XMappingEvent *ev = &e->xmapping;
@@ -3583,6 +3703,40 @@ motionnotify(XEvent *e)
   static Monitor *mon = NULL;
   Monitor        *m;
   XMotionEvent   *ev  = &e->xmotion;
+
+  for (m = mons; m; m = m->next)
+    if (ev->window == m->barwin)
+    {
+      BarHit hit = barhitat(m, ev->x);
+      bool interactive = barhitbound(&hit);
+      unsigned int tagmask = hit.click == ClkTagBar ? hit.arg.ui : 0;
+      const char *status_id =
+          hit.click == ClkStatusText ? hit.status_id : NULL;
+      bool changed =
+          barhover.mon != (interactive ? m : NULL) ||
+          barhover.click != (interactive ? hit.click : ClkRootWin) ||
+          barhover.tagmask != (interactive ? tagmask : 0) ||
+          ((status_id || barhover.status_id[0]) &&
+           strcmp(status_id ? status_id : "", barhover.status_id));
+
+      if (changed)
+      {
+        Monitor *oldmon = barhover.mon;
+
+        barhover.mon = interactive ? m : NULL;
+        barhover.click = interactive ? hit.click : ClkRootWin;
+        barhover.tagmask = interactive ? tagmask : 0;
+        snprintf(barhover.status_id, sizeof barhover.status_id, "%s",
+                 interactive && status_id ? status_id : "");
+
+        XDefineCursor(dpy, m->barwin,
+                      interactive ? cursor[CurHand] : cursor[CurNormal]);
+        if (oldmon && oldmon != m)
+          drawbar(oldmon);
+        drawbar(m);
+      }
+      return;
+    }
 
   if (ev->window != root)
     return;
@@ -4565,6 +4719,7 @@ setup(void)
 
   /* init cursors */
   cursor[CurNormal]  = XCreateFontCursor(dpy, XC_left_ptr);
+  cursor[CurHand]    = XCreateFontCursor(dpy, XC_hand2);
   cursor[CurResize]  = XCreateFontCursor(dpy, XC_sizing);
   cursor[CurMove]    = XCreateFontCursor(dpy, XC_fleur);
 
@@ -5056,7 +5211,8 @@ updatebars(void)
   XSetWindowAttributes wa = {
     .override_redirect  = true,
     .background_pixmap  = ParentRelative,
-    .event_mask         = ButtonPressMask | ExposureMask
+    .event_mask         = ButtonPressMask | ExposureMask |
+                          PointerMotionMask | LeaveWindowMask
   };
 
   for (m = mons; m; m = m->next)
