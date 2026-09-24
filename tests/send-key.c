@@ -43,8 +43,8 @@ main(int argc, char **argv)
   *(void **)(&fake_key_event) = dlsym(handle, "XTestFakeKeyEvent");
   if (!fake_key_event) {
     fputs("send-key: XTestFakeKeyEvent unavailable\n", stderr);
-    dlclose(handle);
     XCloseDisplay(dpy);
+    dlclose(handle);
     return 77;
   }
 

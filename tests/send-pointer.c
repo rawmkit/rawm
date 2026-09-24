@@ -80,8 +80,8 @@ main(int argc, char **argv)
   *(void **)(&fake_button_event) = dlsym(handle, "XTestFakeButtonEvent");
   if (!fake_motion_event || !fake_button_event) {
     fputs("send-pointer: XTest pointer functions unavailable\n", stderr);
-    dlclose(handle);
     XCloseDisplay(dpy);
+    dlclose(handle);
     return 77;
   }
 
@@ -103,8 +103,8 @@ main(int argc, char **argv)
     fputs("send-pointer: cannot query pointer\n", stderr);
     fake_button_event(dpy, (unsigned int)button, False, CurrentTime);
     XSync(dpy, False);
-    dlclose(handle);
     XCloseDisplay(dpy);
+    dlclose(handle);
     return EXIT_FAILURE;
   }
 
@@ -120,7 +120,7 @@ main(int argc, char **argv)
   fake_button_event(dpy, (unsigned int)button, False, CurrentTime);
   XSync(dpy, False);
 
-  dlclose(handle);
   XCloseDisplay(dpy);
+  dlclose(handle);
   return EXIT_SUCCESS;
 }
