@@ -742,6 +742,11 @@ input.buttons = (
 	Optional *layout* is one of the stable layout names. If omitted, toggles
 	between the current and previous layout.
 
+*cycle_layout*
+	Requires integer *number* equal to -1 or 1. The action selects the
+	previous or next stable layout respectively, wrapping at either end of the
+	layout set.
+
 *focus_monitor*, *tag_monitor*
 	Require non-zero integer *number*. Negative selects the previous monitor;
 	positive selects the next monitor.

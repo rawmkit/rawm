@@ -593,6 +593,12 @@ rawm_config_init(RawmConfig *cfg)
   append_button(cfg, RAWM_CLICK_LAYOUT, 0, 3, RAWM_ACTION_SET_LAYOUT);
   cfg->buttons[cfg->button_count - 1].binding.has_layout = true;
   cfg->buttons[cfg->button_count - 1].binding.layout = RAWM_LAYOUT_MONOCLE;
+  append_button(cfg, RAWM_CLICK_LAYOUT, 0, 4, RAWM_ACTION_CYCLE_LAYOUT);
+  cfg->buttons[cfg->button_count - 1].binding.has_number = true;
+  cfg->buttons[cfg->button_count - 1].binding.number = -1;
+  append_button(cfg, RAWM_CLICK_LAYOUT, 0, 5, RAWM_ACTION_CYCLE_LAYOUT);
+  cfg->buttons[cfg->button_count - 1].binding.has_number = true;
+  cfg->buttons[cfg->button_count - 1].binding.number = 1;
   append_button(cfg, RAWM_CLICK_STATUS, 0, 2, RAWM_ACTION_SPAWN);
   cfg->buttons[cfg->button_count - 1].binding.command = xstrdup("terminal");
   append_button(cfg, RAWM_CLICK_CLIENT, mod, 1, RAWM_ACTION_MOVE);
@@ -1399,6 +1405,7 @@ parse_action_name(const char *name, RawmAction *action)
     { "set_master_factor", RAWM_ACTION_SET_MASTER_FACTOR }, { "zoom", RAWM_ACTION_ZOOM },
     { "view", RAWM_ACTION_VIEW }, { "toggle_view", RAWM_ACTION_TOGGLE_VIEW },
     { "kill_client", RAWM_ACTION_KILL_CLIENT }, { "set_layout", RAWM_ACTION_SET_LAYOUT },
+    { "cycle_layout", RAWM_ACTION_CYCLE_LAYOUT },
     { "toggle_floating", RAWM_ACTION_TOGGLE_FLOATING }, { "tag", RAWM_ACTION_TAG },
     { "toggle_tag", RAWM_ACTION_TOGGLE_TAG }, { "window_view", RAWM_ACTION_WINDOW_VIEW },
     { "toggle_fullscreen", RAWM_ACTION_TOGGLE_FULLSCREEN },
@@ -2246,6 +2253,15 @@ validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
   case RAWM_ACTION_SET_LAYOUT:
     if (binding_has_extra(b, false, true, false, false, false, false))
       goto extra;
+    break;
+  case RAWM_ACTION_CYCLE_LAYOUT:
+    if (binding_has_extra(b, false, false, true, false, false, false))
+      goto extra;
+    if (!b->has_number || (b->number != -1 && b->number != 1)) {
+      fputs("rawm: configuration error: cycle_layout requires 'number' -1 or 1\n",
+            err);
+      return -1;
+    }
     break;
   case RAWM_ACTION_QUIT:
     if (binding_has_extra(b, false, false, false, false, false, true))

@@ -84,6 +84,42 @@ input = {
 EOC
 expect_ok "$tmp/valid.conf"
 
+cat >"$tmp/cycle-layout.conf" <<'EOC'
+input = {
+  keys = (
+    { key = "F9"; action = "cycle_layout"; number = -1; },
+    { key = "F10"; action = "cycle_layout"; number = 1; }
+  );
+  buttons = (
+    { click = "layout"; button = 4; action = "cycle_layout"; number = -1; },
+    { click = "layout"; button = 5; action = "cycle_layout"; number = 1; }
+  );
+};
+EOC
+expect_ok "$tmp/cycle-layout.conf"
+
+cat >"$tmp/cycle-layout-direction.conf" <<'EOC'
+input = {
+  keys = (
+    { key = "F9"; action = "cycle_layout"; number = 2; }
+  );
+};
+EOC
+expect_fail "$tmp/cycle-layout-direction.conf"
+grep -q "cycle_layout requires 'number' -1 or 1" "$tmp/stderr" ||
+  fail "cycle_layout direction diagnostic missing"
+
+cat >"$tmp/cycle-layout-missing-direction.conf" <<'EOC'
+input = {
+  keys = (
+    { key = "F9"; action = "cycle_layout"; }
+  );
+};
+EOC
+expect_fail "$tmp/cycle-layout-missing-direction.conf"
+grep -q "cycle_layout requires 'number' -1 or 1" "$tmp/stderr" ||
+  fail "cycle_layout missing direction diagnostic missing"
+
 cat >"$tmp/status-button-id.conf" <<'EOC'
 commands = { noop = ("true"); };
 input = {
