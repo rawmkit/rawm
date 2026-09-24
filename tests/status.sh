@@ -23,7 +23,7 @@ trap cleanup EXIT HUP INT TERM
 skip()
 {
   echo "status protocol tests: skipped ($*)"
-  exit 0
+  exit 77
 }
 
 fail()

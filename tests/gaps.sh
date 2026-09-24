@@ -27,7 +27,7 @@ trap cleanup EXIT HUP INT TERM
 skip()
 {
   echo "gap geometry tests: skipped ($*)"
-  exit 0
+  exit 77
 }
 
 fail()

@@ -13,12 +13,12 @@ client=${2:-./tests/geometry-client}
 for tool in Xvfb xwininfo awk sed; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "placement tests: skipped ($tool not found)"
-    exit 0
+    exit 77
   }
 done
 [ -x "$client" ] || {
   echo "placement tests: skipped ($client not built)"
-  exit 0
+  exit 77
 }
 
 tmp=${TMPDIR:-/tmp}/rawm-placement-test.$$

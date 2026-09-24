@@ -13,13 +13,13 @@ helper=${2:-./tests/dialog-center-client}
 for tool in Xvfb xwininfo awk sed; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "dialog center tests: skipped ($tool not found)"
-    exit 0
+    exit 77
   }
 done
 
 [ -x "$helper" ] || {
   echo "dialog center tests: skipped ($helper not built)"
-  exit 0
+  exit 77
 }
 
 tmp=${TMPDIR:-/tmp}/rawm-dialog-center-test.$$

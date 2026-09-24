@@ -22,7 +22,7 @@ trap cleanup EXIT HUP INT TERM
 skip()
 {
   echo "signal lifecycle tests: skipped ($*)"
-  exit 0
+  exit 77
 }
 
 fail()

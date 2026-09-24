@@ -24,7 +24,7 @@ trap cleanup EXIT HUP INT TERM
 skip()
 {
   echo "attention rule tests: skipped ($*)"
-  exit 0
+  exit 77
 }
 
 fail()

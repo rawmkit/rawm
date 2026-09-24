@@ -13,13 +13,13 @@ helper=${2:-./tests/fullscreen-rule-client}
 for tool in Xvfb xwininfo awk sed; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "fullscreen rule tests: skipped ($tool not found)"
-    exit 0
+    exit 77
   }
 done
 
 [ -x "$helper" ] || {
   echo "fullscreen rule tests: skipped ($helper not built)"
-  exit 0
+  exit 77
 }
 
 tmp=${TMPDIR:-/tmp}/rawm-fullscreen-rule-test.$$

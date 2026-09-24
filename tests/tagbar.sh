@@ -23,7 +23,7 @@ trap cleanup EXIT HUP INT TERM
 skip()
 {
   echo "tag bar tests: skipped ($*)"
-  exit 0
+  exit 77
 }
 
 fail()

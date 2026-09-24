@@ -14,13 +14,13 @@ sendkey=${3:-./tests/send-key}
 for tool in Xvfb xwininfo awk sed; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "geometry tests: skipped ($tool not found)"
-    exit 0
+    exit 77
   }
 done
 for helper in "$client" "$sendkey"; do
   [ -x "$helper" ] || {
     echo "geometry tests: skipped ($helper not built)"
-    exit 0
+    exit 77
   }
 done
 
@@ -73,14 +73,14 @@ wait_window()
 
 press()
 {
-  if ! "$sendkey" "$1"; then
+  "$sendkey" "$1" || {
     rc=$?
     [ "$rc" -ne 77 ] || {
       echo "geometry tests: skipped (XTest unavailable)"
-      exit 0
+      exit 77
     }
     fail "cannot synthesize $1"
-  fi
+  }
   sleep 0.12
 }
 
