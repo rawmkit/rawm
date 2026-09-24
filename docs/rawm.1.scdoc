@@ -212,11 +212,13 @@ as commands back to rawm.
 rawm-owned non-client surfaces additionally publish:
 
 *\_RAWM\_SURFACE*
-	UTF8_STRING describing the surface role. Stable values are *bar* and
-	*systray*. Bar windows use *rawm-bar* as WM_CLASS instance and systray
-	windows use *rawm-systray*; both use *rawm* as the class and advertise
-	*\_NET\_WM\_WINDOW\_TYPE\_DOCK*. This lets compositors distinguish the
-	desktop chrome from ordinary clients without title or geometry heuristics.
+	UTF8_STRING describing the surface role. Stable values are *bar*,
+	*systray*, and *osd*. Their WM_CLASS instances are *rawm-bar*,
+	*rawm-systray*, and *rawm-osd* respectively; all use *rawm* as the class
+	and advertise *\_NET\_WM\_WINDOW\_TYPE\_DOCK*. This lets compositors
+	distinguish desktop chrome and transient rawm feedback from ordinary clients
+	without title or geometry heuristics. The systray surface is unmapped while
+	empty or while the selected monitor's bar is hidden.
 
 The client properties are removed when rawm releases a surviving client.
 Private rawm protocol atoms are intentionally not advertised through
