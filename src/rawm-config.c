@@ -1092,8 +1092,9 @@ parse_tag_list(FILE *err, const config_setting_t *list, RawmTagConfig **out,
       cfg_error(err, entry, "%s requires string member 'name'", "tag");
       goto fail;
     }
-    if (strlen(config_setting_get_string(name)) > 22) {
-      cfg_error(err, name, "%s is too long (maximum 22 bytes)", "tag name");
+    if (strlen(config_setting_get_string(name)) > RAWM_TAG_NAME_MAX) {
+      cfg_error(err, name, "%s is too long (maximum %u bytes)",
+                "tag name", RAWM_TAG_NAME_MAX);
       goto fail;
     }
     tags[i].name = xstrdup(config_setting_get_string(name));
@@ -2355,6 +2356,15 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
     fputs("rawm: configuration error: status.separator must be printable UTF-8 no longer than 256 bytes\n",
           err);
     return -1;
+  }
+  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i) {
+    if (!cfg->layout_symbols[i] ||
+        strlen(cfg->layout_symbols[i]) > RAWM_LAYOUT_SYMBOL_MAX) {
+      fprintf(err,
+              "rawm: configuration error: layout symbol '%s' exceeds %u bytes\n",
+              rawm_layout_name((RawmLayoutId)i), RAWM_LAYOUT_SYMBOL_MAX);
+      return -1;
+    }
   }
   for (i = 0; i < cfg->monitor_tag_count; ++i) {
     if (cfg->monitor_tags[i].tag_count != cfg->tag_count) {

@@ -419,7 +419,8 @@ The *layout* group accepts:
 *symbols* = group
 	Overrides status-bar symbols by stable layout name. The configured symbol is
 	the authoritative prefix used by dynamic bar labels; rawm appends the master
-	count or current/total client count where that layout reports one.
+	count or current/total client count where that layout reports one. A symbol
+	may contain at most 32 bytes after *${...}* references are resolved.
 
 The stable layout names are *tile*, *floating*, *monocle*, *bstack*,
 *bstack_horizontal*, and *grid*.
