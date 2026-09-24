@@ -94,6 +94,7 @@ fullscreen_rule_test = find_program('fullscreen-rule.sh')
 attention_rule_test = find_program('attention-rule.sh')
 geometry_test = find_program('geometry.sh')
 compositor_state_test = find_program('compositor-state.sh')
+focus_index_test = find_program('focus-index.sh')
 placement_test = find_program('placement.sh')
 tagbar_test = find_program('tagbar.sh')
 status_test = find_program('status.sh')
@@ -333,6 +334,21 @@ else
     'compositor-state',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(compositor_state_missing))],
+  )
+endif
+
+if x11_missing.length() == 0
+  test(
+    'focus-index',
+    focus_index_test,
+    args: [rawm, compositor_state_client, send_key],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'focus-index',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
   )
 endif
 
