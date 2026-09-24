@@ -2151,7 +2151,6 @@ drawstatus(int x, int right)
 
         memcpy(alert_col, dc.colors[scheme], sizeof alert_col);
         alert_col[ColBG] = dc.colors[scheme][ColBorder];
-        alert_col[ColFG] = dc.colors[SchemeNorm][ColBG];
         drawtext(statusdata.segments[i].text, alert_col, true);
       }
     }
