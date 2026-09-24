@@ -487,6 +487,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->bar_padding = 0;
   cfg->bar_item_spacing = 0;
   cfg->bar_section_spacing = 0;
+  cfg->bar_cell_margin = 0;
   cfg->bar_indicator_size = 0;
   cfg->tag_visibility = RAWM_TAG_VISIBILITY_OCCUPIED;
   cfg->show_systray = true;
@@ -772,7 +773,7 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
   };
   static const char *const bar_allowed[] = {
     "show", "position", "height", "padding", "item_spacing",
-    "section_spacing", "indicator_size", "tags"
+    "section_spacing", "cell_margin", "indicator_size", "tags"
   };
   static const char *const bar_tags_allowed[] = { "visibility" };
   static const char *const tray_allowed[] = { "show", "spacing" };
@@ -792,13 +793,15 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
   if (group) {
     config_setting_t *position;
     const char *value;
-    if (validate_members(err, group, bar_allowed, 8) < 0 ||
+    if (validate_members(err, group, bar_allowed, 9) < 0 ||
         read_bool(err, group, "show", &cfg->show_bar) < 0 ||
         read_uint_range(err, group, "padding", 0, 128, &cfg->bar_padding) < 0 ||
         read_uint_range(err, group, "item_spacing", 0, 128,
                         &cfg->bar_item_spacing) < 0 ||
         read_uint_range(err, group, "section_spacing", 0, 256,
                         &cfg->bar_section_spacing) < 0 ||
+        read_uint_range(err, group, "cell_margin", 0, 64,
+                        &cfg->bar_cell_margin) < 0 ||
         read_uint_range(err, group, "indicator_size", 0, 32,
                         &cfg->bar_indicator_size) < 0)
       return -1;
@@ -1764,6 +1767,8 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%u", cfg->bar_item_spacing);
   else if (!strcmp(path, "ui.bar.section_spacing"))
     snprintf(buf, buflen, "%u", cfg->bar_section_spacing);
+  else if (!strcmp(path, "ui.bar.cell_margin"))
+    snprintf(buf, buflen, "%u", cfg->bar_cell_margin);
   else if (!strcmp(path, "ui.bar.indicator_size"))
     snprintf(buf, buflen, "%u", cfg->bar_indicator_size);
   else if (!strcmp(path, "ui.bar.tags.visibility"))

@@ -104,7 +104,8 @@ The reference namespace contains these scalar paths:
 
 - *ui.font*, *ui.border_width*, *ui.snap*, *ui.opacity*
 - *ui.bar.show*, *ui.bar.position*, *ui.bar.height*, *ui.bar.padding*,
-  *ui.bar.item_spacing*, *ui.bar.section_spacing*, *ui.bar.indicator_size*,
+  *ui.bar.item_spacing*, *ui.bar.section_spacing*, *ui.bar.cell_margin*,
+  *ui.bar.indicator_size*,
   *ui.bar.tags.visibility*
 - *ui.systray.show*, *ui.systray.spacing*
 - *status.enabled*, *status.protocol*, *status.separator*
@@ -172,6 +173,11 @@ The *ui.bar* group accepts:
 *section_spacing* = integer
 	Horizontal separation between the tag, layout, title, status, and tray
 	sections, in pixels. Range 0..256. Default 0.
+
+*cell_margin* = integer
+	Vertical margin in pixels around semantic bar cells such as viewed tags,
+	layout mode cells, and warning/critical status cells. Zero keeps the
+	legacy full-height cell rendering. Range 0..64. Default 0.
 
 *indicator_size* = integer
 	Thickness in pixels of the compact focused-title authority marker drawn

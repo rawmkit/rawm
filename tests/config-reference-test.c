@@ -48,6 +48,7 @@ main(void)
     "           \"--bar-padding=${ui.bar.padding}\",\n"
     "           \"--bar-item-spacing=${ui.bar.item_spacing}\",\n"
     "           \"--bar-section-spacing=${ui.bar.section_spacing}\",\n"
+    "           \"--bar-cell-margin=${ui.bar.cell_margin}\",\n"
     "           \"--bar-indicator=${ui.bar.indicator_size}\",\n"
     "           \"--tags=${ui.bar.tags.visibility}\",\n"
     "           \"--tray=${ui.systray.show}\",\n"
@@ -61,7 +62,7 @@ main(void)
     "  font = \"face-${ui.colors.selected.foreground}\";\n"
     "  opacity = 0.85;\n"
     "  bar = { position = \"top\"; padding = 6; item_spacing = 4;\n"
-    "          section_spacing = 12; indicator_size = 2;\n"
+    "          section_spacing = 12; cell_margin = 4; indicator_size = 2;\n"
     "          tags = { visibility = \"all\"; }; };\n"
     "  systray = { show = false; };\n"
     "  colors = {\n"
@@ -81,7 +82,7 @@ main(void)
     "--center=parent", "--hints=always", "--placement=client",
     "--cascade=48", "--bar=top", "--bar-padding=6",
     "--bar-item-spacing=4", "--bar-section-spacing=12",
-    "--bar-indicator=2", "--tags=all", "--tray=false",
+    "--bar-cell-margin=4", "--bar-indicator=2", "--tags=all", "--tray=false",
     "#222222", "#aabbcc", "${HOME}"
   };
   char path[] = "/tmp/rawm-config-reference.XXXXXX";

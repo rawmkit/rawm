@@ -45,6 +45,7 @@ ui = {
     padding = 6;
     item_spacing = 4;
     section_spacing = 12;
+    cell_margin = 4;
     indicator_size = 2;
   };
 };
@@ -89,6 +90,13 @@ EOC
 expect_fail "$tmp/bar-metric-range.conf"
 grep -q "indicator_size" "$tmp/stderr" ||
   fail "bar indicator range diagnostic missing"
+
+cat >"$tmp/bar-cell-margin-range.conf" <<'EOC'
+ui = { bar = { cell_margin = 65; }; };
+EOC
+expect_fail "$tmp/bar-cell-margin-range.conf"
+grep -q "cell_margin" "$tmp/stderr" ||
+  fail "bar cell margin range diagnostic missing"
 
 cat >"$tmp/status-disabled.conf" <<'EOC'
 status = { enabled = false; protocol = "rawm-v2"; };
