@@ -109,8 +109,8 @@ The reference namespace contains these scalar paths:
 - *ui.systray.show*, *ui.systray.spacing*
 - *status.enabled*, *status.protocol*, *status.separator*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
-  *urgent*, or *error*, and _component_ is *border*, *foreground*, or
-  *background*
+  *urgent*, *error*, or *floating*, and _component_ is *border*,
+  *foreground*, or *background*
 - *behavior.dialog_center*, *behavior.size_hints*
 - *layout.master_factor*, *layout.master_count*
 - *layout.gaps.inner*, *layout.gaps.outer*, *layout.gaps.smart*
@@ -210,9 +210,12 @@ The *ui.systray* group accepts:
 
 ## Colors
 
-The *ui.colors* group has four named schemes: *normal*, *selected*, *urgent*,
-and *error*. Each scheme may contain *border*, *foreground*, and *background*
-string values accepted by Xft.
+The *ui.colors* group has five named schemes: *normal*, *selected*, *urgent*,
+*error*, and *floating*. Each scheme may contain *border*, *foreground*, and
+*background* string values accepted by Xft. The *floating* scheme is used for
+the selected client when rawm places that client on the elevated/floating
+plane, including the explicit floating layout. If omitted it defaults to the
+*selected* scheme's built-in colors, preserving the historical appearance.
 
 ```
 ui = {

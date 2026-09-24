@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #define RAWM_MAX_TAGS 31
-#define RAWM_COLOR_SCHEMES 4
+#define RAWM_COLOR_SCHEMES 5
 #define RAWM_COLOR_COMPONENTS 3
 
 typedef enum {

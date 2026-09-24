@@ -52,6 +52,7 @@ main(void)
     "           \"--tags=${ui.bar.tags.visibility}\",\n"
     "           \"--tray=${ui.systray.show}\",\n"
     "           \"${ui.colors.selected.background}\",\n"
+    "           \"${ui.colors.floating.border}\",\n"
     "           \"$${HOME}\");\n"
     "};\n"
     "status = { enabled = true; protocol = \"rawm-v2\"; separator = \" :: \"; };\n"
@@ -66,6 +67,7 @@ main(void)
     "  colors = {\n"
     "    normal = { foreground = \"#111111\"; background = \"#222222\"; };\n"
     "    selected = {\n"
+    "      border = \"#aabbcc\";\n"
     "      foreground = \"${ui.colors.normal.foreground}\";\n"
     "      background = \"${ui.colors.normal.background}\";\n"
     "    };\n"
@@ -80,7 +82,7 @@ main(void)
     "--cascade=48", "--bar=top", "--bar-padding=6",
     "--bar-item-spacing=4", "--bar-section-spacing=12",
     "--bar-indicator=2", "--tags=all", "--tray=false",
-    "#222222", "${HOME}"
+    "#222222", "#aabbcc", "${HOME}"
   };
   char path[] = "/tmp/rawm-config-reference.XXXXXX";
   RawmConfig cfg;
@@ -109,6 +111,8 @@ main(void)
     fail("recursive string reference did not resolve");
   if (strcmp(cfg.colors[1][2], "#222222"))
     fail("color alias did not resolve");
+  if (strcmp(cfg.colors[4][0], "#aabbcc"))
+    fail("floating color did not inherit selected border");
 
   cmd = rawm_config_find_command(&cfg, "probe");
   if (!cmd)

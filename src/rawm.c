@@ -188,6 +188,15 @@ enum {
   ColLast    /**< Sentinel value for the last color type. */
 };
 
+/** Configured color schemes. */
+enum {
+  SchemeNorm,
+  SchemeSel,
+  SchemeUrg,
+  SchemeErr,
+  SchemeFloating
+};
+
 typedef enum {
   StatusNormal,
   StatusWarning,
@@ -466,6 +475,8 @@ static void           setatomlistmember(Window w, Atom prop, Atom atom, bool pre
 static void           setsurfaceproperties(Window window, const char *instance,
                                            const char *surface,
                                            unsigned long monitor);
+static bool           clientiselevated(const Client *c);
+static int            clientselectedscheme(const Client *c);
 static void           clearclientcomposition(Client *c);
 static void           updateclientcomposition(Client *c);
 
@@ -1090,6 +1101,10 @@ arrangemon(Monitor *m)
       XSetWindowBorderWidth(dpy, c->win, border);
       configure(c);
     }
+
+    if (m == selmon && m->sel == c)
+      XSetWindowBorder(dpy, c->win,
+                       dc.colors[clientselectedscheme(c)][ColBorder].pixel);
   }
 
   if (m->lt[m->sellt]->arrange)
@@ -2014,8 +2029,10 @@ drawbar(Monitor *m)
 #ifdef WINTITLE
     if (m->sel)
     {
-      /* is monitor selected? draw dc.colors[1] then */
-      col = m == selmon ? dc.colors[1] : dc.colors[0];
+      /* Selected floating clients use the elevated color scheme. */
+      col = m == selmon
+              ? dc.colors[clientselectedscheme(m->sel)]
+              : dc.colors[0];
       drawtext(m->sel->name, col, true);
       if (m == selmon)
         drawbarindicator(m, dc.x, MIN(TEXTW(m->sel->name), dc.w), col);
@@ -2259,7 +2276,8 @@ focus(Client *c)
     detachstack(c);
     attachstack(c);
     grabbuttons(c, true);
-    XSetWindowBorder(dpy, c->win, dc.colors[1][ColBorder].pixel);
+    XSetWindowBorder(dpy, c->win,
+                     dc.colors[clientselectedscheme(c)][ColBorder].pixel);
     setfocus(c);
   }
   else
@@ -2964,6 +2982,19 @@ setsurfaceproperties(Window window, const char *instance, const char *surface,
   setcardinalproperty(window, rawmatom[RawmAtomMonitor], monitor);
 }
 
+static bool
+clientiselevated(const Client *c)
+{
+  return c && c->mon &&
+         (c->isfloating || !c->mon->lt[c->mon->sellt]->arrange);
+}
+
+static int
+clientselectedscheme(const Client *c)
+{
+  return clientiselevated(c) ? SchemeFloating : SchemeSel;
+}
+
 static void
 updateclientcomposition(Client *c)
 {
@@ -2974,7 +3005,7 @@ updateclientcomposition(Client *c)
   if (!c || !c->mon)
     return;
 
-  floating = c->isfloating || !c->mon->lt[c->mon->sellt]->arrange;
+  floating = clientiselevated(c);
   selected = c->mon == selmon && c->mon->sel == c;
   layout = clientlayoutname(c);
 
