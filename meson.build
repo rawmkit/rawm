@@ -10,7 +10,6 @@ project(
   ],
 )
 
-cc = meson.get_compiler('c')
 
 add_project_arguments(
   '-D_DEFAULT_SOURCE',
@@ -61,10 +60,12 @@ rawm_c_args += [
   '-DSYSCONFDIR="@0@"'.format(runtime_sysconfdir),
 ]
 
+rawm_config_source = files('rawm-config.c')
+
 rawm = executable(
   'rawm',
   'rawm.c',
-  'rawm-config.c',
+  rawm_config_source,
   c_args: rawm_c_args,
   dependencies: rawm_deps,
   install: true,
@@ -98,3 +99,5 @@ install_data(
   'rawm.conf',
   install_dir: join_paths(get_option('sysconfdir'), 'rawm'),
 )
+
+subdir('tests')
