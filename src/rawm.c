@@ -455,13 +455,16 @@ static void           drawbar(Monitor *m);
 static void           drawbarindicator(const Monitor *m, int x, int width,
                                        XftColor col[ColLast]);
 static void           drawbars(void);
-static void           drawstatus(Monitor *m, int x, int right);
+static void           drawstatus(int x, int right);
 static TagBarState    tagbarstate(const Monitor *m);
 static bool           tagbarvisible(const TagBarState *state, unsigned int tag);
-static void           drawsquare(bool filled, bool empty,
-                                 XftColor col[ColLast]);
 static void           drawtext(const char *text, XftColor col[ColLast],
                                bool pad);
+static void           drawtextcentered(const char *text,
+                                       XftColor col[ColLast], bool pad);
+static void           drawtextaligned(const char *text,
+                                      XftColor col[ColLast], bool pad,
+                                      bool centered);
 static void           enternotify(XEvent *e);
 static void           expose(XEvent *e);
 static void           focus(Client *c);
@@ -1917,8 +1920,6 @@ drawbar(Monitor *m)
 
   for (i = 0; i < config.tag_count; i++)
   {
-    unsigned int indicator;
-
     if (!tagbarvisible(&state, i))
       continue;
     if (drew_tag)
@@ -1927,14 +1928,20 @@ drawbar(Monitor *m)
     dc.w = TEXTW(m->tag_names[i]);
 
     col = dc.colors[(state.viewed & 1u << i)
-                      ? 1
-                      : (state.urgent & 1u << i ? 2 : 0)];
+                      ? SchemeSel
+                      : (state.urgent & 1u << i ? SchemeUrg : SchemeNorm)];
 
-    drawtext(m->tag_names[i], col, true);
+    if ((state.viewed | state.urgent) & 1u << i)
+    {
+      XftColor chip[ColLast];
 
-    indicator = MIN(config.bar_indicator_size, (unsigned int)dc.h);
-    if (indicator && ((state.viewed | state.urgent) & 1u << i))
-      drawbarindicator(m, dc.x, dc.w, col);
+      memcpy(chip, col, sizeof chip);
+      chip[ColBG] = col[ColBorder];
+      chip[ColFG] = dc.colors[SchemeNorm][ColBG];
+      drawtext(m->tag_names[i], chip, true);
+    }
+    else
+      drawtext(m->tag_names[i], col, true);
 
     dc.x += dc.w;
     drew_tag = true;
@@ -1989,8 +1996,14 @@ drawbar(Monitor *m)
     snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s",
              m->lt[m->sellt]->symbol);
 
-  dc.w  = blw = TEXTW(m->ltsymbol);
-  drawtext(m->ltsymbol, dc.colors[0], true);
+  dc.w = blw = TEXTW(m->ltsymbol);
+  {
+    XftColor layout_col[ColLast];
+
+    memcpy(layout_col, dc.colors[SchemeNorm], sizeof layout_col);
+    layout_col[ColBG] = dc.colors[SchemeNorm][ColBorder];
+    drawtext(m->ltsymbol, layout_col, true);
+  }
   dc.x += dc.w;
   dc.x += (int)config.bar_section_spacing;
   x = dc.x;
@@ -2016,7 +2029,7 @@ drawbar(Monitor *m)
       status_x = x;
     if (status_w)
     {
-      drawstatus(m, status_x, status_right);
+      drawstatus(status_x, status_right);
       title_right = MAX(x, status_x - (int)config.bar_section_spacing);
     }
     else
@@ -2029,19 +2042,26 @@ drawbar(Monitor *m)
 #ifdef WINTITLE
     if (m->sel)
     {
-      /* Selected floating clients use the elevated color scheme. */
+      XftColor title_col[ColLast];
+
+      /* Keep the title surface neutral; use the semantic scheme only for
+       * foreground authority and the workspace-facing focus marker. */
+      memcpy(title_col, dc.colors[SchemeNorm], sizeof title_col);
       col = m == selmon
               ? dc.colors[clientselectedscheme(m->sel)]
-              : dc.colors[0];
-      drawtext(m->sel->name, col, true);
+              : dc.colors[SchemeNorm];
+      title_col[ColFG] = col[ColFG];
+      title_col[ColBorder] = col[ColBorder];
+
+      drawtextcentered(m->sel->name, title_col, true);
       if (m == selmon)
-        drawbarindicator(m, dc.x, MIN(TEXTW(m->sel->name), dc.w), col);
+      {
+        int marker_width =
+            MIN(dc.w, dc.font.ascent + dc.font.descent + 12);
+        int marker_x = dc.x + (dc.w - marker_width) / 2;
 
-      drawsquare(m->sel->isfixed, m->sel->isfloating, col);
-
-      /* or draw normal colors, no matter what monitor it is */
-      //drawtext(m->sel->name, dc.colors[0], true);
-      //drawsquare(m->sel->isfixed, m->sel->isfloating, dc.colors[1]);
+        drawbarindicator(m, marker_x, marker_width, col);
+      }
     }
     else
 #endif /* WINTITLE */
@@ -2085,22 +2105,7 @@ drawbars(void)
 }
 
 static void
-drawsquare(bool filled, bool empty, XftColor col[ColLast])
-{
-  int x;
-
-  XSetForeground(dpy, dc.gc, col[ColFG].pixel);
-
-  x = (dc.font.ascent + dc.font.descent + 2) / 4;
-
-  if (filled)
-    XFillRectangle(dpy, dc.drawable, dc.gc, dc.x+1, dc.y+1, x+1, x+1);
-  else if (empty)
-    XDrawRectangle(dpy, dc.drawable, dc.gc, dc.x+1, dc.y+1, x,   x);
-}
-
-static void
-drawstatus(Monitor *m, int x, int right)
+drawstatus(int x, int right)
 {
   size_t i;
   int cursor = x;
@@ -2138,9 +2143,17 @@ drawstatus(Monitor *m, int x, int right)
     {
       int scheme = statusscheme(statusdata.segments[i].state);
 
-      drawtext(statusdata.segments[i].text, dc.colors[scheme], true);
-      if (statusdata.segments[i].state != StatusNormal)
-        drawbarindicator(m, dc.x, dc.w, dc.colors[scheme]);
+      if (statusdata.segments[i].state == StatusNormal)
+        drawtext(statusdata.segments[i].text, dc.colors[SchemeNorm], true);
+      else
+      {
+        XftColor alert_col[ColLast];
+
+        memcpy(alert_col, dc.colors[scheme], sizeof alert_col);
+        alert_col[ColBG] = dc.colors[scheme][ColBorder];
+        alert_col[ColFG] = dc.colors[SchemeNorm][ColBG];
+        drawtext(statusdata.segments[i].text, alert_col, true);
+      }
     }
     cursor += width;
   }
@@ -2148,6 +2161,19 @@ drawstatus(Monitor *m, int x, int right)
 
 static void
 drawtext(const char *text, XftColor col[ColLast], bool pad)
+{
+  drawtextaligned(text, col, pad, false);
+}
+
+static void
+drawtextcentered(const char *text, XftColor col[ColLast], bool pad)
+{
+  drawtextaligned(text, col, pad, true);
+}
+
+static void
+drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
+                bool centered)
 {
   char     *buf;
   int       x, y, h;
@@ -2163,7 +2189,6 @@ drawtext(const char *text, XftColor col[ColLast], bool pad)
   olen = strlen(text);
   h = pad ? (dc.font.ascent + dc.font.descent) : 0;
   y = dc.y + (dc.h + dc.font.ascent - dc.font.descent) / 2;
-  x = dc.x + (h / 2);
 
   for (len = olen;
        len && textnw(text, (unsigned int)len) > (dc.w - h);
@@ -2186,6 +2211,18 @@ drawtext(const char *text, XftColor col[ColLast], bool pad)
     for (i = 0; i < dots; ++i)
       buf[len - 1 - i] = '.';
   }
+
+  if (centered)
+  {
+    int text_width = (int)textnw(buf, (unsigned int)len);
+    int left_pad = h / 2;
+
+    x = dc.x + (dc.w - text_width) / 2;
+    if (x < dc.x + left_pad)
+      x = dc.x + left_pad;
+  }
+  else
+    x = dc.x + (h / 2);
 
   d = XftDrawCreate(dpy,
                     dc.drawable,

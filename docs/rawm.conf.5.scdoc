@@ -174,9 +174,9 @@ The *ui.bar* group accepts:
 	sections, in pixels. Range 0..256. Default 0.
 
 *indicator_size* = integer
-	Thickness in pixels of semantic state indicators drawn along the
-	workspace-facing edge of bar cells. Zero disables indicators. Range 0..32.
-	Default 0.
+	Thickness in pixels of the compact focused-title authority marker drawn
+	along the workspace-facing edge of the title region. Zero disables the
+	marker. Range 0..32. Default 0.
 
 The nested *ui.bar.tags* group accepts:
 
@@ -187,13 +187,18 @@ The nested *ui.bar.tags* group accepts:
 	shows every configured tag. Default *"occupied"*.
 
 Tag labels communicate state through the configured color schemes rather than
-through dwm-style occupancy squares. A viewed tag uses *ui.colors.selected*. A
-hidden urgent tag uses *ui.colors.urgent*. Other visible tags use
-*ui.colors.normal*. Viewed state takes precedence over urgency. When
-*indicator_size* is non-zero, viewed and urgent tags also receive a
-border-colored line along the workspace-facing edge of their label cell. The
-selected monitor's title receives the same selected-state marker, and warning
-or critical status segments receive markers from their semantic color scheme.
+through dwm-style occupancy squares. A viewed tag is filled with
+*ui.colors.selected.border* and an urgent tag with *ui.colors.urgent.border*;
+their text uses the normal bar background for contrast. Other visible tags use
+*ui.colors.normal*. Viewed state takes precedence over urgency.
+
+The layout label is rendered as a neutral mode cell. The selected window title
+is centered in the title region and remains on the normal bar background.
+When *indicator_size* is non-zero, a compact marker centered on the
+workspace-facing edge uses the selected or floating border color to describe
+the focused client's authority state. Warning and critical status segments are
+filled with their semantic border colors instead of relying on a small marker.
+
 Drawing and mouse hit testing consume the same visibility and spacing policy,
 so suppressed tags and inter-item gaps reserve no clickable tag space.
 

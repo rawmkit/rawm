@@ -101,14 +101,15 @@ the layout, the title (when built with *-Dwindow_title=true*) of the focused
 window, and status text received through the configured status protocol
 on the focused screen.
 
-A floating window is indicated with an empty square and a maximised
-floating window is indicated with a filled square before the windows
-title.
+The bar is a semantic rail. Viewed tags use the selected authority color as
+a filled cell, urgent tags use the urgent authority color, and the layout is
+drawn as a neutral mode cell. The focused window title is centered in the
+remaining title area and receives a compact border-colored marker on the
+workspace-facing edge. Floating focus therefore differs by authority color,
+not by a legacy square glyph.
 
-The selected tags are indicated with a different color.  The tags of
-the focused window are indicated with a filled square in the top left
-corner.  The tags which are applied to one or more windows are
-indicated with an empty square in the top left corner.
+Normal status segments remain quiet. Warning and critical segments become
+filled semantic cells using the urgent and error authority colors.
 
 *rawm* draws a small border around windows to indicate the focus state.
 
