@@ -1,7 +1,7 @@
 project(
   'rawm',
   'c',
-  version: '6.0',
+  version: '6.1',
   meson_version: '>=1.4.0',
   default_options: [
     'c_std=c99',
