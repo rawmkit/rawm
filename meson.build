@@ -60,16 +60,7 @@ rawm_c_args += [
   '-DSYSCONFDIR="@0@"'.format(runtime_sysconfdir),
 ]
 
-rawm_config_source = files('rawm-config.c')
-
-rawm = executable(
-  'rawm',
-  'rawm.c',
-  rawm_config_source,
-  c_args: rawm_c_args,
-  dependencies: rawm_deps,
-  install: true,
-)
+subdir('src')
 
 scdoc = find_program('scdoc')
 

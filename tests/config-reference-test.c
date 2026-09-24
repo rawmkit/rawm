@@ -1,4 +1,4 @@
-#include "../rawm-config.h"
+#include "rawm-config.h"
 
 #include <stdio.h>
 #include <stdlib.h>

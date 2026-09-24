@@ -4,6 +4,7 @@ config_reference_test = executable(
   'config-reference-test',
   'config-reference-test.c',
   rawm_config_source,
+  include_directories: rawm_src_include,
   dependencies: libconfig_dep,
   build_by_default: false,
 )
