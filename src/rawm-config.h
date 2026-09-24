@@ -177,6 +177,7 @@ typedef struct {
   unsigned int osd_duration_ms;
   unsigned int osd_padding;
   unsigned int osd_offset;
+  unsigned int osd_min_width;
   bool show_systray;
   unsigned int systray_spacing;
 

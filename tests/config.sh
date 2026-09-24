@@ -159,6 +159,14 @@ expect_fail "$tmp/osd-duration-range.conf"
 grep -q "duration_ms" "$tmp/stderr" ||
   fail "osd duration range diagnostic missing"
 
+
+cat >"$tmp/osd-width-range.conf" <<'EOC'
+ui = { osd = { min_width = 4097; }; };
+EOC
+expect_fail "$tmp/osd-width-range.conf"
+grep -q "min_width" "$tmp/stderr" ||
+  fail "osd minimum width range diagnostic missing"
+
 cat >"$tmp/status-disabled.conf" <<'EOC'
 status = { enabled = false; protocol = "rawm-v2"; };
 EOC

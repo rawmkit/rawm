@@ -108,7 +108,7 @@ The reference namespace contains these scalar paths:
   *ui.bar.indicator_size*,
   *ui.bar.tags.visibility*
 - *ui.osd.show*, *ui.osd.position*, *ui.osd.duration_ms*,
-  *ui.osd.padding*, *ui.osd.offset*
+  *ui.osd.padding*, *ui.osd.offset*, *ui.osd.min_width*
 - *ui.systray.show*, *ui.systray.spacing*
 - *status.enabled*, *status.protocol*, *status.separator*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
@@ -234,6 +234,11 @@ The *ui.osd* group controls rawm's transient keyboard-feedback surface.
 *offset* = integer
 	Distance from the selected monitor's workspace edge in pixels. Range
 	0..512. Default 24.
+
+*min_width* = integer
+	Minimum OSD width in pixels. Text wider than this value still expands the
+	surface as needed. Zero preserves content-sized geometry. Range 0..4096.
+	Default 0.
 
 The OSD is a rawm-owned override-redirect surface with
 *\_RAWM\_SURFACE = "osd"* and *\_RAWM\_MONITOR* metadata. It does not take focus,

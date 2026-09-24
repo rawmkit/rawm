@@ -497,6 +497,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->osd_duration_ms = 800;
   cfg->osd_padding = 10;
   cfg->osd_offset = 24;
+  cfg->osd_min_width = 0;
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
   cfg->status_enabled = true;
@@ -860,19 +861,21 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
   group = config_setting_get_member(ui, "osd");
   if (group) {
     static const char *const osd_allowed[] = {
-      "show", "position", "duration_ms", "padding", "offset"
+      "show", "position", "duration_ms", "padding", "offset", "min_width"
     };
     config_setting_t *position;
     const char *value;
 
-    if (validate_members(err, group, osd_allowed, 5) < 0 ||
+    if (validate_members(err, group, osd_allowed, 6) < 0 ||
         read_bool(err, group, "show", &cfg->show_osd) < 0 ||
         read_uint_range(err, group, "duration_ms", 100, 5000,
                         &cfg->osd_duration_ms) < 0 ||
         read_uint_range(err, group, "padding", 0, 64,
                         &cfg->osd_padding) < 0 ||
         read_uint_range(err, group, "offset", 0, 512,
-                        &cfg->osd_offset) < 0)
+                        &cfg->osd_offset) < 0 ||
+        read_uint_range(err, group, "min_width", 0, 4096,
+                        &cfg->osd_min_width) < 0)
       return -1;
 
     position = config_setting_get_member(group, "position");
@@ -1863,6 +1866,8 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%u", cfg->osd_padding);
   else if (!strcmp(path, "ui.osd.offset"))
     snprintf(buf, buflen, "%u", cfg->osd_offset);
+  else if (!strcmp(path, "ui.osd.min_width"))
+    snprintf(buf, buflen, "%u", cfg->osd_min_width);
   else if (!strcmp(path, "ui.systray.show"))
     snprintf(buf, buflen, "%s", cfg->show_systray ? "true" : "false");
   else if (!strcmp(path, "ui.systray.spacing"))
