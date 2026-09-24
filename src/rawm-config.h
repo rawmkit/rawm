@@ -165,6 +165,10 @@ typedef struct {
   bool show_bar;
   bool top_bar;
   int bar_height;
+  unsigned int bar_padding;
+  unsigned int bar_item_spacing;
+  unsigned int bar_section_spacing;
+  unsigned int bar_indicator_size;
   RawmTagVisibility tag_visibility;
   bool show_systray;
   unsigned int systray_spacing;

@@ -103,7 +103,9 @@ commands = {
 The reference namespace contains these scalar paths:
 
 - *ui.font*, *ui.border_width*, *ui.snap*, *ui.opacity*
-- *ui.bar.show*, *ui.bar.position*, *ui.bar.height*, *ui.bar.tags.visibility*
+- *ui.bar.show*, *ui.bar.position*, *ui.bar.height*, *ui.bar.padding*,
+  *ui.bar.item_spacing*, *ui.bar.section_spacing*, *ui.bar.indicator_size*,
+  *ui.bar.tags.visibility*
 - *ui.systray.show*, *ui.systray.spacing*
 - *status.enabled*, *status.protocol*, *status.separator*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
@@ -158,6 +160,22 @@ The *ui.bar* group accepts:
 *height* = integer
 	Explicit bar height in pixels, 0..512. Zero derives the height from the
 	font. Default 0.
+
+*padding* = integer
+	Horizontal inset at each outer edge of the bar, in pixels. Range 0..128.
+	Default 0.
+
+*item_spacing* = integer
+	Horizontal spacing between adjacent tag labels and between adjacent status
+	segments, in pixels. Range 0..128. Default 0.
+
+*section_spacing* = integer
+	Horizontal separation between the tag, layout, title, status, and tray
+	sections, in pixels. Range 0..256. Default 0.
+
+*indicator_size* = integer
+	Thickness in pixels of the tag-state indicator drawn by the bar. Zero
+	disables indicators. Range 0..32. Default 0.
 
 The nested *ui.bar.tags* group accepts:
 

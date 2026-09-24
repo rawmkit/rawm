@@ -40,7 +40,13 @@ expect_ok config/rawm.conf
 cat >"$tmp/valid.conf" <<'EOC'
 ui = {
   font = "monospace:size=11";
-  bar = { position = "top"; };
+  bar = {
+    position = "top";
+    padding = 6;
+    item_spacing = 4;
+    section_spacing = 12;
+    indicator_size = 2;
+  };
 };
 status = { enabled = true; protocol = "rawm-v2"; separator = " :: "; };
 behavior = { dialog_center = "parent"; };
@@ -76,6 +82,13 @@ input = {
 };
 EOC
 expect_ok "$tmp/valid.conf"
+
+cat >"$tmp/bar-metric-range.conf" <<'EOC'
+ui = { bar = { indicator_size = 33; }; };
+EOC
+expect_fail "$tmp/bar-metric-range.conf"
+grep -q "indicator_size" "$tmp/stderr" ||
+  fail "bar indicator range diagnostic missing"
 
 cat >"$tmp/status-disabled.conf" <<'EOC'
 status = { enabled = false; protocol = "rawm-v2"; };

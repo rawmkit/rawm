@@ -481,6 +481,10 @@ rawm_config_init(RawmConfig *cfg)
   cfg->show_bar = true;
   cfg->top_bar = false;
   cfg->bar_height = 0;
+  cfg->bar_padding = 0;
+  cfg->bar_item_spacing = 0;
+  cfg->bar_section_spacing = 0;
+  cfg->bar_indicator_size = 0;
   cfg->tag_visibility = RAWM_TAG_VISIBILITY_OCCUPIED;
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
@@ -764,7 +768,8 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
     "font", "border_width", "snap", "opacity", "bar", "systray", "colors"
   };
   static const char *const bar_allowed[] = {
-    "show", "position", "height", "tags"
+    "show", "position", "height", "padding", "item_spacing",
+    "section_spacing", "indicator_size", "tags"
   };
   static const char *const bar_tags_allowed[] = { "visibility" };
   static const char *const tray_allowed[] = { "show", "spacing" };
@@ -784,8 +789,15 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
   if (group) {
     config_setting_t *position;
     const char *value;
-    if (validate_members(err, group, bar_allowed, 4) < 0 ||
-        read_bool(err, group, "show", &cfg->show_bar) < 0)
+    if (validate_members(err, group, bar_allowed, 8) < 0 ||
+        read_bool(err, group, "show", &cfg->show_bar) < 0 ||
+        read_uint_range(err, group, "padding", 0, 128, &cfg->bar_padding) < 0 ||
+        read_uint_range(err, group, "item_spacing", 0, 128,
+                        &cfg->bar_item_spacing) < 0 ||
+        read_uint_range(err, group, "section_spacing", 0, 256,
+                        &cfg->bar_section_spacing) < 0 ||
+        read_uint_range(err, group, "indicator_size", 0, 32,
+                        &cfg->bar_indicator_size) < 0)
       return -1;
     h = cfg->bar_height;
     if (read_int_range(err, group, "height", 0, 512, &h) < 0)
@@ -1742,6 +1754,14 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%s", cfg->top_bar ? "top" : "bottom");
   else if (!strcmp(path, "ui.bar.height"))
     snprintf(buf, buflen, "%d", cfg->bar_height);
+  else if (!strcmp(path, "ui.bar.padding"))
+    snprintf(buf, buflen, "%u", cfg->bar_padding);
+  else if (!strcmp(path, "ui.bar.item_spacing"))
+    snprintf(buf, buflen, "%u", cfg->bar_item_spacing);
+  else if (!strcmp(path, "ui.bar.section_spacing"))
+    snprintf(buf, buflen, "%u", cfg->bar_section_spacing);
+  else if (!strcmp(path, "ui.bar.indicator_size"))
+    snprintf(buf, buflen, "%u", cfg->bar_indicator_size);
   else if (!strcmp(path, "ui.bar.tags.visibility"))
     snprintf(buf, buflen, "%s", tag_visibility_name(cfg->tag_visibility));
   else if (!strcmp(path, "ui.systray.show"))
