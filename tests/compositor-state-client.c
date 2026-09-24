@@ -211,6 +211,7 @@ main(int argc, char **argv)
 {
   Display *display;
   Window root, window;
+  Atom wm_delete, wm_protocols;
   XEvent event;
 
   display = XOpenDisplay(NULL);
@@ -253,6 +254,10 @@ main(int argc, char **argv)
   root = DefaultRootWindow(display);
   window = XCreateSimpleWindow(display, root, 60, 70, 320, 200, 0, 0, 0);
   XStoreName(display, window, "rawm-compositor-state");
+  wm_delete = XInternAtom(display, "WM_DELETE_WINDOW", False);
+  wm_protocols = XInternAtom(display, "WM_PROTOCOLS", False);
+  if (!XSetWMProtocols(display, window, &wm_delete, 1))
+    fail("cannot advertise WM_DELETE_WINDOW");
   XSelectInput(display, window, StructureNotifyMask);
   XMapWindow(display, window);
   XFlush(display);
@@ -263,7 +268,14 @@ main(int argc, char **argv)
   for (;;)
   {
     XNextEvent(display, &event);
-    if (event.type == DestroyNotify)
+    if (event.type == ClientMessage &&
+        event.xclient.message_type == wm_protocols &&
+        (Atom)event.xclient.data.l[0] == wm_delete)
+    {
+      XDestroyWindow(display, window);
+      XFlush(display);
+    }
+    else if (event.type == DestroyNotify)
       break;
   }
 
