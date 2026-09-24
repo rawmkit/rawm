@@ -7,7 +7,7 @@ Next Release
 
 - [x] Clean up the manual page.
 - [x] Use specified color for urgent tag background/foreground?
-- [ ] Include custom shortcuts to the man?
+- [x] Include custom shortcuts to the man?
 - [x] Clean up systray commit and document.
 - [ ] Fix notification-daemon layout alignment.
 - [x] Replace iscentered with explicit monitor/parent centering policy.

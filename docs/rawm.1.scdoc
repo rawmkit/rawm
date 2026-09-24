@@ -160,30 +160,6 @@ The options are as follows:
 	producer, but any X11 client may publish the property. See *rawm.conf*(5)
 	for the complete wire contract.
 
-*Button1*
-	Click on a tag label to display all windows with that tag. Clicking the
-	layout label toggles between the current and previous layout.
-
-*Button3*
-	Click on a tag label adds/removes all windows with that tag to/from the
-	view. Clicking the layout label selects monocle.
-
-*Button4*, *Button5* on tags
-	Scroll over the tag area to select the previous or next single-tag view.
-	The configured tag order wraps at either end.
-
-*Button4*, *Button5* on layout
-	Scroll over the layout label to select the previous or next stable layout.
-	The sequence wraps across tile, floating, monocle, bstack,
-	bstack-horizontal, and grid.
-
-*Meta-Button1*
-	Click on a tag label applies that tag to the focused window.
-
-*Meta-Button3*
-	Click on a tag label adds/removes that tag to/from the focused
-	window.
-
 ## Compositor integration
 
 rawm publishes private per-client properties describing window-manager state
@@ -263,7 +239,10 @@ replaces them.
 	Sets bstack layout.
 
 *Meta-h*
-	Sets bstackhoriz layout.
+	Sets horizontal bstack layout.
+
+*Meta-g*
+	Sets grid layout.
 
 *Meta-space*
 	Toggles between current and previous layout.
@@ -300,7 +279,8 @@ replaces them.
 	Toggle focused window between tiled and floating state.
 
 *Meta-Shift-f*
-	Toggle focused window between fullscreen and tiled state.
+	Toggle focused window between fullscreen and its previous tiled or
+	floating state.
 
 *Meta-Tab*
 	Toggles to the previously selected tags.
@@ -321,8 +301,7 @@ replaces them.
 	View all windows with any tag.
 
 *Meta-o*
-	Jump on the selected window in the "all windows with any tag"
-	view.
+	Switch the current view to the focused window's tag set.
 
 *Meta-Control-[1..n]*
 	Add/remove all windows with nth tag to/from the view.
@@ -338,8 +317,20 @@ replaces them.
 These are the built-in mouse bindings. An *input.buttons* list in
 *rawm.conf*(5) replaces them.
 
+*Button1* on tags
+	View the clicked tag.
+
+*Button3* on tags
+	Add/remove the clicked tag from the current view.
+
 *Button4*, *Button5* on tags
 	Cycle backward or forward through configured single-tag views.
+
+*Meta-Button1* on tags
+	Assign the clicked tag to the focused window.
+
+*Meta-Button3* on tags
+	Add/remove the clicked tag on the focused window.
 
 *Button1* on layout
 	Toggle between the current and previous layout.
@@ -350,16 +341,19 @@ These are the built-in mouse bindings. An *input.buttons* list in
 *Button4*, *Button5* on layout
 	Cycle backward or forward through the stable layout set.
 
-*Meta-Button1*
-	Move focused window while dragging.  Tiled windows will be
-	toggled to the floating state.
+*Button2* on status
+	Start the configured *terminal* command.
 
-*Meta-Button2*
-	Toggles focused window between floating and tiled state.
+*Meta-Button1* on client
+	Move the focused window while dragging. Tiled windows become
+	floating after movement exceeds the snap threshold.
 
-*Meta-Button3*
-	Resize focused window while dragging.  Tiled windows will be
-	toggled to the  floating state.
+*Meta-Button2* on client
+	Toggle the focused window between floating and tiled state.
+
+*Meta-Button3* on client
+	Resize the focused window while dragging. Tiled windows become
+	floating after resizing exceeds the snap threshold.
 
 # CONFIGURATION
 
@@ -381,35 +375,5 @@ an edit.
 # SEE ALSO
 
 *rawm.conf*(5), *dmenu*(1)
-
-# BUGS
-
-Java applications which use the XToolkit/XAWT backend may draw grey
-windows only.  The XToolkit/XAWT backend breaks ICCCM-compliance in
-recent JDK 1.5 and early JDK 1.6 versions, because it assumes a
-reparenting window manager.  Possible workarounds are using JDK 1.4
-(which doesn't contain the XToolkit/XAWT backend) or setting the
-environment variable *AWT_TOOLKIT* to "MToolkit" (to use the older
-Motif backend instead) or running one of the following commands:
-
-1.
-```
-xprop -root -f _NET_WM_NAME 32a -set _NET_WM_NAME LG3D
-```
-
-2.
-```
-wmname LG3D
-```
-
-(to pretend that a non-reparenting window manager is running that the
-XToolkit/XAWT backend can recognize) or when using OpenJDK setting the
-environment variable *\_JAVA\_AWT\_WM\_NONREPARENTING* to '1'.
-
-GTK 2.10.9+ versions contain a broken "Save-As" file dialog
-implementation, which requests to reconfigure its window size in an
-endless loop.  However, its window is still respondable during this
-state, so you can simply ignore the flicker until a new GTK version
-appears, which will fix this bug, approximately GTK 2.10.12+ versions.
 
 ; vim: ft=scdoc cc=72 tw=70
