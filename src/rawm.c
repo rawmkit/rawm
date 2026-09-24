@@ -1915,9 +1915,10 @@ drawbar(Monitor *m)
     indicator = MIN(config.bar_indicator_size, (unsigned int)dc.h);
     if (indicator && ((state.viewed | state.urgent) & 1u << i))
     {
+      int iy = m->topbar ? dc.h - (int)indicator : 0;
+
       XSetForeground(dpy, dc.gc, col[ColFG].pixel);
-      XFillRectangle(dpy, dc.drawable, dc.gc,
-                     dc.x, dc.h - (int)indicator, dc.w, indicator);
+      XFillRectangle(dpy, dc.drawable, dc.gc, dc.x, iy, dc.w, indicator);
     }
 
     dc.x += dc.w;

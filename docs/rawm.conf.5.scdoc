@@ -190,7 +190,8 @@ through dwm-style occupancy squares. A viewed tag uses *ui.colors.selected*. A
 hidden urgent tag uses *ui.colors.urgent*. Other visible tags use
 *ui.colors.normal*. Viewed state takes precedence over urgency. When
 *indicator_size* is non-zero, viewed and urgent tags also receive a foreground-
-colored line along the bottom edge of their label cell. Drawing and mouse hit
+colored line along the workspace-facing edge of their label cell. Drawing and
+mouse hit
 testing consume the same visibility and spacing policy, so suppressed tags and
 inter-item gaps reserve no clickable tag space.
 
