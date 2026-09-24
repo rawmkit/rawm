@@ -5781,7 +5781,11 @@ unmapnotify(XEvent *e)
 #ifdef SYSTRAY
   else if ((c = wintosystrayicon(ev->window)))
   {
-    removesystrayicon(c);
+    /*
+     * XEmbed unmapping is presentation state, not icon lifetime. Keep the
+     * icon docked while _XEMBED_INFO has XEMBED_MAPPED clear; DestroyNotify
+     * is the authority that removes a dead tray client.
+     */
     resizebarwin(selmon);
     updatesystray();
   }
