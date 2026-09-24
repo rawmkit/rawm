@@ -1286,44 +1286,67 @@ buttonpress(XEvent *e)
   if (ev->window == selmon->barwin)
   {
     TagBarState state = tagbarstate(m);
-    unsigned int i = 0;
-    int          x = 0;
+    unsigned int i;
+    int cursor = (int)config.bar_padding;
+    bool drew_tag = false;
+    bool hit_tag = false;
 
-    do
+    for (i = 0; i < config.tag_count; ++i)
     {
+      int width;
+
       if (!tagbarvisible(&state, i))
         continue;
+      if (drew_tag)
+        cursor += (int)config.bar_item_spacing;
 
-      x += TEXTW(m->tag_names[i]);
+      width = TEXTW(m->tag_names[i]);
+      if (ev->x >= cursor && ev->x < cursor + width)
+      {
+        click = ClkTagBar;
+        arg.ui = 1u << i;
+        hit_tag = true;
+        break;
+      }
 
-    } while (ev->x >= x && ++i < config.tag_count);
-
-    if (i < config.tag_count)
-    {
-      click  = ClkTagBar;
-      arg.ui = 1 << i;
+      cursor += width;
+      drew_tag = true;
     }
-    else if (ev->x < x + blw)
-      click = ClkLtSymbol;
-    else
+
+    if (!hit_tag)
     {
-      int status_x, status_right = selmon->ww;
-      int status_w = statuswidth();
+      int layout_x;
+
+      if (drew_tag)
+        cursor += (int)config.bar_section_spacing;
+      layout_x = cursor;
+
+      if (ev->x >= layout_x && ev->x < layout_x + blw)
+        click = ClkLtSymbol;
+      else
+      {
+        int status_x;
+        int status_right = selmon->ww - (int)config.bar_padding;
+        int status_w = statuswidth();
 
 #ifdef SYSTRAY
-      if (config.show_systray)
-        status_right -= getsystraywidth();
+        if (config.show_systray)
+        {
+          status_right -= getsystraywidth();
+          status_right -= (int)config.bar_section_spacing;
+        }
 #endif /* SYSTRAY */
-      status_x = status_right - status_w;
-      if (status_x < x + blw)
-        status_x = x + blw;
+        status_x = status_right - status_w;
+        if (status_x < layout_x + blw + (int)config.bar_section_spacing)
+          status_x = layout_x + blw + (int)config.bar_section_spacing;
 
-      if (status_w && ev->x >= status_x && ev->x < status_right)
-        click = ClkStatusText;
+        if (status_w && ev->x >= status_x && ev->x < status_right)
+          click = ClkStatusText;
 #ifdef WINTITLE
-      else
-        click = ClkWinTitle;
+        else
+          click = ClkWinTitle;
 #endif /* WINTITLE */
+      }
     }
   }
   else if ((c = wintoclient(ev->window)))
@@ -1846,17 +1869,25 @@ drawbar(Monitor *m)
   unsigned int i;
   XftColor    *col;
   Client      *c;
+  bool         drew_tag = false;
 
 #ifdef SYSTRAY
   resizebarwin(m);
 #endif /* SYSTRAY */
 
-  dc.x = 0;
+  XSetForeground(dpy, dc.gc, dc.colors[0][ColBG].pixel);
+  XFillRectangle(dpy, dc.drawable, dc.gc, 0, 0, m->ww, bh);
+
+  dc.x = (int)config.bar_padding;
 
   for (i = 0; i < config.tag_count; i++)
   {
+    unsigned int indicator;
+
     if (!tagbarvisible(&state, i))
       continue;
+    if (drew_tag)
+      dc.x += (int)config.bar_item_spacing;
 
     dc.w = TEXTW(m->tag_names[i]);
 
@@ -1865,8 +1896,21 @@ drawbar(Monitor *m)
                       : (state.urgent & 1u << i ? 2 : 0)];
 
     drawtext(m->tag_names[i], col, true);
+
+    indicator = MIN(config.bar_indicator_size, (unsigned int)dc.h);
+    if (indicator && ((state.viewed | state.urgent) & 1u << i))
+    {
+      XSetForeground(dpy, dc.gc, col[ColFG].pixel);
+      XFillRectangle(dpy, dc.drawable, dc.gc,
+                     dc.x, dc.h - (int)indicator, dc.w, indicator);
+    }
+
     dc.x += dc.w;
+    drew_tag = true;
   }
+
+  if (drew_tag)
+    dc.x += (int)config.bar_section_spacing;
 
   /*
    * draw layout
@@ -1915,27 +1959,35 @@ drawbar(Monitor *m)
   dc.w  = blw = TEXTW(m->ltsymbol);
   drawtext(m->ltsymbol, dc.colors[0], true);
   dc.x += dc.w;
+  dc.x += (int)config.bar_section_spacing;
   x = dc.x;
-  title_right = m->ww;
+  title_right = m->ww - (int)config.bar_padding;
 
   if (m == selmon)
   {
-    int status_right = m->ww;
+    int status_right = m->ww - (int)config.bar_padding;
     int status_w = statuswidth();
     int status_x;
 
     /* status is only drawn on selected monitor */
 #ifdef SYSTRAY
     if (config.show_systray  &&  m == selmon)
+    {
       status_right -= getsystraywidth();
+      status_right -= (int)config.bar_section_spacing;
+    }
 #endif /* SYSTRAY */
 
     status_x = status_right - status_w;
     if (status_x < x)
       status_x = x;
     if (status_w)
+    {
       drawstatus(status_x, status_right);
-    title_right = status_x;
+      title_right = MAX(x, status_x - (int)config.bar_section_spacing);
+    }
+    else
+      title_right = status_right;
   }
 
   if ((dc.w = title_right - x) > bh)
@@ -2005,6 +2057,13 @@ drawstatus(int x, int right)
   for (i = 0; i < statusdata.count && cursor < right; ++i)
   {
     int width;
+
+    if (i)
+    {
+      cursor += (int)config.bar_item_spacing;
+      if (cursor >= right)
+        break;
+    }
 
     if (i && separator_width)
     {
@@ -2813,7 +2872,7 @@ statuswidth(void)
   for (i = 0; i < statusdata.count; ++i)
   {
     if (i)
-      width += separator_width;
+      width += separator_width + (int)config.bar_item_spacing;
     width += TEXTW(statusdata.segments[i].text);
   }
   return width;
