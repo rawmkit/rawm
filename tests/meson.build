@@ -96,6 +96,7 @@ geometry_test = find_program('geometry.sh')
 compositor_state_test = find_program('compositor-state.sh')
 focus_index_test = find_program('focus-index.sh')
 window_view_test = find_program('window-view.sh')
+actions_test = find_program('actions.sh')
 placement_test = find_program('placement.sh')
 tagbar_test = find_program('tagbar.sh')
 status_test = find_program('status.sh')
@@ -363,6 +364,21 @@ if x11_missing.length() == 0
 else
   test(
     'window-view',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
+  )
+endif
+
+if x11_missing.length() == 0
+  test(
+    'actions',
+    actions_test,
+    args: [rawm, compositor_state_client, send_key],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'actions',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
   )
