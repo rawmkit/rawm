@@ -5429,7 +5429,7 @@ toggletag(const Arg *arg)
 static void
 toggleview(const Arg *arg)
 {
-  int newtagset =
+  unsigned int newtagset =
     selmon->tagset[selmon->seltags] ^ (arg->ui & TAGMASK);
 
   if (!newtagset)
