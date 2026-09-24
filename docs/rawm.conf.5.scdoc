@@ -713,9 +713,15 @@ input.buttons = (
 *spawn*
 	Requires *command* naming an entry in *commands*.
 
-*toggle_bar*, *rename_tag*, *zoom*, *kill_client*, *toggle_floating*,
-*window_view*, *toggle_fullscreen*, *move*, *resize*
+*toggle_bar*, *zoom*, *kill_client*, *toggle_floating*, *window_view*,
+*toggle_fullscreen*, *move*, *resize*
 	Take no action-specific argument.
+
+*rename_tag*
+	Requires *command* naming a configured command whose first standard-output
+	line is the new tag label. No output leaves the current label unchanged; an
+	empty first line restores the numeric label. The built-in default command is
+	*tag_rename*, implemented with *dmenu*.
 
 *focus_stack*
 	Requires non-zero integer *number*. Positive selects forward, negative

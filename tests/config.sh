@@ -156,6 +156,38 @@ expect_fail "$tmp/cycle-layout-missing-direction.conf"
 grep -q "cycle_layout requires 'number' -1 or 1" "$tmp/stderr" ||
   fail "cycle_layout missing direction diagnostic missing"
 
+cat >"$tmp/rename-tag-command.conf" <<'EOC'
+commands = { rename = ("printf", "work\\n"); };
+input = {
+  keys = (
+    { key = "F1"; action = "rename_tag"; command = "rename"; }
+  );
+};
+EOC
+expect_ok "$tmp/rename-tag-command.conf"
+
+cat >"$tmp/rename-tag-missing-command.conf" <<'EOC'
+input = {
+  keys = (
+    { key = "F1"; action = "rename_tag"; }
+  );
+};
+EOC
+expect_fail "$tmp/rename-tag-missing-command.conf"
+grep -q "rename_tag binding references unknown command" "$tmp/stderr" ||
+  fail "rename_tag missing command diagnostic missing"
+
+cat >"$tmp/rename-tag-unknown-command.conf" <<'EOC'
+input = {
+  keys = (
+    { key = "F1"; action = "rename_tag"; command = "missing"; }
+  );
+};
+EOC
+expect_fail "$tmp/rename-tag-unknown-command.conf"
+grep -q "rename_tag binding references unknown command 'missing'" "$tmp/stderr" ||
+  fail "rename_tag unknown command diagnostic missing"
+
 cat >"$tmp/status-button-id.conf" <<'EOC'
 commands = { noop = ("true"); };
 input = {

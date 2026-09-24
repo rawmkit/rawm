@@ -462,6 +462,14 @@ rawm_config_init(RawmConfig *cfg)
 {
   static const char *const terminal[] = { "st" };
   static const char *const launcher[] = { "dmenu_run" };
+  static const char *const tag_rename[] = {
+    "dmenu", "-p", "tag",
+    "-fn", "${ui.font}",
+    "-nb", "${ui.colors.normal.background}",
+    "-nf", "${ui.colors.normal.foreground}",
+    "-sb", "${ui.colors.selected.background}",
+    "-sf", "${ui.colors.selected.foreground}"
+  };
   static const char *scheme_defaults[RAWM_COLOR_SCHEMES][3] = {
     { "#cccccc", "#000000", "#cccccc" },
     { "#0066ff", "#ffffff", "#0066ff" },
@@ -531,6 +539,8 @@ rawm_config_init(RawmConfig *cfg)
 
   append_command(cfg, "terminal", terminal, 1);
   append_command(cfg, "launcher", launcher, 1);
+  append_command(cfg, "tag_rename", tag_rename,
+                 sizeof(tag_rename) / sizeof(tag_rename[0]));
 
   append_key(cfg, mod, "r", RAWM_ACTION_SPAWN);
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("launcher");
@@ -538,6 +548,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("terminal");
   append_key(cfg, mod, "b", RAWM_ACTION_TOGGLE_BAR);
   append_key(cfg, mod, "n", RAWM_ACTION_RENAME_TAG);
+  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("tag_rename");
   append_key(cfg, mod, "j", RAWM_ACTION_FOCUS_STACK);
   set_key_number(&cfg->keys[cfg->key_count - 1], 1);
   append_key(cfg, mod, "k", RAWM_ACTION_FOCUS_STACK);
@@ -2188,6 +2199,15 @@ validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
       goto extra;
     if (!b->command || !rawm_config_find_command(cfg, b->command)) {
       fprintf(err, "rawm: configuration error: spawn binding references unknown command '%s'\n",
+              b->command ? b->command : "");
+      return -1;
+    }
+    break;
+  case RAWM_ACTION_RENAME_TAG:
+    if (binding_has_extra(b, true, false, false, false, false, false))
+      goto extra;
+    if (!b->command || !rawm_config_find_command(cfg, b->command)) {
+      fprintf(err, "rawm: configuration error: rename_tag binding references unknown command '%s'\n",
               b->command ? b->command : "");
       return -1;
     }
