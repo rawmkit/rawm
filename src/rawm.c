@@ -443,8 +443,10 @@ static void           detachstack(Client *c);
 static void           die(const char *errstr, ...);
 static Monitor       *dirtomon(int dir);
 static void           drawbar(Monitor *m);
+static void           drawbarindicator(const Monitor *m, int x, int width,
+                                       XftColor col[ColLast]);
 static void           drawbars(void);
-static void           drawstatus(int x, int right);
+static void           drawstatus(Monitor *m, int x, int right);
 static TagBarState    tagbarstate(const Monitor *m);
 static bool           tagbarvisible(const TagBarState *state, unsigned int tag);
 static void           drawsquare(bool filled, bool empty,
@@ -1914,12 +1916,7 @@ drawbar(Monitor *m)
 
     indicator = MIN(config.bar_indicator_size, (unsigned int)dc.h);
     if (indicator && ((state.viewed | state.urgent) & 1u << i))
-    {
-      int iy = m->topbar ? dc.h - (int)indicator : 0;
-
-      XSetForeground(dpy, dc.gc, col[ColFG].pixel);
-      XFillRectangle(dpy, dc.drawable, dc.gc, dc.x, iy, dc.w, indicator);
-    }
+      drawbarindicator(m, dc.x, dc.w, col);
 
     dc.x += dc.w;
     drew_tag = true;
@@ -2001,7 +1998,7 @@ drawbar(Monitor *m)
       status_x = x;
     if (status_w)
     {
-      drawstatus(status_x, status_right);
+      drawstatus(m, status_x, status_right);
       title_right = MAX(x, status_x - (int)config.bar_section_spacing);
     }
     else
@@ -2017,6 +2014,8 @@ drawbar(Monitor *m)
       /* is monitor selected? draw dc.colors[1] then */
       col = m == selmon ? dc.colors[1] : dc.colors[0];
       drawtext(m->sel->name, col, true);
+      if (m == selmon)
+        drawbarindicator(m, dc.x, MIN(TEXTW(m->sel->name), dc.w), col);
 
       drawsquare(m->sel->isfixed, m->sel->isfloating, col);
 
@@ -2031,6 +2030,25 @@ drawbar(Monitor *m)
 
   XCopyArea(dpy, dc.drawable, m->barwin, dc.gc, 0, 0, m->ww, bh, 0, 0);
   XSync(dpy, false);
+}
+
+static void
+drawbarindicator(const Monitor *m, int x, int width,
+                 XftColor col[ColLast])
+{
+  unsigned int indicator;
+  int y;
+
+  if (!m || width <= 0)
+    return;
+
+  indicator = MIN(config.bar_indicator_size, (unsigned int)dc.h);
+  if (!indicator)
+    return;
+
+  y = m->topbar ? dc.h - (int)indicator : 0;
+  XSetForeground(dpy, dc.gc, col[ColBorder].pixel);
+  XFillRectangle(dpy, dc.drawable, dc.gc, x, y, width, indicator);
 }
 
 static void
@@ -2062,7 +2080,7 @@ drawsquare(bool filled, bool empty, XftColor col[ColLast])
 }
 
 static void
-drawstatus(int x, int right)
+drawstatus(Monitor *m, int x, int right)
 {
   size_t i;
   int cursor = x;
@@ -2097,8 +2115,13 @@ drawstatus(int x, int right)
     width = TEXTW(statusdata.segments[i].text);
     dc.x = cursor;
     dc.w = MIN(width, right - cursor);
-    drawtext(statusdata.segments[i].text,
-             dc.colors[statusscheme(statusdata.segments[i].state)], true);
+    {
+      int scheme = statusscheme(statusdata.segments[i].state);
+
+      drawtext(statusdata.segments[i].text, dc.colors[scheme], true);
+      if (statusdata.segments[i].state != StatusNormal)
+        drawbarindicator(m, dc.x, dc.w, dc.colors[scheme]);
+    }
     cursor += width;
   }
 }

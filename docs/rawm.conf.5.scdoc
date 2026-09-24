@@ -174,8 +174,9 @@ The *ui.bar* group accepts:
 	sections, in pixels. Range 0..256. Default 0.
 
 *indicator_size* = integer
-	Thickness in pixels of the tag-state indicator drawn by the bar. Zero
-	disables indicators. Range 0..32. Default 0.
+	Thickness in pixels of semantic state indicators drawn along the
+	workspace-facing edge of bar cells. Zero disables indicators. Range 0..32.
+	Default 0.
 
 The nested *ui.bar.tags* group accepts:
 
@@ -189,11 +190,12 @@ Tag labels communicate state through the configured color schemes rather than
 through dwm-style occupancy squares. A viewed tag uses *ui.colors.selected*. A
 hidden urgent tag uses *ui.colors.urgent*. Other visible tags use
 *ui.colors.normal*. Viewed state takes precedence over urgency. When
-*indicator_size* is non-zero, viewed and urgent tags also receive a foreground-
-colored line along the workspace-facing edge of their label cell. Drawing and
-mouse hit
-testing consume the same visibility and spacing policy, so suppressed tags and
-inter-item gaps reserve no clickable tag space.
+*indicator_size* is non-zero, viewed and urgent tags also receive a
+border-colored line along the workspace-facing edge of their label cell. The
+selected monitor's title receives the same selected-state marker, and warning
+or critical status segments receive markers from their semantic color scheme.
+Drawing and mouse hit testing consume the same visibility and spacing policy,
+so suppressed tags and inter-item gaps reserve no clickable tag space.
 
 ## System tray
 
