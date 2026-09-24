@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+case $0 in
+  */*) test_dir=${0%/*} ;;
+  *) test_dir=. ;;
+esac
+. "$test_dir/support/xvfb.sh"
+
 rawm=${1:-./rawm}
 tmp=${TMPDIR:-/tmp}/rawm-gaps-test.$$
 mkdir -p "$tmp"
@@ -13,9 +19,7 @@ cleanup()
   if [ -n "${wm:-}" ]; then
     kill "$wm" 2>/dev/null || true
   fi
-  if [ -n "${xvfb:-}" ]; then
-    kill "$xvfb" 2>/dev/null || true
-  fi
+  test_xvfb_stop
   rm -rf "$tmp"
 }
 trap cleanup EXIT HUP INT TERM
@@ -36,21 +40,10 @@ for tool in Xvfb xterm xwininfo; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 
-wait_for_file()
-{
-  file=$1
-  tries=0
-  while [ ! -s "$file" ]; do
-    tries=$((tries + 1))
-    [ "$tries" -lt 100 ] || return 1
-    sleep 0.05
-  done
-}
-
 window_geometry()
 {
   name=$1
-  DISPLAY=$display xwininfo -root -tree 2>/dev/null |
+  DISPLAY=$DISPLAY xwininfo -root -tree 2>/dev/null |
     sed -n "/(\"$name\" \"XTerm\")/s/.*)  \([^ ]*\).*/\1/p" |
     sed -n '1p'
 }
@@ -72,13 +65,7 @@ wait_for_window()
 
 start_server()
 {
-  display_file=$tmp/display
-  : >"$display_file"
-  Xvfb -displayfd 3 -screen 0 800x600x24 \
-    >"$tmp/xvfb.log" 2>&1 3>"$display_file" &
-  xvfb=$!
-  wait_for_file "$display_file" || fail "Xvfb did not select a display"
-  display=":$(cat "$display_file")"
+  test_xvfb_start "$tmp" || fail "Xvfb did not become ready"
 }
 
 stop_case()
@@ -91,10 +78,7 @@ stop_case()
     kill "$wm" 2>/dev/null || true
     wm=
   fi
-  if [ -n "${xvfb:-}" ]; then
-    kill "$xvfb" 2>/dev/null || true
-    xvfb=
-  fi
+  test_xvfb_stop
   sleep 0.05
 }
 
@@ -116,7 +100,7 @@ EOC
 
 start_wm()
 {
-  DISPLAY=$display "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
+  DISPLAY=$DISPLAY "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
   wm=$!
   sleep 0.10
   kill -0 "$wm" 2>/dev/null || {
@@ -131,7 +115,7 @@ spawn_clients()
   clients=
   i=1
   while [ "$i" -le "$count" ]; do
-    DISPLAY=$display xterm -name "gap$i" >/dev/null 2>&1 &
+    DISPLAY=$DISPLAY xterm -name "gap$i" >/dev/null 2>&1 &
     clients="$clients $!"
     wait_for_window "gap$i" >/dev/null || fail "xterm gap$i did not appear"
     i=$((i + 1))

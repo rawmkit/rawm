@@ -1,11 +1,17 @@
 #!/bin/sh
 set -eu
 
+case $0 in
+  */*) test_dir=${0%/*} ;;
+  *) test_dir=. ;;
+esac
+. "$test_dir/support/xvfb.sh"
+
 rawm=${1:-./rawm}
 client=${2:-./tests/geometry-client}
 sendkey=${3:-./tests/send-key}
 
-for tool in Xvfb xdpyinfo xwininfo awk sed; do
+for tool in Xvfb xwininfo awk sed; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "geometry tests: skipped ($tool not found)"
     exit 0
@@ -20,7 +26,6 @@ done
 
 tmp=${TMPDIR:-/tmp}/rawm-geometry-test.$$
 mkdir -p "$tmp"
-server_pid=
 wm_pid=
 a_pid=
 b_pid=
@@ -29,7 +34,7 @@ cleanup()
   [ -z "$a_pid" ] || kill "$a_pid" 2>/dev/null || true
   [ -z "$b_pid" ] || kill "$b_pid" 2>/dev/null || true
   [ -z "$wm_pid" ] || kill "$wm_pid" 2>/dev/null || true
-  [ -z "$server_pid" ] || kill "$server_pid" 2>/dev/null || true
+  test_xvfb_stop
   rm -rf "$tmp"
 }
 trap cleanup EXIT HUP INT TERM
@@ -40,16 +45,7 @@ fail()
   exit 1
 }
 
-DISPLAY=:94
-export DISPLAY
-Xvfb "$DISPLAY" -screen 0 800x600x24 -nolisten tcp >"$tmp/xvfb.log" 2>&1 &
-server_pid=$!
-n=0
-while ! xdpyinfo >/dev/null 2>&1; do
-  n=$((n + 1))
-  [ "$n" -lt 50 ] || fail "Xvfb did not become ready"
-  sleep 0.05
-done
+test_xvfb_start "$tmp" || fail "Xvfb did not become ready"
 
 geometry()
 {

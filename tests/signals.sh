@@ -1,15 +1,20 @@
 #!/bin/sh
 set -eu
 
+case $0 in
+  */*) test_dir=${0%/*} ;;
+  *) test_dir=. ;;
+esac
+. "$test_dir/support/xvfb.sh"
+
 rawm=${1:-./rawm}
 tmp=${TMPDIR:-/tmp}/rawm-signal-test.$$
 mkdir -p "$tmp"
-xvfb=
 wm=
 cleanup()
 {
   [ -z "$wm" ] || kill -KILL "$wm" 2>/dev/null || true
-  [ -z "$xvfb" ] || kill "$xvfb" 2>/dev/null || true
+  test_xvfb_stop
   rm -rf "$tmp"
 }
 trap cleanup EXIT HUP INT TERM
@@ -38,7 +43,9 @@ wait_dead()
   done
 }
 
-command -v Xvfb >/dev/null 2>&1 || skip "Xvfb not found"
+for tool in Xvfb xwininfo; do
+  command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
+done
 
 write_valid_config()
 {
@@ -53,19 +60,7 @@ input = { keys = (); buttons = (); };
 EOC
 }
 
-display_file=$tmp/display
-: >"$display_file"
-Xvfb -displayfd 3 -screen 0 800x600x24 -nolisten tcp \
-  >"$tmp/xvfb.log" 2>&1 3>"$display_file" &
-xvfb=$!
-n=0
-while [ ! -s "$display_file" ]; do
-  n=$((n + 1))
-  [ "$n" -lt 100 ] || fail "Xvfb did not select a display"
-  sleep 0.02
-done
-DISPLAY=":$(cat "$display_file")"
-export DISPLAY
+test_xvfb_start "$tmp" || fail "Xvfb did not become ready"
 
 # SIGTERM must wake an otherwise idle X event loop.
 write_valid_config

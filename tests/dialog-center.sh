@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+case $0 in
+  */*) test_dir=${0%/*} ;;
+  *) test_dir=. ;;
+esac
+. "$test_dir/support/xvfb.sh"
+
 rawm=${1:-./rawm}
 helper=${2:-./tests/dialog-center-client}
 
@@ -18,14 +24,13 @@ done
 
 tmp=${TMPDIR:-/tmp}/rawm-dialog-center-test.$$
 mkdir -p "$tmp"
-server_pid=
 wm_pid=
 client_pid=
 cleanup()
 {
   [ -z "$client_pid" ] || kill "$client_pid" 2>/dev/null || true
   [ -z "$wm_pid" ] || kill "$wm_pid" 2>/dev/null || true
-  [ -z "$server_pid" ] || kill "$server_pid" 2>/dev/null || true
+  test_xvfb_stop
   rm -rf "$tmp"
 }
 trap cleanup EXIT HUP INT TERM
@@ -36,17 +41,7 @@ fail()
   exit 1
 }
 
-DISPLAY=:97
-export DISPLAY
-Xvfb "$DISPLAY" -screen 0 800x600x24 -nolisten tcp >"$tmp/xvfb.log" 2>&1 &
-server_pid=$!
-
-n=0
-while ! xdpyinfo >/dev/null 2>&1; do
-  n=$((n + 1))
-  [ "$n" -lt 50 ] || fail "Xvfb did not become ready"
-  sleep 0.05
-done
+test_xvfb_start "$tmp" || fail "Xvfb did not become ready"
 
 write_config()
 {
