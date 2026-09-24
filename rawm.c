@@ -40,16 +40,12 @@
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/XKBlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 #include <X11/Xft/Xft.h>
 
 #include "rawm-config.h"
-
-/* Per-window keyboard layout support. */
-#ifdef PWKL
-# include <X11/XKBlib.h>
-#endif /* PWKL */
 
 /* Xinerama support for multiple monitors. */
 #ifdef XINERAMA
@@ -2994,7 +2990,7 @@ keypress(XEvent *e)
   XKeyEvent    *ev;
 
   ev     = &e->xkey;
-  keysym = XKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0);
+  keysym = XkbKeycodeToKeysym(dpy, (KeyCode)ev->keycode, 0, 0);
 
   for (i = 0; i < key_count; i++)
   {
