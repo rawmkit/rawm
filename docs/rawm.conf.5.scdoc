@@ -346,7 +346,9 @@ The *layout* group accepts:
 		visible on the monitor. Inner gaps are unaffected. Default false.
 
 *symbols* = group
-	Overrides status-bar symbols by stable layout name.
+	Overrides status-bar symbols by stable layout name. The configured symbol is
+	the authoritative prefix used by dynamic bar labels; rawm appends the master
+	count or current/total client count where that layout reports one.
 
 The stable layout names are *tile*, *floating*, *monocle*, *bstack*,
 *bstack_horizontal*, and *grid*.

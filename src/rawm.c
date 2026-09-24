@@ -1934,7 +1934,8 @@ drawbar(Monitor *m)
   /* tiled layout: []= X
    * where X is the number of clients in master area */
   if (m->lt[m->sellt]->arrange == tile)
-    snprintf(m->ltsymbol, sizeof m->ltsymbol, "[]= %d", m->nmaster);
+    snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s %d",
+             m->lt[m->sellt]->symbol, m->nmaster);
 
   /* float/monocle layout: [X/Y] or <X/Y>
    * where X is the current window number, and Y is the number of
@@ -1956,20 +1957,21 @@ drawbar(Monitor *m)
       }
     }
 
-    if (m->lt[m->sellt]->arrange == NULL)
-      snprintf(m->ltsymbol, sizeof m->ltsymbol, "<%u/%u>", j, i);
-    else
-      snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%u/%u]", j, i);
+    snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s %u/%u",
+             m->lt[m->sellt]->symbol, j, i);
   }
 
   else if (m->lt[m->sellt]->arrange == bstack)
-    snprintf(m->ltsymbol, sizeof m->ltsymbol, "TTT %d", m->nmaster);
+    snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s %d",
+             m->lt[m->sellt]->symbol, m->nmaster);
 
   else if (m->lt[m->sellt]->arrange == bstackhoriz)
-    snprintf(m->ltsymbol, sizeof m->ltsymbol, "=== %d", m->nmaster);
+    snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s %d",
+             m->lt[m->sellt]->symbol, m->nmaster);
 
   else if (m->lt[m->sellt]->arrange == grid)
-    snprintf(m->ltsymbol, sizeof m->ltsymbol, "###");
+    snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s",
+             m->lt[m->sellt]->symbol);
 
   dc.w  = blw = TEXTW(m->ltsymbol);
   drawtext(m->ltsymbol, dc.colors[0], true);
