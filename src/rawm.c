@@ -164,11 +164,17 @@
 # define XEMBED_EMBEDDED_VERSION (VERSION_MAJOR << 16) | VERSION_MINOR
 #endif /* SYSTRAY */
 
-/** Max tag length including number and semicolon. */
-#define MAX_TAGLEN 25
+/**
+ * Runtime tag label capacity:
+ * two-digit tag number + '/' + configured tag name + terminating NUL.
+ */
+#define MAX_TAGLEN (RAWM_TAG_NAME_MAX + 4u)
 
-/** Max tag name length (excluding number and semicolon (3)). */
-#define MAX_TAGNAMELEN (MAX_TAGLEN - 3)
+/**
+ * Runtime layout label capacity:
+ * configured symbol plus rawm-owned dynamic counter suffixes.
+ */
+#define MAX_LAYOUTLABEL (RAWM_LAYOUT_SYMBOL_MAX + 32u)
 
 /** Maximum rawm-v2 property and segment identifier sizes. */
 #define RAWM_STATUS_V2_MAX 4096u

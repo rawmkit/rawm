@@ -1093,8 +1093,12 @@ parse_tag_list(FILE *err, const config_setting_t *list, RawmTagConfig **out,
       goto fail;
     }
     if (strlen(config_setting_get_string(name)) > RAWM_TAG_NAME_MAX) {
-      cfg_error(err, name, "%s is too long (maximum %u bytes)",
-                "tag name", RAWM_TAG_NAME_MAX);
+      char detail[96];
+
+      snprintf(detail, sizeof detail,
+               "tag name is too long (maximum %u bytes)",
+               RAWM_TAG_NAME_MAX);
+      cfg_error(err, name, "%s", detail);
       goto fail;
     }
     tags[i].name = xstrdup(config_setting_get_string(name));
