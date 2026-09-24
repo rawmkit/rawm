@@ -46,12 +46,15 @@ test_xvfb_start()
 
       test_xvfb_candidate_display=:$test_xvfb_display_number
       test_xvfb_log=$test_xvfb_state_dir/xvfb.log
-      Xvfb "$test_xvfb_candidate_display" -screen 0 "$test_xvfb_screen" -nolisten tcp >"$test_xvfb_log" 2>&1 &
+      test_xvfb_server=${RAWM_TEST_XVFB:-Xvfb}
+      test_xvfb_xwininfo=${RAWM_TEST_XWININFO:-xwininfo}
+      "$test_xvfb_server" "$test_xvfb_candidate_display" \
+        -screen 0 "$test_xvfb_screen" -nolisten tcp >"$test_xvfb_log" 2>&1 &
       test_xvfb_candidate_pid=$!
 
       test_xvfb_tries=0
       while [ "$test_xvfb_tries" -lt 100 ]; do
-        if DISPLAY=$test_xvfb_candidate_display xwininfo -root >/dev/null 2>&1; then
+        if DISPLAY=$test_xvfb_candidate_display "$test_xvfb_xwininfo" -root >/dev/null 2>&1; then
           test_xvfb_pid=$test_xvfb_candidate_pid
           test_xvfb_lock=$test_xvfb_candidate_lock
           test_xvfb_display=$test_xvfb_candidate_display

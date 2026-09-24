@@ -74,9 +74,14 @@ tagbar_test = find_program('tagbar.sh')
 status_test = find_program('status.sh')
 signals_test = find_program('signals.sh')
 skip_test = find_program('support/skip.sh')
+xvfb_probe = find_program('support/probe-xvfb.sh')
 
-# Integration-test fixtures are build-machine programs.  Discover them during
+# Integration-test fixtures are build-machine programs. Discover them during
 # Meson setup so missing optional tooling is visible before the suite runs.
+# Xvfb availability is a runtime capability rather than a package-name check:
+# an installed server can still be unusable when its XKB data or compiler is
+# missing or inconsistent. Probe one disposable server here and register the
+# X11 integration tests as skips when that fixture cannot actually start.
 # The shell scripts keep their own guards for direct/manual invocation.
 xvfb_program = find_program('Xvfb', required: false, native: true)
 xwininfo_program = find_program('xwininfo', required: false, native: true)
@@ -93,12 +98,40 @@ xkeyboard_config_dep = dependency(
   native: true,
 )
 
+xvfb_runtime_ok = false
+xvfb_runtime_summary = 'not probed'
+if xvfb_program.found() and xwininfo_program.found()
+  xvfb_probe_result = run_command(
+    xvfb_probe,
+    xvfb_program.full_path(),
+    xwininfo_program.full_path(),
+    check: false,
+  )
+  if xvfb_probe_result.returncode() == 0
+    xvfb_runtime_ok = true
+    xvfb_runtime_summary = 'usable'
+  else
+    xvfb_runtime_summary = 'unavailable'
+    xvfb_probe_diagnostic = xvfb_probe_result.stderr().strip()
+    if xvfb_probe_diagnostic == ''
+      xvfb_probe_diagnostic = xvfb_probe_result.stdout().strip()
+    endif
+    if xvfb_probe_diagnostic == ''
+      xvfb_probe_diagnostic = 'probe exited with status @0@'.format(
+        xvfb_probe_result.returncode(),
+      )
+    endif
+    warning('Xvfb test fixture is unusable\n@0@'.format(xvfb_probe_diagnostic))
+  endif
+endif
+
 summary(
   {
     'Xvfb': xvfb_program.found(),
     'xwininfo': xwininfo_program.found(),
+    'Xvfb/XKB runtime': xvfb_runtime_summary,
     'xkbcomp': xkbcomp_program.found(),
-    'xkeyboard-config': xkeyboard_config_dep.found(),
+    'xkeyboard-config metadata': xkeyboard_config_dep.found(),
     'xterm': xterm_program.found(),
     'awk': awk_program.found(),
     'sed': sed_program.found(),
@@ -117,11 +150,8 @@ endif
 if not xwininfo_program.found()
   x11_missing += ['xwininfo']
 endif
-if not xkbcomp_program.found()
-  x11_missing += ['xkbcomp']
-endif
-if not xkeyboard_config_dep.found()
-  x11_missing += ['xkeyboard-config']
+if xvfb_program.found() and xwininfo_program.found() and not xvfb_runtime_ok
+  x11_missing += ['usable Xvfb/XKB runtime']
 endif
 
 test_workdir = meson.project_source_root()
