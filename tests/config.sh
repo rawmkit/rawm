@@ -84,6 +84,56 @@ input = {
 EOC
 expect_ok "$tmp/valid.conf"
 
+cat >"$tmp/label-limits.conf" <<'EOC'
+layout = {
+  symbols = {
+    tile = "12345678901234567890123456789012";
+  };
+};
+tags = {
+  default = (
+    { name = "abcdefghijklmnopqrstuv"; layout = "tile"; }
+  );
+};
+EOC
+expect_ok "$tmp/label-limits.conf"
+
+cat >"$tmp/tag-name-too-long.conf" <<'EOC'
+tags = {
+  default = (
+    { name = "abcdefghijklmnopqrstuvw"; layout = "tile"; }
+  );
+};
+EOC
+expect_fail "$tmp/tag-name-too-long.conf"
+grep -q "tag name is too long (maximum 22 bytes)" "$tmp/stderr" ||
+  fail "tag-name byte-limit diagnostic missing"
+
+cat >"$tmp/layout-symbol-too-long.conf" <<'EOC'
+layout = {
+  symbols = {
+    tile = "123456789012345678901234567890123";
+  };
+};
+EOC
+expect_fail "$tmp/layout-symbol-too-long.conf"
+grep -q "layout symbol 'tile' exceeds 32 bytes" "$tmp/stderr" ||
+  fail "layout-symbol byte-limit diagnostic missing"
+
+cat >"$tmp/layout-symbol-reference-too-long.conf" <<'EOC'
+ui = {
+  font = "123456789012345678901234567890123";
+};
+layout = {
+  symbols = {
+    tile = "${ui.font}";
+  };
+};
+EOC
+expect_fail "$tmp/layout-symbol-reference-too-long.conf"
+grep -q "layout symbol 'tile' exceeds 32 bytes" "$tmp/stderr" ||
+  fail "expanded layout-symbol byte-limit diagnostic missing"
+
 cat >"$tmp/cycle-view.conf" <<'EOC'
 input = {
   keys = (
