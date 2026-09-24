@@ -2735,33 +2735,24 @@ focusmon(const Arg *arg)
 static void
 focusnstack(const Arg *arg)
 {
-  Client *c = NULL,  *i;
-  int     j;
+  Client *c;
+  int visible_index = 0;
 
-  if (!selmon->sel  ||  (arg->i < 0))
+  if (!arg || arg->i <= 0)
     return;
 
-  for (j = 1, i = selmon->clients;
-       i;
-       i = i->next, j++)
+  for (c = selmon->clients; c; c = c->next)
   {
-    if (ISVISIBLE(i)  &&  (j == arg->i))
-      c = i;
-  }
+    if (!ISVISIBLE(c))
+      continue;
 
-  if (!c)
-  {
-    for (j = 1;  i;  i = i->next, j++)
-    {
-      if (ISVISIBLE(i)  &&  (j == arg->i))
-        c = i;
-    }
-  }
+    visible_index++;
+    if (visible_index != arg->i)
+      continue;
 
-  if (c)
-  {
     focus(c);
     restack(selmon);
+    return;
   }
 }
 
