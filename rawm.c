@@ -498,6 +498,7 @@ static void           resize(Client *c, int x, int y, int w, int h,
                              bool interact);
 static void           resizeclient(Client *c, int x, int y, int w, int h);
 static bool           clientisfree(const Client *c);
+static int            clientdisplayx(const Client *c);
 static void           placefreeclient(Client *c);
 static void           savefreegeometry(Client *c);
 static void           restorefreegeometry(Client *c);
@@ -3482,7 +3483,7 @@ propertynotify(XEvent *e)
         arrange(c->mon);
       if (c->center == RAWM_CENTER_PARENT) {
         centerclient(c, c->center);
-        XMoveWindow(dpy, c->win, c->x, c->y);
+        XMoveWindow(dpy, c->win, clientdisplayx(c), c->y);
         configure(c);
       }
       break;
@@ -3515,7 +3516,7 @@ propertynotify(XEvent *e)
       updatewindowtype(c);
       if (c->center != RAWM_CENTER_NONE) {
         centerclient(c, c->center);
-        XMoveWindow(dpy, c->win, c->x, c->y);
+        XMoveWindow(dpy, c->win, clientdisplayx(c), c->y);
         configure(c);
       }
     }
@@ -3575,6 +3576,12 @@ static bool
 clientisfree(const Client *c)
 {
   return c->isfloating || !c->mon->lt[c->mon->sellt]->arrange;
+}
+
+static int
+clientdisplayx(const Client *c)
+{
+  return ISVISIBLE(c) ? c->x : WIDTH(c) * -2;
 }
 
 static void
@@ -3671,10 +3678,12 @@ resizeclient(Client *c, int x, int y, int w, int h)
 {
   XWindowChanges wc;
 
-  c->oldx = c->x;  c->x = wc.x      = x;
-  c->oldy = c->y;  c->y = wc.y      = y;
+  c->oldx = c->x;  c->x = x;
+  c->oldy = c->y;  c->y = y;
   c->oldw = c->w;  c->w = wc.width  = w;
   c->oldh = c->h;  c->h = wc.height = h;
+  wc.x = clientdisplayx(c);
+  wc.y = c->y;
   wc.border_width = c->bw;
 
   XConfigureWindow(dpy,
@@ -4290,7 +4299,7 @@ showhide(Client *c)
   if (ISVISIBLE(c))
   {
     /* show clients top down */
-    XMoveWindow(dpy, c->win, c->x, c->y);
+    XMoveWindow(dpy, c->win, clientdisplayx(c), c->y);
 
     showhide(c->snext);
   }
@@ -4298,7 +4307,7 @@ showhide(Client *c)
   {
     /* hide clients bottom up */
     showhide(c->snext);
-    XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
+    XMoveWindow(dpy, c->win, clientdisplayx(c), c->y);
   }
 }
 

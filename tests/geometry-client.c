@@ -1,3 +1,4 @@
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -46,6 +47,7 @@ main(int argc, char **argv)
   int incw = 1, inch = 1;
   int position_flag = 0;
   long resize_after = 0;
+  long dialog_after = 0;
   int rx = 0, ry = 0, rw = 0, rh = 0;
   int i;
 
@@ -73,6 +75,8 @@ main(int argc, char **argv)
                 kind);
         return EXIT_FAILURE;
       }
+    } else if (!strcmp(argv[i], "--dialog-after") && i + 1 < argc) {
+      dialog_after = number(argv[++i], "dialog-property delay");
     } else if (!strcmp(argv[i], "--resize-after") && i + 5 < argc) {
       resize_after = number(argv[++i], "resize delay");
       rx = (int)number(argv[++i], "resize x");
@@ -83,13 +87,14 @@ main(int argc, char **argv)
       fprintf(stderr,
               "usage: %s [--name NAME] [--geometry X Y W H] "
               "[--increment W H] [--position none|program|user] "
-              "[--resize-after MS X Y W H]\n",
+              "[--dialog-after MS] [--resize-after MS X Y W H]\n",
               argv[0]);
       return EXIT_FAILURE;
     }
   }
 
   if (w < 1 || h < 1 || incw < 1 || inch < 1 || resize_after < 0 ||
+      dialog_after < 0 ||
       (resize_after && (rw < 1 || rh < 1))) {
     fputs("geometry-client: invalid geometry\n", stderr);
     return EXIT_FAILURE;
@@ -133,6 +138,19 @@ main(int argc, char **argv)
 
   printf("%lu\n", (unsigned long)win);
   fflush(stdout);
+
+  if (dialog_after) {
+    Atom type_atom, dialog_atom;
+
+    sleep_ms(dialog_after);
+    type_atom = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+    dialog_atom = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+    XChangeProperty(dpy, win, type_atom, XA_ATOM, 32, PropModeReplace,
+                    (unsigned char *)&dialog_atom, 1);
+    XFlush(dpy);
+    puts("dialog");
+    fflush(stdout);
+  }
 
   if (resize_after) {
     sleep_ms(resize_after);
