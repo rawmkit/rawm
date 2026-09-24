@@ -221,6 +221,10 @@ main(void)
   set_xembed_info(dpy, icon, xembed_info, 0);
   wait_for(window_viewable, dpy, tray, 0,
            "clearing XEMBED_MAPPED did not unmap tray");
+  if (window_parent(dpy, icon) != tray)
+    fail("XEmbed-unmapped icon was removed from tray");
+  if (window_viewable(dpy, icon))
+    fail("clearing XEMBED_MAPPED left icon viewable");
   if (window_width(dpy, bar) != screen_width)
     fail("unmapped icon still reserved bar width");
 
