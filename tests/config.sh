@@ -84,6 +84,42 @@ input = {
 EOC
 expect_ok "$tmp/valid.conf"
 
+cat >"$tmp/cycle-view.conf" <<'EOC'
+input = {
+  keys = (
+    { key = "F11"; action = "cycle_view"; number = -1; },
+    { key = "F12"; action = "cycle_view"; number = 1; }
+  );
+  buttons = (
+    { click = "tag_bar"; button = 4; action = "cycle_view"; number = -1; },
+    { click = "tag_bar"; button = 5; action = "cycle_view"; number = 1; }
+  );
+};
+EOC
+expect_ok "$tmp/cycle-view.conf"
+
+cat >"$tmp/cycle-view-direction.conf" <<'EOC'
+input = {
+  keys = (
+    { key = "F11"; action = "cycle_view"; number = 0; }
+  );
+};
+EOC
+expect_fail "$tmp/cycle-view-direction.conf"
+grep -q "cycle_view requires 'number' -1 or 1" "$tmp/stderr" ||
+  fail "cycle_view direction diagnostic missing"
+
+cat >"$tmp/cycle-view-extra.conf" <<'EOC'
+input = {
+  keys = (
+    { key = "F11"; action = "cycle_view"; number = 1; tag = 1; }
+  );
+};
+EOC
+expect_fail "$tmp/cycle-view-extra.conf"
+grep -q "arguments not used" "$tmp/stderr" ||
+  fail "cycle_view extra argument diagnostic missing"
+
 cat >"$tmp/cycle-layout.conf" <<'EOC'
 input = {
   keys = (

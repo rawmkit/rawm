@@ -607,6 +607,12 @@ rawm_config_init(RawmConfig *cfg)
   append_button(cfg, RAWM_CLICK_CLIENT, mod, 3, RAWM_ACTION_RESIZE);
   append_button(cfg, RAWM_CLICK_TAG_BAR, 0, 1, RAWM_ACTION_VIEW);
   append_button(cfg, RAWM_CLICK_TAG_BAR, 0, 3, RAWM_ACTION_TOGGLE_VIEW);
+  append_button(cfg, RAWM_CLICK_TAG_BAR, 0, 4, RAWM_ACTION_CYCLE_VIEW);
+  cfg->buttons[cfg->button_count - 1].binding.has_number = true;
+  cfg->buttons[cfg->button_count - 1].binding.number = -1;
+  append_button(cfg, RAWM_CLICK_TAG_BAR, 0, 5, RAWM_ACTION_CYCLE_VIEW);
+  cfg->buttons[cfg->button_count - 1].binding.has_number = true;
+  cfg->buttons[cfg->button_count - 1].binding.number = 1;
   append_button(cfg, RAWM_CLICK_TAG_BAR, mod, 1, RAWM_ACTION_TAG);
   append_button(cfg, RAWM_CLICK_TAG_BAR, mod, 3, RAWM_ACTION_TOGGLE_TAG);
 }
@@ -1407,6 +1413,7 @@ parse_action_name(const char *name, RawmAction *action)
     { "focus_index", RAWM_ACTION_FOCUS_INDEX }, { "inc_master", RAWM_ACTION_INC_MASTER },
     { "set_master_factor", RAWM_ACTION_SET_MASTER_FACTOR }, { "zoom", RAWM_ACTION_ZOOM },
     { "view", RAWM_ACTION_VIEW }, { "toggle_view", RAWM_ACTION_TOGGLE_VIEW },
+    { "cycle_view", RAWM_ACTION_CYCLE_VIEW },
     { "kill_client", RAWM_ACTION_KILL_CLIENT }, { "set_layout", RAWM_ACTION_SET_LAYOUT },
     { "cycle_layout", RAWM_ACTION_CYCLE_LAYOUT },
     { "toggle_floating", RAWM_ACTION_TOGGLE_FLOATING }, { "tag", RAWM_ACTION_TAG },
@@ -2243,6 +2250,15 @@ validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
     }
     if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count)
       goto bad_tag;
+    break;
+  case RAWM_ACTION_CYCLE_VIEW:
+    if (binding_has_extra(b, false, false, true, false, false, false))
+      goto extra;
+    if (!b->has_number || (b->number != -1 && b->number != 1)) {
+      fputs("rawm: configuration error: cycle_view requires 'number' -1 or 1\n",
+            err);
+      return -1;
+    }
     break;
   case RAWM_ACTION_TAG:
   case RAWM_ACTION_TOGGLE_TAG:

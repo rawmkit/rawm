@@ -741,6 +741,11 @@ input.buttons = (
 	Requires *tag* except on a tag-bar mouse binding, where omission uses the
 	clicked tag.
 
+*cycle_view*
+	Requires integer *number* equal to -1 or 1. Selects the previous or next
+	single-tag view in configured tag order and wraps at either end. From the
+	all-tags view, -1 selects the last tag and 1 selects the first.
+
 *tag*, *toggle_tag*
 	Require *tag* except on a tag-bar mouse binding, where omission uses the
 	clicked tag. *tag* may be a one-based number or *"all"*.
