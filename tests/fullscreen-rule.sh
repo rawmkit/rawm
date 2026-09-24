@@ -10,7 +10,7 @@ esac
 rawm=${1:-./rawm}
 helper=${2:-./tests/fullscreen-rule-client}
 
-for tool in Xvfb xwininfo awk sed; do
+for tool in Xvfb xwininfo xkbcomp awk sed wc; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "fullscreen rule tests: skipped ($tool not found)"
     exit 77

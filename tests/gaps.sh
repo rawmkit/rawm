@@ -36,7 +36,7 @@ fail()
   exit 1
 }
 
-for tool in Xvfb xterm xwininfo; do
+for tool in Xvfb xterm xwininfo xkbcomp sed sort; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 

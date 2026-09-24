@@ -12,6 +12,14 @@ fail()
   exit 1
 }
 
+skip()
+{
+  echo "config tests: skipped ($*)"
+  exit 77
+}
+
+command -v grep >/dev/null 2>&1 || skip "grep not found"
+
 expect_ok()
 {
   "$rawm" -C -c "$1" >/dev/null 2>"$tmp/stderr" || {

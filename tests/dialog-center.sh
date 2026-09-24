@@ -10,7 +10,7 @@ esac
 rawm=${1:-./rawm}
 helper=${2:-./tests/dialog-center-client}
 
-for tool in Xvfb xwininfo awk sed; do
+for tool in Xvfb xwininfo xkbcomp awk sed; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "dialog center tests: skipped ($tool not found)"
     exit 77

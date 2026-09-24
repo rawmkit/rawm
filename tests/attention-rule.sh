@@ -33,7 +33,7 @@ fail()
   exit 1
 }
 
-for tool in Xvfb xwininfo; do
+for tool in Xvfb xwininfo xkbcomp; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 [ -x "$helper" ] || skip "$helper not built"

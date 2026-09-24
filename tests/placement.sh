@@ -10,7 +10,7 @@ esac
 rawm=${1:-./rawm}
 client=${2:-./tests/geometry-client}
 
-for tool in Xvfb xwininfo awk sed; do
+for tool in Xvfb xwininfo xkbcomp awk sed; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "placement tests: skipped ($tool not found)"
     exit 77

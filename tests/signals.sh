@@ -43,7 +43,7 @@ wait_dead()
   done
 }
 
-for tool in Xvfb xwininfo; do
+for tool in Xvfb xwininfo xkbcomp grep; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 
