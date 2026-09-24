@@ -5344,13 +5344,18 @@ toggleview(const Arg *arg)
   if (!newtagset)
     return;
 
-  if (newtagset == ~0)
+  if (newtagset == TAGMASK)
   {
     selmon->pertag->prevtag = selmon->pertag->curtag;
     selmon->pertag->curtag  = 0;
   }
-  /* test if the user did not select the same tag */
-  if (!(newtagset & 1 << (selmon->pertag->curtag - 1)))
+  /*
+   * curtag 0 represents the all-tags view and has no single bit. Moving
+   * away from it must choose one of the remaining viewed tags without
+   * evaluating a negative shift.
+   */
+  else if (   selmon->pertag->curtag == 0
+           || !(newtagset & 1u << (selmon->pertag->curtag - 1)))
   {
     selmon->pertag->prevtag = selmon->pertag->curtag;
     size_t i = 0;
