@@ -76,6 +76,37 @@ set_status(Display *dpy, Window root, Atom property, Atom type,
   pause_for_wm();
 }
 
+static int
+click_status(Display *dpy, Window bar, Window root)
+{
+  XWindowAttributes attr;
+  XEvent event;
+
+  if (!XGetWindowAttributes(dpy, bar, &attr))
+    return 0;
+
+  memset(&event, 0, sizeof(event));
+  event.xbutton.type = ButtonPress;
+  event.xbutton.display = dpy;
+  event.xbutton.window = bar;
+  event.xbutton.root = root;
+  event.xbutton.subwindow = None;
+  event.xbutton.time = CurrentTime;
+  event.xbutton.x = attr.width - 3;
+  event.xbutton.y = attr.height / 2;
+  event.xbutton.x_root = event.xbutton.x;
+  event.xbutton.y_root = attr.y + event.xbutton.y;
+  event.xbutton.state = 0;
+  event.xbutton.button = Button1;
+  event.xbutton.same_screen = True;
+
+  if (!XSendEvent(dpy, bar, False, ButtonPressMask, &event))
+    return 0;
+  XFlush(dpy);
+  pause_for_wm();
+  return 1;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -102,10 +133,14 @@ main(int argc, char **argv)
   unsigned char boundary_text[4096];
   unsigned char oversized_text[4097];
   int disabled = argc == 2 && !strcmp(argv[1], "--disabled");
+  const char *click_id =
+      argc == 3 && !strcmp(argv[1], "--click-id") ? argv[2] : NULL;
   int tries;
 
-  if (argc > 2 || (argc == 2 && !disabled)) {
-    fprintf(stderr, "usage: %s [--disabled]\n", argv[0]);
+  if (argc > 3 ||
+      (argc == 2 && !disabled) ||
+      (argc == 3 && !click_id)) {
+    fprintf(stderr, "usage: %s [--disabled | --click-id ID]\n", argv[0]);
     return EXIT_FAILURE;
   }
 
@@ -133,6 +168,28 @@ main(int argc, char **argv)
     fputs("status-client: cannot find rawm bar window\n", stderr);
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
+  }
+
+  if (click_id) {
+    char record[256];
+    int length;
+
+    length = snprintf(record, sizeof(record), "%s\tnormal\tCLICK-TARGET\n",
+                      click_id);
+    if (length <= 0 || (size_t)length >= sizeof(record)) {
+      fputs("status-client: click id is too long\n", stderr);
+      XCloseDisplay(dpy);
+      return EXIT_FAILURE;
+    }
+    set_status(dpy, root, status, utf8,
+               (const unsigned char *)record, (size_t)length);
+    if (!click_status(dpy, bar, root)) {
+      fputs("status-client: could not click status area\n", stderr);
+      XCloseDisplay(dpy);
+      return EXIT_FAILURE;
+    }
+    XCloseDisplay(dpy);
+    return EXIT_SUCCESS;
   }
 
   baseline = checksum_window(dpy, bar);

@@ -75,7 +75,58 @@ EOC
   wm=
 }
 
+run_click_case()
+{
+  cat >"$tmp/rawm.conf" <<'EOC'
+ui = {
+  font = "monospace:size=9";
+  bar = { show = true; position = "bottom"; height = 24; };
+  systray = { show = false; };
+  colors = {
+    normal = { border = "#000000"; foreground = "#ffffff"; background = "#000000"; };
+    selected = { border = "#000000"; foreground = "#ffffff"; background = "#000000"; };
+    urgent = { border = "#000000"; foreground = "#ffff00"; background = "#000000"; };
+    error = { border = "#000000"; foreground = "#ff0000"; background = "#000000"; };
+  };
+};
+status = { enabled = true; protocol = "rawm-v2"; separator = " | "; };
+input = {
+  keys = ();
+  buttons = (
+    { click = "status"; status_id = "probe"; button = 1; action = "quit"; }
+  );
+};
+EOC
+  "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
+  wm=$!
+  sleep 0.15
+  kill -0 "$wm" 2>/dev/null || {
+    cat "$tmp/rawm.log" >&2
+    fail "rawm exited during status click test"
+  }
+
+  "$helper" --click-id other ||
+    fail "status click client could not click unmatched segment"
+  kill -0 "$wm" 2>/dev/null ||
+    fail "unmatched status segment triggered segment-specific binding"
+
+  "$helper" --click-id probe ||
+    fail "status click client could not click matched segment"
+
+  tries=0
+  while kill -0 "$wm" 2>/dev/null && [ "$tries" -lt 20 ]; do
+    sleep 0.05
+    tries=$((tries + 1))
+  done
+  if kill -0 "$wm" 2>/dev/null; then
+    fail "matched status segment did not trigger segment-specific binding"
+  fi
+  wait "$wm" 2>/dev/null || true
+  wm=
+}
+
 run_case true
 run_case false --disabled
+run_click_case
 
 echo "status protocol tests: ok"
