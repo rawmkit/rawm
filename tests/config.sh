@@ -95,6 +95,10 @@ tags = {
     { name = "abcdefghijklmnopqrstuv"; layout = "tile"; }
   );
 };
+input = {
+  keys = ();
+  buttons = ();
+};
 EOC
 expect_ok "$tmp/label-limits.conf"
 
