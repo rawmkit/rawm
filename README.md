@@ -51,9 +51,13 @@ Build time
   * `xinerama` is optional, for Xinerama Extension support
   * `scdoc(1)` to build the manual pages
 
-The integration test suite additionally uses POSIX `sh(1p)` and X11 test
-tools such as Xvfb, xdpyinfo, and xwininfo where available. Individual
-tests skip themselves when an optional test tool is unavailable.
+The test suite additionally uses POSIX `sh(1p)` plus optional test fixtures.
+Meson discovers these during setup: the X11 integration tests require Xvfb,
+`xwininfo`, `xkbcomp`, and the `xkeyboard-config` data package; the gap tests
+also require `xterm`. Individual scripts use standard tools such as `awk`,
+`sed`, `grep`, `sort`, and `wc`. Missing optional fixtures are reported during
+Meson setup and the affected tests are registered as skips rather than failures.
+An installed fixture that starts but is unusable remains a test failure.
 
 
 BUILD AND INSTALL
