@@ -64,6 +64,13 @@ send_key = executable(
   build_by_default: false,
 )
 
+send_pointer = executable(
+  'send-pointer',
+  'send-pointer.c',
+  dependencies: send_key_deps,
+  build_by_default: false,
+)
+
 status_client = executable(
   'status-client',
   'status-client.c',
@@ -306,7 +313,7 @@ if compositor_state_missing.length() == 0
   test(
     'compositor-state',
     compositor_state_test,
-    args: [rawm, compositor_state_client, send_key],
+    args: [rawm, compositor_state_client, send_key, send_pointer],
     workdir: test_workdir,
   )
 else

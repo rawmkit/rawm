@@ -181,6 +181,13 @@ grep -q "cell_margin" "$tmp/stderr" ||
   fail "bar cell margin range diagnostic missing"
 
 
+cat >"$tmp/osd-geometry-type.conf" <<'EOC'
+ui = { osd = { geometry = "yes"; }; };
+EOC
+expect_fail "$tmp/osd-geometry-type.conf"
+grep -q "geometry" "$tmp/stderr" ||
+  fail "osd geometry type diagnostic missing"
+
 cat >"$tmp/osd-position.conf" <<'EOC'
 ui = { osd = { position = "middle"; }; };
 EOC

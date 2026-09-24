@@ -10,6 +10,7 @@ esac
 rawm=${1:-./rawm}
 client=${2:-./tests/compositor-state-client}
 sendkey=${3:-./tests/send-key}
+sendpointer=${4:-./tests/send-pointer}
 tmp=${TMPDIR:-/tmp}/rawm-compositor-state-test.$$
 mkdir -p "$tmp"
 wm_pid=
@@ -46,6 +47,7 @@ for tool in Xvfb xwininfo; do
 done
 [ -x "$client" ] || skip "compositor-state-client not built"
 [ -x "$sendkey" ] || skip "send-key not built"
+[ -x "$sendpointer" ] || skip "send-pointer not built"
 
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
@@ -53,7 +55,7 @@ cat >"$tmp/rawm.conf" <<'EOC'
 ui = {
   border_width = 2;
   bar = { show = true; };
-  osd = { show = true; position = "bottom"; duration_ms = 300; padding = 6; offset = 12; min_width = 180; };
+  osd = { show = true; position = "bottom"; geometry = true; duration_ms = 300; padding = 6; offset = 12; min_width = 180; };
   systray = { show = false; };
 };
 tags = {
@@ -75,7 +77,10 @@ input = {
     { key = "F9"; action = "cycle_layout"; number = 1; },
     { key = "F10"; action = "cycle_layout"; number = -1; }
   );
-  buttons = ();
+  buttons = (
+    { click = "client"; button = 1; action = "move"; },
+    { click = "client"; button = 3; action = "resize"; }
+  );
 };
 EOC
 
@@ -214,5 +219,39 @@ case "$(state "$b_win")" in
   *"layout=floating "*) ;;
   *) fail "backward layout cycle did not return to floating: $(state "$b_win")" ;;
 esac
+
+sleep 0.35
+set -- $("$client" --client-geometry "$b_win")
+before_move="$1 $2 $3 $4"
+sx=$(( $1 + $3 / 2 ))
+sy=$(( $2 + $4 / 2 ))
+"$sendpointer" 1 "$sx" "$sy" 48 32 || {
+  rc=$?
+  [ "$rc" -ne 77 ] || skip "XTest pointer functions unavailable"
+  fail "cannot synthesize client move"
+}
+sleep 0.08
+after_move=$("$client" --client-geometry "$b_win")
+[ "$after_move" != "$before_move" ] ||
+  fail "pointer drag did not move floating client"
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "interactive move did not map geometry osd"
+
+sleep 0.35
+set -- $("$client" --client-geometry "$b_win")
+before_resize="$1 $2 $3 $4"
+sx=$(( $1 + $3 / 2 ))
+sy=$(( $2 + $4 / 2 ))
+"$sendpointer" 3 "$sx" "$sy" 48 36 || {
+  rc=$?
+  [ "$rc" -ne 77 ] || skip "XTest pointer functions unavailable"
+  fail "cannot synthesize client resize"
+}
+sleep 0.08
+after_resize=$("$client" --client-geometry "$b_win")
+[ "$after_resize" != "$before_resize" ] ||
+  fail "pointer drag did not resize floating client"
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "interactive resize did not map geometry osd"
 
 echo "compositor state tests: ok"
