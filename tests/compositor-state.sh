@@ -71,7 +71,9 @@ input = {
     { key = "F5"; action = "view"; tag = "all"; },
     { key = "F6"; action = "toggle_view"; tag = 2; },
     { key = "F7"; action = "tag"; tag = 2; },
-    { key = "F8"; action = "view"; tag = 2; }
+    { key = "F8"; action = "view"; tag = 2; },
+    { key = "F9"; action = "cycle_layout"; number = 1; },
+    { key = "F10"; action = "cycle_layout"; number = -1; }
   );
   buttons = ();
 };
@@ -192,5 +194,25 @@ press F8
   fail "tagged client did not become selected on tag two: $(state "$b_win")"
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "tag-two view did not map osd"
+
+press F9
+case "$(state "$b_win")" in
+  *"layout=floating "*) ;;
+  *) fail "forward layout cycle did not select floating: $(state "$b_win")" ;;
+esac
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "forward layout cycle did not map osd"
+
+press F9
+case "$(state "$b_win")" in
+  *"layout=monocle "*) ;;
+  *) fail "second forward layout cycle did not select monocle: $(state "$b_win")" ;;
+esac
+
+press F10
+case "$(state "$b_win")" in
+  *"layout=floating "*) ;;
+  *) fail "backward layout cycle did not return to floating: $(state "$b_win")" ;;
+esac
 
 echo "compositor state tests: ok"
