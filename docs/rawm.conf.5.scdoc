@@ -236,7 +236,7 @@ The *ui.osd* group controls rawm's transient keyboard-feedback surface.
 	0..512. Default 24.
 
 The OSD is a rawm-owned override-redirect surface with
-*_RAWM_SURFACE = "osd"* and *_RAWM_MONITOR* metadata. It does not take focus,
+*\_RAWM\_SURFACE = "osd"* and *\_RAWM\_MONITOR* metadata. It does not take focus,
 reserve work area, or enter the client list. Layout, view, master-area,
 floating, and fullscreen actions update the same surface and reset its
 timeout.
