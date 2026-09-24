@@ -78,6 +78,15 @@ status_client = executable(
   build_by_default: false,
 )
 
+if xinerama_dep.found()
+  xinerama_probe = executable(
+    'xinerama-probe',
+    'xinerama-probe.c',
+    dependencies: [x11_dep, xinerama_dep],
+    build_by_default: false,
+  )
+endif
+
 if get_option('systray')
   systray_client = executable(
     'systray-client',
@@ -97,6 +106,9 @@ compositor_state_test = find_program('compositor-state.sh')
 focus_index_test = find_program('focus-index.sh')
 window_view_test = find_program('window-view.sh')
 actions_test = find_program('actions.sh')
+if xinerama_dep.found()
+  multimon_test = find_program('multimon.sh')
+endif
 placement_test = find_program('placement.sh')
 tagbar_test = find_program('tagbar.sh')
 status_test = find_program('status.sh')

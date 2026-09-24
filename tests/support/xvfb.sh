@@ -29,6 +29,7 @@ test_xvfb_start()
 {
   test_xvfb_state_dir=$1
   test_xvfb_screen=${2:-800x600x24}
+  test_xvfb_second_screen=${3:-}
   test_xvfb_lock_root=${TMPDIR:-/tmp}/rawm-xvfb-displays
 
   mkdir -p "$test_xvfb_lock_root" || return 1
@@ -48,8 +49,16 @@ test_xvfb_start()
       test_xvfb_log=$test_xvfb_state_dir/xvfb.log
       test_xvfb_server=${RAWM_TEST_XVFB:-Xvfb}
       test_xvfb_xwininfo=${RAWM_TEST_XWININFO:-xwininfo}
-      "$test_xvfb_server" "$test_xvfb_candidate_display" \
-        -screen 0 "$test_xvfb_screen" -nolisten tcp >"$test_xvfb_log" 2>&1 &
+      if [ -n "$test_xvfb_second_screen" ]; then
+        "$test_xvfb_server" "$test_xvfb_candidate_display" \
+          -screen 0 "$test_xvfb_screen" \
+          -screen 1 "$test_xvfb_second_screen" \
+          +xinerama -nolisten tcp >"$test_xvfb_log" 2>&1 &
+      else
+        "$test_xvfb_server" "$test_xvfb_candidate_display" \
+          -screen 0 "$test_xvfb_screen" \
+          -nolisten tcp >"$test_xvfb_log" 2>&1 &
+      fi
       test_xvfb_candidate_pid=$!
 
       test_xvfb_tries=0
