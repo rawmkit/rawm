@@ -531,6 +531,7 @@ static void           updateclientcomposition(Client *c);
 
 #ifdef SYSTRAY
 static Atom           getatomprop(Client *c, Atom prop);
+static bool           getxembedflags(Client *c, unsigned long *flags);
 static unsigned int   getsystraywidth();
 static void           removesystrayicon(Client *i);
 static void           resizebarwin(Monitor *m);
@@ -1814,6 +1815,7 @@ clientmessage(XEvent *e)
 #ifdef SYSTRAY
   XWindowAttributes    wa;
   XSetWindowAttributes swa;
+  unsigned long        xembed_flags = 0;
   if (   config.show_systray
       && cme->window       == systray->win
       && cme->message_type == netatom[NetSystemTrayOP]
@@ -1836,8 +1838,10 @@ clientmessage(XEvent *e)
       c->oldbw = wa.border_width;
       c->bw = 0;
       c->isfloating = True;
-      /* reuse tags field as mapped status */
-      c->tags = 1;
+      /* Reuse tags as the admitted XEmbed mapped state. */
+      c->tags =
+          getxembedflags(c, &xembed_flags) &&
+          (xembed_flags & XEMBED_MAPPED) ? 1u : 0u;
       updatesizehints(c);
       updatesystrayicongeom(c, wa.width, wa.height);
       XAddToSaveSet(dpy, c->win);
@@ -1852,19 +1856,28 @@ clientmessage(XEvent *e)
       sendevent(c->win, netatom[Xembed], StructureNotifyMask,
           CurrentTime, XEMBED_EMBEDDED_NOTIFY, 0 , systray->win,
           XEMBED_EMBEDDED_VERSION);
-      /* FIXME not sure if I have to send these events, too */
-      sendevent(c->win, netatom[Xembed], StructureNotifyMask,
-          CurrentTime, XEMBED_FOCUS_IN, 0 , systray->win,
-          XEMBED_EMBEDDED_VERSION);
-      sendevent(c->win, netatom[Xembed], StructureNotifyMask,
-          CurrentTime, XEMBED_WINDOW_ACTIVATE, 0 , systray->win,
-          XEMBED_EMBEDDED_VERSION);
-      sendevent(c->win, netatom[Xembed], StructureNotifyMask,
-          CurrentTime, XEMBED_MODALITY_ON, 0 , systray->win,
-          XEMBED_EMBEDDED_VERSION);
+      if (c->tags)
+      {
+        /* Preserve the historical activation sequence for mapped icons. */
+        sendevent(c->win, netatom[Xembed], StructureNotifyMask,
+            CurrentTime, XEMBED_FOCUS_IN, 0 , systray->win,
+            XEMBED_EMBEDDED_VERSION);
+        sendevent(c->win, netatom[Xembed], StructureNotifyMask,
+            CurrentTime, XEMBED_WINDOW_ACTIVATE, 0 , systray->win,
+            XEMBED_EMBEDDED_VERSION);
+        sendevent(c->win, netatom[Xembed], StructureNotifyMask,
+            CurrentTime, XEMBED_MODALITY_ON, 0 , systray->win,
+            XEMBED_EMBEDDED_VERSION);
+        setclientstate(c, NormalState);
+      }
+      else
+      {
+        XUnmapWindow(dpy, c->win);
+        setclientstate(c, WithdrawnState);
+      }
+
       resizebarwin(selmon);
       updatesystray();
-      setclientstate(c, NormalState);
     }
     return;
   }
@@ -2946,34 +2959,58 @@ setatomlistmember(Window w, Atom prop, Atom atom, bool present)
 static Atom
 getatomprop(Client *c, Atom prop)
 {
-  int            di;
-  unsigned long  dl;
-  unsigned char *p = NULL;
-  Atom           da, atom = None;
+  Atom actual = None;
+  Atom atom = None;
+  int format = 0;
+  unsigned long nitems = 0;
+  unsigned long bytes_after = 0;
+  unsigned char *data = NULL;
 
-#ifdef SYSTRAY
-  /* FIXME getatomprop should return the number of items and a pointer
-   * to the stored data instead of this workaround */
-  Atom req = XA_ATOM;
-  if (prop == xatom[XembedInfo])
-    req = xatom[XembedInfo];
+  if (XGetWindowProperty(dpy, c->win, prop, 0L, 1L, False, XA_ATOM,
+                         &actual, &format, &nitems, &bytes_after, &data)
+      == Success &&
+      actual == XA_ATOM && format == 32 && nitems >= 1 && data)
+    atom = *(Atom *)data;
 
-  if (XGetWindowProperty(dpy, c->win, prop, 0L, sizeof atom, False, req,
-#else
-  if (XGetWindowProperty(dpy, c->win, prop, 0L, sizeof atom, False, XA_ATOM,
-#endif /* SYSTRAY */
-      &da, &di, &dl, &dl, &p) == Success && p)
-  {
-    atom = *(Atom *)p;
-#ifdef SYSTRAY
-    if (da == xatom[XembedInfo] && dl == 2)
-      atom = ((Atom *)p)[1];
-#endif /* SYSTRAY */
-    XFree(p);
-  }
+  if (data)
+    XFree(data);
 
   return atom;
 }
+
+#ifdef SYSTRAY
+static bool
+getxembedflags(Client *c, unsigned long *flags)
+{
+  Atom actual = None;
+  int format = 0;
+  unsigned long nitems = 0;
+  unsigned long bytes_after = 0;
+  unsigned char *data = NULL;
+  bool ok = false;
+
+  if (!c || !flags)
+    return false;
+
+  if (XGetWindowProperty(dpy, c->win, xatom[XembedInfo],
+                         0L, 2L, False, xatom[XembedInfo],
+                         &actual, &format, &nitems, &bytes_after, &data)
+      == Success &&
+      actual == xatom[XembedInfo] &&
+      format == 32 &&
+      nitems >= 2 &&
+      data)
+  {
+    *flags = ((unsigned long *)data)[1];
+    ok = true;
+  }
+
+  if (data)
+    XFree(data);
+
+  return ok;
+}
+#endif /* SYSTRAY */
 
 static XftColor
 getcolor(const char *colstr)
@@ -3044,15 +3081,18 @@ getsystraywidth()
   unsigned int w = 0;
   Client *i;
 
-  if (config.show_systray)
+  if (config.show_systray && systray)
   {
-    for (i = systray->icons;
-         i;
-         w += i->w + config.systray_spacing, i = i->next)
-      /* NOTHING */;
+    for (i = systray->icons; i; i = i->next)
+    {
+      if (!i->tags)
+        continue;
+
+      w += config.systray_spacing + (unsigned int)i->w;
+    }
   }
 
-  return w ? w + config.systray_spacing : 1;
+  return w ? w + config.systray_spacing : 0;
 }
 #endif /* SYSTRAY */
 
@@ -5540,23 +5580,7 @@ togglebar(__attribute__((unused)) const Arg *arg)
 
 #ifdef SYSTRAY
   resizebarwin(selmon);
-
-  if (config.show_systray)
-  {
-    XWindowChanges wc;
-
-    if (!selmon->showbar)
-      wc.y = -bh;
-    else if (selmon->showbar)
-    {
-      wc.y = 0;
-
-      if (!selmon->topbar)
-        wc.y = selmon->mh - bh;
-    }
-
-    XConfigureWindow(dpy, systray->win, CWY, &wc);
-  }
+  updatesystray();
 #else
   XMoveResizeWindow(dpy,
                     selmon->barwin,
@@ -6110,14 +6134,16 @@ updatesystrayicongeom(Client *i, int w, int h)
 void
 updatesystrayiconstate(Client *i, XPropertyEvent *ev)
 {
-  long flags;
+  unsigned long flags = 0;
   int code = 0;
 
   if (   !config.show_systray
       || !i
       || ev->atom != xatom[XembedInfo]
-      || !(flags = getatomprop(i, xatom[XembedInfo]))
       )
+    return;
+
+  if (ev->state != PropertyDelete && !getxembedflags(i, &flags))
     return;
 
   if (flags & XEMBED_MAPPED && !i->tags)
@@ -6154,22 +6180,22 @@ updatesystray(void)
   XSetWindowAttributes wa;
   Client *i;
   unsigned int x = selmon->mx + selmon->mw;
-  unsigned int w = 1;
+  unsigned int w = 0;
 
   if (!config.show_systray)
     return;
 
   if (!systray)
   {
-    /* init systray */
+    /* The selection owner exists even while the visible tray is empty. */
     if (!(systray = (Systray *)calloc(1, sizeof(Systray))))
       die("fatal: could not malloc() %u bytes\n", sizeof(Systray));
 
     systray->win = XCreateSimpleWindow(dpy,
                                        root,
-                                       x,
+                                       x - 1u,
                                        selmon->by,
-                                       w,
+                                       1,
                                        bh,
                                        0,
                                        0,
@@ -6191,12 +6217,11 @@ updatesystray(void)
                       );
     }
 
-    wa.event_mask        = ButtonPressMask | ExposureMask;
+    wa.event_mask =
+        ButtonPressMask | ExposureMask | SubstructureNotifyMask;
     wa.override_redirect = True;
     wa.background_pixmap = ParentRelative;
     wa.background_pixel  = dc.colors[0][ColBG].pixel;
-
-    XSelectInput(dpy, systray->win, SubstructureNotifyMask);
 
     XChangeProperty(dpy,
                     systray->win,
@@ -6216,8 +6241,6 @@ updatesystray(void)
                             | CWBackPixmap,
                             &wa
                             );
-
-    XMapRaised(dpy, systray->win);
 
     XSetSelectionOwner(dpy,
                        netatom[NetSystemTray],
@@ -6247,25 +6270,45 @@ updatesystray(void)
     }
   } /* if (!systray) */
 
-  for (w = 0, i = systray->icons; i; i = i->next)
+  for (i = systray->icons; i; i = i->next)
   {
+    if (!i->tags)
+    {
+      XUnmapWindow(dpy, i->win);
+      continue;
+    }
+
     XMapRaised(dpy, i->win);
     w += config.systray_spacing;
-    XMoveResizeWindow(dpy, i->win, (i->x = w), 0, i->w, i->h);
-    w += i->w;
+    XMoveResizeWindow(dpy, i->win, (i->x = (int)w), 0, i->w, i->h);
+    w += (unsigned int)i->w;
     if (i->mon != selmon)
       i->mon = selmon;
   }
 
-  w = w ? w + config.systray_spacing : 1;
-  x -= w;
-  XMoveResizeWindow(dpy, systray->win, x, selmon->by, w, bh);
+  if (w)
+    w += config.systray_spacing;
+
   setcardinalproperty(systray->win, rawmatom[RawmAtomMonitor],
                       (unsigned long)selmon->num);
+
+  if (!w || !selmon->showbar)
+  {
+    XMoveResizeWindow(dpy, systray->win,
+                      selmon->mx + selmon->mw - 1,
+                      selmon->by, 1, bh);
+    XUnmapWindow(dpy, systray->win);
+    XSync(dpy, False);
+    return;
+  }
+
+  x -= w;
+  XMoveResizeWindow(dpy, systray->win, x, selmon->by, w, bh);
 
   /* redraw background */
   XSetForeground(dpy, dc.gc, dc.colors[0][ColBG].pixel);
   XFillRectangle(dpy, systray->win, dc.gc, 0, 0, w, bh);
+  XMapRaised(dpy, systray->win);
   XSync(dpy, False);
 }
 #endif /* SYSTRAY */
