@@ -29,6 +29,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -424,6 +425,8 @@ static void           cleanupmon(Monitor *mon);
 static void           centerclient(Client *c, RawmCenterMode mode);
 static void           clearurgent(Client *c);
 static bool           clienturgent(const Client *c);
+static uint32_t       clientmessagecard32(const XClientMessageEvent *message,
+                                          int index);
 static void           clientmessage(XEvent *e);
 static void           configure(Client *c);
 static void           configurenotify(XEvent *e);
@@ -1454,6 +1457,12 @@ clearurgent(Client *c)
   XFree(wmh);
 }
 
+static uint32_t
+clientmessagecard32(const XClientMessageEvent *message, int index)
+{
+  return (uint32_t)message->data.l[index];
+}
+
 static void
 clientmessage(XEvent *e)
 {
@@ -1469,12 +1478,12 @@ clientmessage(XEvent *e)
       )
   {
     /* add systray icons */
-    if (cme->data.l[1] == SYSTEM_TRAY_REQUEST_DOCK)
+    if (clientmessagecard32(cme, 1) == SYSTEM_TRAY_REQUEST_DOCK)
     {
       if (!(c = (Client *)calloc(1, sizeof(Client))))
         die("fatal: could not malloc() %u bytes\n", sizeof(Client));
 
-      c->win  = cme->data.l[2];
+      c->win  = (Window)clientmessagecard32(cme, 2);
       c->mon  = selmon;
       c->next = systray->icons;
       systray->icons = c;
@@ -1523,13 +1532,13 @@ clientmessage(XEvent *e)
 
   if (cme->message_type == netatom[NetWMState])
   {
-    if (   cme->data.l[1] == netatom[NetWMFullscreen]
-        || cme->data.l[2] == netatom[NetWMFullscreen]
+    if (   clientmessagecard32(cme, 1) == netatom[NetWMFullscreen]
+        || clientmessagecard32(cme, 2) == netatom[NetWMFullscreen]
         )
     {
       setfullscreen(c,
-                    (       cme->data.l[0] == 1 /* _NET_WM_STATE_ADD    */
-                     || (   cme->data.l[0] == 2 /* _NET_WM_STATE_TOGGLE */
+                    (       clientmessagecard32(cme, 0) == 1 /* _NET_WM_STATE_ADD    */
+                     || (   clientmessagecard32(cme, 0) == 2 /* _NET_WM_STATE_TOGGLE */
                          && !c->isfullscreen  )
                      )
                     );
