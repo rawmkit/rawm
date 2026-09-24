@@ -486,6 +486,7 @@ static void           configure(Client *c);
 static void           configurenotify(XEvent *e);
 static void           configurerequest(XEvent *e);
 static void           cyclelayout(const Arg *arg);
+static void           cycleview(const Arg *arg);
 static Monitor       *createmon(int idx);
 static void           destroynotify(XEvent *e);
 static void           detach(Client *c);
@@ -767,6 +768,7 @@ action_function(RawmAction action))(const Arg *)
     case RAWM_ACTION_ZOOM:              return zoom;
     case RAWM_ACTION_VIEW:              return view;
     case RAWM_ACTION_TOGGLE_VIEW:       return toggleview;
+    case RAWM_ACTION_CYCLE_VIEW:        return cycleview;
     case RAWM_ACTION_KILL_CLIENT:       return killclient;
     case RAWM_ACTION_SET_LAYOUT:        return setlayout;
     case RAWM_ACTION_CYCLE_LAYOUT:      return cyclelayout;
@@ -800,6 +802,7 @@ runtime_argument(const RawmBinding *binding)
     case RAWM_ACTION_FOCUS_INDEX:
     case RAWM_ACTION_INC_MASTER:
     case RAWM_ACTION_CYCLE_LAYOUT:
+    case RAWM_ACTION_CYCLE_VIEW:
     case RAWM_ACTION_FOCUS_MONITOR:
     case RAWM_ACTION_TAG_MONITOR:
       arg.i = binding->number;
@@ -1972,6 +1975,28 @@ cyclelayout(const Arg *arg)
   index = (index + direction + RAWM_LAYOUT_COUNT) % RAWM_LAYOUT_COUNT;
   next.v = &layouts[index];
   setlayout(&next);
+}
+
+static void
+cycleview(const Arg *arg)
+{
+  Arg next = {0};
+  int index;
+  int direction;
+
+  if (!arg || !arg->i || !config.tag_count)
+    return;
+
+  direction = arg->i > 0 ? 1 : -1;
+
+  if (selmon->pertag->curtag == 0)
+    index = direction > 0 ? 0 : (int)config.tag_count - 1;
+  else
+    index = ((int)selmon->pertag->curtag - 1 + direction +
+             (int)config.tag_count) % (int)config.tag_count;
+
+  next.ui = 1u << index;
+  view(&next);
 }
 
 static void

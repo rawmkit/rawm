@@ -168,7 +168,11 @@ The options are as follows:
 	Click on a tag label adds/removes all windows with that tag to/from the
 	view. Clicking the layout label selects monocle.
 
-*Button4*, *Button5*
+*Button4*, *Button5* on tags
+	Scroll over the tag area to select the previous or next single-tag view.
+	The configured tag order wraps at either end.
+
+*Button4*, *Button5* on layout
 	Scroll over the layout label to select the previous or next stable layout.
 	The sequence wraps across tile, floating, monocle, bstack,
 	bstack-horizontal, and grid.
@@ -331,6 +335,9 @@ replaces them.
 
 These are the built-in mouse bindings. An *input.buttons* list in
 *rawm.conf*(5) replaces them.
+
+*Button4*, *Button5* on tags
+	Cycle backward or forward through configured single-tag views.
 
 *Button1* on layout
 	Toggle between the current and previous layout.
