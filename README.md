@@ -1,40 +1,42 @@
 OVERVIEW
 ========
 
-This directory contains `rawm`, a Ra Window Manager for X.
+`rawm` is a compact dynamic tiling window manager for X11, derived from
+suckless `dwm` 6.0 and developed as an independent runtime-configurable window
+manager.
 
-This `rawm` distribution is a fork of suckless' `dwm` version 6.0 with
-the following applied patches:
-  * `bstack`
-  * `gapless grid`
-  * `pertag`
-  * `WM_WINDOW_ROLE`
-  * runtime-configurable tag visibility (`occupied` or `all`)
-  * `nametag`
-  * multi-monitor configuration
-  * `freetype2` support
-  * optional per-window keyboard layout
-  * optional window title
-  * optional `xinerama` support
-  * count monocle/float windows in statusbar
-  * explicit monitor/parent centering policy for floating windows and dialogs
-  * configure layout `pertag` at startup
-  * `restartsig`
-  * `_NET_CLIENT_LIST`
-  * optional systray support
-  * dedicated `_RAWM_STATUS_V2` semantic root-property status protocol
-  * explicit free-window placement with deterministic cascading
-  * configurable inner/outer layout gaps with optional smart outer gaps
+The code keeps the small, direct Xlib model of its ancestor while moving
+desktop policy out of compile-time headers and into validated runtime
+configuration. Major facilities include:
 
-Unlike original `dwm` version 6.0 this distribution depends on
-`freetype2`, `fontconfig`, and `libconfig`; `xinerama` is optional.
+  * layered libconfig policy with `/etc/rawm/rawm.conf` and per-user overrides;
+  * scalar `${...}` references resolved after configuration layers are merged;
+  * tile, floating, monocle, bottom-stack, horizontal bottom-stack, and grid
+    layouts with per-tag state and configurable gaps;
+  * explicit free-window geometry, size-hint, centering, fullscreen, attention,
+    and cascading-placement policies;
+  * semantic tag, layout, title, and status presentation in the built-in bar;
+  * the `_RAWM_STATUS_V2` semantic root-property protocol;
+  * compositor-facing `_RAWM_FLOATING`, `_RAWM_SELECTED`, `_RAWM_LAYOUT`,
+    `_RAWM_MONITOR`, and `_RAWM_SURFACE` state;
+  * rawm-owned transient OSD feedback for layout, view, routing, fullscreen,
+    master-area, and optional live floating geometry changes;
+  * configurable semantic mouse actions, status-segment actions, view/layout
+    cycling, and command-backed tag renaming;
+  * optional XEmbed systray, Xinerama, per-window keyboard layout, and focused
+    window title support;
+  * a Meson build and behavioral X11 test suite using isolated Xvfb fixtures.
 
-See git log for further differences.
+`rawm` depends on `libX11`, `libXft`, `fontconfig`, and `libconfig`.
+Xinerama support is optional.
 
-The original sources can be downloaded from:
-  1. https://git.suckless.org/dwm                (git)
-  2. https://dl.suckless.org/dwm/dwm-6.0.tar.gz  (tarball)
-  3. https://dwm.suckless.org/patches/           (patches)
+The original `dwm` 6.0 sources remain the historical base:
+
+  1. https://git.suckless.org/dwm
+  2. https://dl.suckless.org/dwm/dwm-6.0.tar.gz
+  3. https://dwm.suckless.org/patches/
+
+See the git history and `NEWS.md` for rawm-specific evolution.
 
 
 REQUIREMENTS
@@ -126,6 +128,36 @@ Use `rawm -C` to validate the effective configuration without opening the X
 display, or `rawm -C -c ./config/rawm.conf` to validate one explicit file over the
 built-in defaults. See `rawm.conf(5)` for the complete schema, precedence and
 binding semantics.
+
+
+RELEASE VERIFICATION
+====================
+
+Before tagging a release, verify the normal build and behavioral suite from a
+clean tree:
+
+    meson setup build
+    meson compile -C build
+    meson test -C build --print-errorlogs
+
+Then stage the install and inspect the package layout without modifying the
+host system:
+
+    rm -rf stage
+    DESTDIR="$PWD/stage" meson install -C build
+    find stage -type f -print | sort
+
+The staged tree must contain the `rawm` binary, `rawm(1)`, `rawm.conf(5)`, and
+`/etc/rawm/rawm.conf`. `rawm -C -c config/rawm.conf` is also covered by the
+test suite, including parity between the installed configuration and compiled
+defaults.
+
+Meson can create a source archive from a clean git checkout with:
+
+    meson dist -C build
+
+Only tag after the build, tests, staged install, and distribution archive are
+clean.
 
 
 LICENSE
