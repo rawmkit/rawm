@@ -197,7 +197,8 @@ is centered in the title region and remains on the normal bar background.
 When *indicator_size* is non-zero, a compact marker centered on the
 workspace-facing edge uses the selected or floating border color to describe
 the focused client's authority state. Warning and critical status segments are
-filled with their semantic border colors instead of relying on a small marker.
+filled with their semantic border colors and retain the semantic scheme
+foreground for their text instead of relying on a small marker.
 
 Drawing and mouse hit testing consume the same visibility and spacing policy,
 so suppressed tags and inter-item gaps reserve no clickable tag space.
