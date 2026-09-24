@@ -123,7 +123,7 @@ palettes; separators and all presentation remain rawm policy. The legacy root
 `WM_NAME` channel and in-band color controls are not used.
 
 Use `rawm -C` to validate the effective configuration without opening the X
-display, or `rawm -C -c ./rawm.conf` to validate one explicit file over the
+display, or `rawm -C -c ./config/rawm.conf` to validate one explicit file over the
 built-in defaults. See `rawm.conf(5)` for the complete schema, precedence and
 binding semantics.
 

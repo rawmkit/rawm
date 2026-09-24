@@ -35,7 +35,7 @@ expect_fail()
   fi
 }
 
-expect_ok rawm.conf
+expect_ok config/rawm.conf
 
 cat >"$tmp/valid.conf" <<'EOC'
 ui = {
@@ -385,7 +385,7 @@ if HOME="$tmp/home" XDG_CONFIG_HOME=relative "$rawm" -C >/dev/null 2>"$tmp/stder
 fi
 
 HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" \
-  "$rawm" -C -c rawm.conf >/dev/null 2>"$tmp/stderr" || {
+  "$rawm" -C -c config/rawm.conf >/dev/null 2>"$tmp/stderr" || {
   cat "$tmp/stderr" >&2
   fail "explicit -c did not isolate the selected file from user configuration"
 }
