@@ -566,8 +566,13 @@ static void           osddraw(void);
 static void           osdexpire(void);
 static void           osdhide(void);
 static int            osdpolltimeout(void);
+static void           osdformattags(const Monitor *m, unsigned int tags,
+                                    char *buf, size_t buflen);
 static void           osdshow(Monitor *m, int scheme, const char *text);
 static void           osdshowf(Monitor *m, int scheme, const char *fmt, ...);
+static void           osdshowmonitor(Monitor *m);
+static void           osdshowtags(Monitor *m, const char *verb,
+                                  unsigned int tags);
 static void           osdshowview(Monitor *m);
 static Client        *nexttiled(Client *c);
 static void           pop(Client *);
@@ -2538,6 +2543,7 @@ focusmon(const Arg *arg)
   unfocus(selmon->sel, true);
   selmon = m;
   focus(NULL);
+  osdshowmonitor(selmon);
 }
 
 static void
@@ -3895,7 +3901,7 @@ nametag(__attribute__((unused)) const Arg *arg)
 
   snprintf(buf, sizeof(buf),
     "dmenu -p '%s' -fn '%s' -nb '%s' -nf '%s' -sb '%s' -sf '%s' "
-    "</dev/null", "Current tag name: ",
+    "</dev/null", "tag",
     config.font,
     config.colors[0][ColBG],
     config.colors[0][ColFG],
@@ -3943,6 +3949,7 @@ nametag(__attribute__((unused)) const Arg *arg)
   }
 
   drawbar(selmon);
+  osdshowview(selmon);
 }
 
 static Client *
@@ -4114,6 +4121,49 @@ osdpolltimeout(void)
 }
 
 static void
+osdformattags(const Monitor *m, unsigned int tags, char *buf, size_t buflen)
+{
+  size_t used = 0;
+  bool first = true;
+
+  if (!buflen)
+    return;
+
+  buf[0] = '\0';
+  tags &= TAGMASK;
+
+  if (tags == TAGMASK)
+  {
+    snprintf(buf, buflen, "all");
+    return;
+  }
+
+  for (size_t i = 0; i < config.tag_count; i++)
+  {
+    int n;
+
+    if (!(tags & (1u << i)))
+      continue;
+
+    n = snprintf(buf + used, buflen - used, "%s%s",
+                 first ? "" : "+", m->tag_names[i]);
+    if (n < 0)
+      return;
+    if ((size_t)n >= buflen - used)
+    {
+      buf[buflen - 1] = '\0';
+      return;
+    }
+
+    used += (size_t)n;
+    first = false;
+  }
+
+  if (first)
+    snprintf(buf, buflen, "none");
+}
+
+static void
 osdshow(Monitor *m, int scheme, const char *text)
 {
   if (!running || !config.show_osd || osd.win == None ||
@@ -4143,6 +4193,30 @@ osdshowf(Monitor *m, int scheme, const char *fmt, ...)
   vsnprintf(text, sizeof text, fmt, ap);
   va_end(ap);
   osdshow(m, scheme, text);
+}
+
+static void
+osdshowmonitor(Monitor *m)
+{
+  char tags[160];
+
+  if (!m)
+    return;
+
+  osdformattags(m, m->tagset[m->seltags], tags, sizeof tags);
+  osdshowf(m, SchemeSel, "monitor %d  ·  %s", m->num, tags);
+}
+
+static void
+osdshowtags(Monitor *m, const char *verb, unsigned int tags)
+{
+  char label[160];
+
+  if (!m || !verb)
+    return;
+
+  osdformattags(m, tags, label, sizeof label);
+  osdshowf(m, SchemeSel, "%s  ·  %s", verb, label);
 }
 
 static void
@@ -5153,19 +5227,31 @@ tag(const Arg *arg)
   if (   selmon->sel
       && arg->ui & TAGMASK)
   {
-    selmon->sel->tags = arg->ui & TAGMASK;
+    unsigned int tags = arg->ui & TAGMASK;
+
+    selmon->sel->tags = tags;
     focus(NULL);
     arrange(selmon);
+    osdshowtags(selmon, "send", tags);
   }
 }
 
 static void
 tagmon(const Arg *arg)
 {
+  Client *c;
+  Monitor *target;
+
   if (!selmon->sel  ||  !mons->next)
     return;
 
-  sendmon(selmon->sel, dirtomon(arg->i));
+  c = selmon->sel;
+  target = dirtomon(arg->i);
+  if (target == c->mon)
+    return;
+
+  sendmon(c, target);
+  osdshowf(target, SchemeSel, "send  ·  monitor %d", target->num);
 }
 
 static int
@@ -5276,6 +5362,10 @@ togglebar(__attribute__((unused)) const Arg *arg)
 #endif /* SYSTRAY */
 
   arrange(selmon);
+
+  if (arg)
+    osdshowf(selmon, SchemeSel, "rail  ·  %s",
+             selmon->showbar ? "shown" : "hidden");
 }
 
 static void
@@ -5332,6 +5422,7 @@ toggletag(const Arg *arg)
     selmon->sel->tags = newtags;
     focus(NULL);
     arrange(selmon);
+    osdshowtags(selmon, "tags", newtags);
   }
 }
 
@@ -5381,6 +5472,7 @@ toggleview(const Arg *arg)
 
   focus(NULL);
   arrange(selmon);
+  osdshowview(selmon);
 }
 
 static void

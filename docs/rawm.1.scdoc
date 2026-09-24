@@ -116,12 +116,14 @@ interactive tags, layout/title regions, and status segments use the hand
 cursor while hovered. Quiet regions receive a short workspace-facing marker;
 the focused-title marker widens while the title region is interactive.
 
-When enabled, rawm also presents a transient OSD for keyboard-driven view,
-layout, master-area, floating, and fullscreen changes. The OSD is a
-rawm-owned compositor surface and never enters normal client management.
-Its text is centered within a stable configured minimum width. Workspace,
-layout, master-area, and ordinary window-state feedback use the selected
-scheme; elevated/floating feedback uses the floating scheme.
+When enabled, rawm also presents a transient OSD for interactive state
+changes: views and tag assignments, monitor navigation, layout and
+master-area changes, floating/fullscreen state, bar visibility, and tag
+renaming. The OSD is a rawm-owned compositor surface and never enters normal
+client management. Its text is centered within a stable configured minimum
+width. Workspace, routing, layout, master-area, and ordinary window-state
+feedback use the selected scheme; elevated/floating feedback uses the
+floating scheme.
 
 *rawm* draws a small border around windows to indicate the focus state.
 
