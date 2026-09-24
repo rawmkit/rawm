@@ -51,7 +51,14 @@ done
 
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
-cat >"$tmp/rawm.conf" <<'EOC'
+cat >"$tmp/rename-tag.sh" <<EOF
+#!/bin/sh
+printf 'desk\\n'
+: > "$tmp/rename.marker"
+EOF
+chmod +x "$tmp/rename-tag.sh"
+
+cat >"$tmp/rawm.conf" <<EOC
 ui = {
   border_width = 2;
   bar = { show = true; };
@@ -63,6 +70,9 @@ tags = {
     { name = "one"; layout = "tile"; },
     { name = "two"; layout = "tile"; }
   );
+};
+commands = {
+  rename_test = ("sh", "$tmp/rename-tag.sh");
 };
 input = {
   keys = (
@@ -77,7 +87,8 @@ input = {
     { key = "F9"; action = "cycle_layout"; number = 1; },
     { key = "F10"; action = "cycle_layout"; number = -1; },
     { key = "F11"; action = "cycle_view"; number = 1; },
-    { key = "F12"; action = "cycle_view"; number = -1; }
+    { key = "F12"; action = "cycle_view"; number = -1; },
+    { key = "r"; action = "rename_tag"; command = "rename_test"; }
   );
   buttons = (
     { click = "client"; button = 1; action = "move"; },
@@ -276,5 +287,13 @@ press F5
 press F12
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=floating monitor=0" ] ||
   fail "backward cycle from all-tags view did not select final tag: $(state "$b_win")"
+
+sleep 0.35
+rm -f "$tmp/rename.marker"
+press r
+[ -f "$tmp/rename.marker" ] ||
+  fail "rename_tag did not execute configured capture command"
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "rename_tag output did not reach tag rename/OSD path"
 
 echo "compositor state tests: ok"
