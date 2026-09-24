@@ -492,6 +492,11 @@ rawm_config_init(RawmConfig *cfg)
   cfg->bar_cell_margin = 0;
   cfg->bar_indicator_size = 0;
   cfg->tag_visibility = RAWM_TAG_VISIBILITY_OCCUPIED;
+  cfg->show_osd = false;
+  cfg->osd_top = false;
+  cfg->osd_duration_ms = 800;
+  cfg->osd_padding = 10;
+  cfg->osd_offset = 24;
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
   cfg->status_enabled = true;
@@ -771,7 +776,8 @@ static int
 parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 {
   static const char *const allowed[] = {
-    "font", "border_width", "snap", "opacity", "bar", "systray", "colors"
+    "font", "border_width", "snap", "opacity", "bar", "osd", "systray",
+    "colors"
   };
   static const char *const bar_allowed[] = {
     "show", "position", "height", "padding", "item_spacing",
@@ -783,7 +789,7 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
   config_setting_t *group;
   int h;
 
-  if (validate_members(err, ui, allowed, 7) < 0)
+  if (validate_members(err, ui, allowed, 8) < 0)
     return -1;
   if (read_string(err, ui, "font", &cfg->font) < 0 ||
       read_uint_range(err, ui, "border_width", 0, 64, &cfg->border_width) < 0 ||
@@ -848,6 +854,39 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
                              "invalid tag visibility '%s'", value);
         }
       }
+    }
+  }
+
+  group = config_setting_get_member(ui, "osd");
+  if (group) {
+    static const char *const osd_allowed[] = {
+      "show", "position", "duration_ms", "padding", "offset"
+    };
+    config_setting_t *position;
+    const char *value;
+
+    if (validate_members(err, group, osd_allowed, 5) < 0 ||
+        read_bool(err, group, "show", &cfg->show_osd) < 0 ||
+        read_uint_range(err, group, "duration_ms", 100, 5000,
+                        &cfg->osd_duration_ms) < 0 ||
+        read_uint_range(err, group, "padding", 0, 64,
+                        &cfg->osd_padding) < 0 ||
+        read_uint_range(err, group, "offset", 0, 512,
+                        &cfg->osd_offset) < 0)
+      return -1;
+
+    position = config_setting_get_member(group, "position");
+    if (position) {
+      if (config_setting_type(position) != CONFIG_TYPE_STRING)
+        return cfg_error(err, position, "osd.position must be a string",
+                         "osd.position");
+      value = config_setting_get_string(position);
+      if (!strcmp(value, "top"))
+        cfg->osd_top = true;
+      else if (!strcmp(value, "bottom"))
+        cfg->osd_top = false;
+      else
+        return cfg_error(err, position, "invalid osd position '%s'", value);
     }
   }
 
@@ -1814,6 +1853,16 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%u", cfg->bar_indicator_size);
   else if (!strcmp(path, "ui.bar.tags.visibility"))
     snprintf(buf, buflen, "%s", tag_visibility_name(cfg->tag_visibility));
+  else if (!strcmp(path, "ui.osd.show"))
+    snprintf(buf, buflen, "%s", cfg->show_osd ? "true" : "false");
+  else if (!strcmp(path, "ui.osd.position"))
+    snprintf(buf, buflen, "%s", cfg->osd_top ? "top" : "bottom");
+  else if (!strcmp(path, "ui.osd.duration_ms"))
+    snprintf(buf, buflen, "%u", cfg->osd_duration_ms);
+  else if (!strcmp(path, "ui.osd.padding"))
+    snprintf(buf, buflen, "%u", cfg->osd_padding);
+  else if (!strcmp(path, "ui.osd.offset"))
+    snprintf(buf, buflen, "%u", cfg->osd_offset);
   else if (!strcmp(path, "ui.systray.show"))
     snprintf(buf, buflen, "%s", cfg->show_systray ? "true" : "false");
   else if (!strcmp(path, "ui.systray.spacing"))

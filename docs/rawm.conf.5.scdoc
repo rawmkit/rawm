@@ -107,6 +107,8 @@ The reference namespace contains these scalar paths:
   *ui.bar.item_spacing*, *ui.bar.section_spacing*, *ui.bar.cell_margin*,
   *ui.bar.indicator_size*,
   *ui.bar.tags.visibility*
+- *ui.osd.show*, *ui.osd.position*, *ui.osd.duration_ms*,
+  *ui.osd.padding*, *ui.osd.offset*
 - *ui.systray.show*, *ui.systray.spacing*
 - *status.enabled*, *status.protocol*, *status.separator*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
@@ -208,6 +210,36 @@ marker.
 
 Drawing and mouse hit testing consume the same visibility and spacing policy,
 so suppressed tags and inter-item gaps reserve no clickable tag space.
+
+## OSD
+
+The *ui.osd* group controls rawm's transient keyboard-feedback surface.
+
+*show* = boolean
+	Enable the OSD. Default false.
+
+*position* = "top" | "bottom"
+	Place the OSD near the corresponding workspace edge. The bar is excluded
+	from workspace geometry, so a bottom OSD naturally sits above a bottom
+	bar. Default "bottom".
+
+*duration_ms* = integer
+	Time the OSD remains visible after the most recent update. Range
+	100..5000. Default 800.
+
+*padding* = integer
+	Internal horizontal and vertical padding in pixels. Range 0..64.
+	Default 10.
+
+*offset* = integer
+	Distance from the selected monitor's workspace edge in pixels. Range
+	0..512. Default 24.
+
+The OSD is a rawm-owned override-redirect surface with
+*_RAWM_SURFACE = "osd"* and *_RAWM_MONITOR* metadata. It does not take focus,
+reserve work area, or enter the client list. Layout, view, master-area,
+floating, and fullscreen actions update the same surface and reset its
+timeout.
 
 ## System tray
 

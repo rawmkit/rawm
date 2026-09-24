@@ -144,6 +144,21 @@ expect_fail "$tmp/bar-cell-margin-range.conf"
 grep -q "cell_margin" "$tmp/stderr" ||
   fail "bar cell margin range diagnostic missing"
 
+
+cat >"$tmp/osd-position.conf" <<'EOC'
+ui = { osd = { position = "middle"; }; };
+EOC
+expect_fail "$tmp/osd-position.conf"
+grep -q "invalid osd position" "$tmp/stderr" ||
+  fail "osd position diagnostic missing"
+
+cat >"$tmp/osd-duration-range.conf" <<'EOC'
+ui = { osd = { duration_ms = 99; }; };
+EOC
+expect_fail "$tmp/osd-duration-range.conf"
+grep -q "duration_ms" "$tmp/stderr" ||
+  fail "osd duration range diagnostic missing"
+
 cat >"$tmp/status-disabled.conf" <<'EOC'
 status = { enabled = false; protocol = "rawm-v2"; };
 EOC

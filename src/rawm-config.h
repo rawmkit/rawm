@@ -172,6 +172,11 @@ typedef struct {
   unsigned int bar_cell_margin;
   unsigned int bar_indicator_size;
   RawmTagVisibility tag_visibility;
+  bool show_osd;
+  bool osd_top;
+  unsigned int osd_duration_ms;
+  unsigned int osd_padding;
+  unsigned int osd_offset;
   bool show_systray;
   unsigned int systray_spacing;
 
