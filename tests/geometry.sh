@@ -277,4 +277,33 @@ set -- $(geometry "$a_win")
   fail "hidden property recenter materialized as $*; expected -654 189 323 217 2"
 stop_case
 
+
+# ConfigureRequest monitor-bound checks operate on the outer client frame. A
+# request whose content box fits but whose configured border does not must be
+# pulled back inside the monitor rather than leaving the frame clipped.
+cat >"$tmp/rawm.conf" <<'EOC'
+ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+behavior = { size_hints = "never"; floating_placement = "client"; };
+input = { keys = (); buttons = (); };
+rules = (
+  { class = "RawmGeometry"; floating = true; }
+);
+EOC
+start_wm
+"$client" --name rawm-geometry-frame-bounds --geometry 40 60 323 217 \
+  --resize-after 300 699 200 100 100 >"$tmp/a.out" 2>"$tmp/a.err" &
+a_pid=$!
+a_win=$(wait_window "$tmp/a.out")
+n=0
+while [ "$(wc -l <"$tmp/a.out")" -lt 2 ]; do
+  n=$((n + 1))
+  [ "$n" -lt 50 ] || fail "frame-bounds client did not issue ConfigureRequest"
+  sleep 0.05
+done
+sleep 0.08
+set -- $(geometry "$a_win")
+[ "$1" -eq 348 ] && [ "$2" -eq 200 ] && [ "$3" -eq 100 ] && [ "$4" -eq 100 ] && [ "$5" -eq 2 ] ||
+  fail "border-overflow ConfigureRequest was $*; expected 348 200 100 100 2"
+stop_case
+
 echo "geometry tests: ok"

@@ -1634,9 +1634,9 @@ configurerequest(XEvent *e)
       if (ev->value_mask & CWHeight)
         h = ev->height;
 
-      if ((x + w) > m->mx + m->mw && c->isfloating)
+      if ((x + w + 2 * c->bw) > m->mx + m->mw && c->isfloating)
         x = m->mx + (m->mw / 2 - (w + 2 * c->bw) / 2);
-      if ((y + h) > m->my + m->mh && c->isfloating)
+      if ((y + h + 2 * c->bw) > m->my + m->mh && c->isfloating)
         y = m->my + (m->mh / 2 - (h + 2 * c->bw) / 2);
 
       resize(c, x, y, w, h, false);
