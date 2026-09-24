@@ -78,6 +78,15 @@ status_client = executable(
   build_by_default: false,
 )
 
+if get_option('systray')
+  systray_client = executable(
+    'systray-client',
+    'systray-client.c',
+    dependencies: x11_dep,
+    build_by_default: false,
+  )
+endif
+
 config_test = find_program('config.sh')
 gaps_test = find_program('gaps.sh')
 dialog_center_test = find_program('dialog-center.sh')
@@ -88,6 +97,9 @@ compositor_state_test = find_program('compositor-state.sh')
 placement_test = find_program('placement.sh')
 tagbar_test = find_program('tagbar.sh')
 status_test = find_program('status.sh')
+if get_option('systray')
+  systray_test = find_program('systray.sh')
+endif
 signals_test = find_program('signals.sh')
 skip_test = find_program('support/skip.sh')
 xvfb_probe = find_program('support/probe-xvfb.sh')
@@ -374,6 +386,23 @@ else
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
   )
+endif
+
+if get_option('systray')
+  if x11_missing.length() == 0
+    test(
+      'systray',
+      systray_test,
+      args: [rawm, systray_client],
+      workdir: test_workdir,
+    )
+  else
+    test(
+      'systray',
+      skip_test,
+      args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
+    )
+  endif
 endif
 
 signals_missing = x11_missing
