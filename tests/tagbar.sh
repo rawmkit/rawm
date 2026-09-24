@@ -54,7 +54,7 @@ ui = {
   systray = { show = false; };
   colors = {
     normal = { border = "#101010"; foreground = "#eeeeee"; background = "#101010"; };
-    selected = { border = "#204060"; foreground = "#ffffff"; background = "#101010"; };
+    selected = { border = "#204060"; foreground = "#ffffff"; background = "#304050"; };
     urgent = { border = "#806000"; foreground = "#ffffff"; background = "#806000"; };
     error = { border = "#800000"; foreground = "#ffffff"; background = "#800000"; };
   };

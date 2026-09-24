@@ -193,18 +193,18 @@ The nested *ui.bar.tags* group accepts:
 	shows every configured tag. Default *"occupied"*.
 
 Tag labels communicate state through the configured color schemes rather than
-through dwm-style occupancy squares. A viewed tag is filled with
-*ui.colors.selected.border* and an urgent tag with *ui.colors.urgent.border*;
-their text uses the normal bar background for contrast. Other visible tags use
-*ui.colors.normal*. Viewed state takes precedence over urgency.
+through dwm-style occupancy squares. Viewed and urgent tags use the configured
+selected or urgent foreground/background as inset semantic cells, with their
+border color repeated as a workspace-facing authority marker. Other visible
+tags use *ui.colors.normal*. Viewed state takes precedence over urgency.
 
-The layout label is rendered as a neutral mode cell. The selected window title
+The layout label is rendered as an inset neutral mode cell. The selected window title
 is centered in the title region and remains on the normal bar background.
 When *indicator_size* is non-zero, a compact marker centered on the
 workspace-facing edge uses the selected or floating border color to describe
-the focused client's authority state. Warning and critical status segments are
-filled with their semantic border colors and retain the semantic scheme
-foreground for their text instead of relying on a small marker.
+the focused client's authority state. Warning and critical status segments use their semantic foreground/background
+as inset cells and repeat their semantic border color as a workspace-facing
+marker.
 
 Drawing and mouse hit testing consume the same visibility and spacing policy,
 so suppressed tags and inter-item gaps reserve no clickable tag space.

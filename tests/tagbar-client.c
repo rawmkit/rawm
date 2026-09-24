@@ -208,7 +208,7 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  selected_bg = named_pixel(dpy, "#204060");
+  selected_bg = named_pixel(dpy, "#304050");
   if (assert_no_tag_marker(dpy, bar, selected_bg) < 0)
   {
     XCloseDisplay(dpy);

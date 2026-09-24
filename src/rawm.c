@@ -460,11 +460,13 @@ static TagBarState    tagbarstate(const Monitor *m);
 static bool           tagbarvisible(const TagBarState *state, unsigned int tag);
 static void           drawtext(const char *text, XftColor col[ColLast],
                                bool pad);
+static void           drawtextcell(const char *text, XftColor col[ColLast],
+                                   bool pad);
 static void           drawtextcentered(const char *text,
                                        XftColor col[ColLast], bool pad);
 static void           drawtextaligned(const char *text,
                                       XftColor col[ColLast], bool pad,
-                                      bool centered);
+                                      bool centered, unsigned int margin);
 static void           enternotify(XEvent *e);
 static void           expose(XEvent *e);
 static void           focus(Client *c);
@@ -1933,12 +1935,8 @@ drawbar(Monitor *m)
 
     if ((state.viewed | state.urgent) & 1u << i)
     {
-      XftColor chip[ColLast];
-
-      memcpy(chip, col, sizeof chip);
-      chip[ColBG] = col[ColBorder];
-      chip[ColFG] = dc.colors[SchemeNorm][ColBG];
-      drawtext(m->tag_names[i], chip, true);
+      drawtextcell(m->tag_names[i], col, true);
+      drawbarindicator(m, dc.x, dc.w, col);
     }
     else
       drawtext(m->tag_names[i], col, true);
@@ -2002,7 +2000,7 @@ drawbar(Monitor *m)
 
     memcpy(layout_col, dc.colors[SchemeNorm], sizeof layout_col);
     layout_col[ColBG] = dc.colors[SchemeNorm][ColBorder];
-    drawtext(m->ltsymbol, layout_col, true);
+    drawtextcell(m->ltsymbol, layout_col, true);
   }
   dc.x += dc.w;
   dc.x += (int)config.bar_section_spacing;
@@ -2150,8 +2148,8 @@ drawstatus(int x, int right)
         XftColor alert_col[ColLast];
 
         memcpy(alert_col, dc.colors[scheme], sizeof alert_col);
-        alert_col[ColBG] = dc.colors[scheme][ColBorder];
-        drawtext(statusdata.segments[i].text, alert_col, true);
+        drawtextcell(statusdata.segments[i].text, alert_col, true);
+        drawbarindicator(selmon, dc.x, dc.w, alert_col);
       }
     }
     cursor += width;
@@ -2161,33 +2159,43 @@ drawstatus(int x, int right)
 static void
 drawtext(const char *text, XftColor col[ColLast], bool pad)
 {
-  drawtextaligned(text, col, pad, false);
+  drawtextaligned(text, col, pad, false, 0);
+}
+
+static void
+drawtextcell(const char *text, XftColor col[ColLast], bool pad)
+{
+  drawtextaligned(text, col, pad, false, config.bar_cell_margin);
 }
 
 static void
 drawtextcentered(const char *text, XftColor col[ColLast], bool pad)
 {
-  drawtextaligned(text, col, pad, true);
+  drawtextaligned(text, col, pad, true, 0);
 }
 
 static void
 drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
-                bool centered)
+                bool centered, unsigned int margin)
 {
   char     *buf;
-  int       x, y, h;
+  int       box_h, box_y, x, y, h;
   size_t    len, olen;
   XftDraw  *d;
 
+  margin = MIN(margin, dc.h > 1 ? (unsigned int)(dc.h - 1) / 2 : 0);
+  box_y = dc.y + (int)margin;
+  box_h = dc.h - (int)(2 * margin);
+
   XSetForeground(dpy, dc.gc, col[ColBG].pixel);
-  XFillRectangle(dpy, dc.drawable, dc.gc, dc.x, dc.y, dc.w, dc.h);
+  XFillRectangle(dpy, dc.drawable, dc.gc, dc.x, box_y, dc.w, box_h);
 
   if (!text)
     return;
 
   olen = strlen(text);
   h = pad ? (dc.font.ascent + dc.font.descent) : 0;
-  y = dc.y + (dc.h + dc.font.ascent - dc.font.descent) / 2;
+  y = box_y + (box_h + dc.font.ascent - dc.font.descent) / 2;
 
   for (len = olen;
        len && textnw(text, (unsigned int)len) > (dc.w - h);
