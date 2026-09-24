@@ -9,6 +9,15 @@ config_reference_test = executable(
   build_by_default: false,
 )
 
+config_defaults_test = executable(
+  'config-defaults-test',
+  'config-defaults-test.c',
+  rawm_config_source,
+  include_directories: rawm_src_include,
+  dependencies: libconfig_dep,
+  build_by_default: false,
+)
+
 dialog_center_client = executable(
   'dialog-center-client',
   'dialog-center-client.c',
@@ -221,6 +230,12 @@ endif
 test(
   'config-reference',
   config_reference_test,
+)
+
+test(
+  'config-defaults',
+  config_defaults_test,
+  args: [join_paths(meson.project_source_root(), 'config', 'rawm.conf')],
 )
 
 gaps_missing = x11_missing
