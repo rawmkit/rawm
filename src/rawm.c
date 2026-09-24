@@ -24,6 +24,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <poll.h>
 #include <locale.h>
 #include <stdarg.h>
@@ -33,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -320,6 +322,16 @@ typedef struct {
 } BarHover;
 
 typedef struct {
+  Window win;                   /**< Override-redirect feedback surface. */
+  Pixmap pixmap;                /**< Backing pixmap for expose redraws. */
+  Monitor *mon;                 /**< Monitor owning the current feedback. */
+  unsigned int width, height;   /**< Current OSD geometry. */
+  uint64_t deadline_ms;         /**< Monotonic expiry deadline. */
+  bool visible;                 /**< Whether the surface is currently mapped. */
+  char text[256];               /**< Current UTF-8 feedback text. */
+} RawmOSD;
+
+typedef struct {
   int x, y, w, h;
 } RawmGeometry;
 
@@ -545,8 +557,17 @@ static void           mappingnotify(XEvent *e);
 static void           maprequest(XEvent *e);
 static void           monocle(Monitor *m);
 static void           motionnotify(XEvent *e);
+static uint64_t       monotonicms(void);
 static void           movemouse(const Arg *arg);
 static void           nametag(const Arg *arg);
+static void           osdcreate(void);
+static void           osddraw(void);
+static void           osdexpire(void);
+static void           osdhide(void);
+static int            osdpolltimeout(void);
+static void           osdshow(Monitor *m, const char *text);
+static void           osdshowf(Monitor *m, const char *fmt, ...);
+static void           osdshowview(Monitor *m);
 static Client        *nexttiled(Client *c);
 static void           pop(Client *);
 static void           propertynotify(XEvent *e);
@@ -689,6 +710,7 @@ static size_t         key_count = 0;
 static Button        *buttons = NULL;
 static size_t         button_count = 0;
 static BarHover       barhover = { .click = ClkRootWin };
+static RawmOSD        osd = { .win = None, .pixmap = None };
 static unsigned int   opacity = 0xffffffffu;
 
 struct Pertag {
@@ -1570,6 +1592,10 @@ cleanup(void)
   }
 
   XUngrabKey(dpy, AnyKey, AnyModifier, root);
+  if (osd.pixmap != None)
+    XFreePixmap(dpy, osd.pixmap);
+  if (osd.win != None)
+    XDestroyWindow(dpy, osd.win);
   XFreePixmap(dpy, dc.drawable);
   XFreeGC(dpy, dc.gc);
   XFreeCursor(dpy, cursor[CurNormal]);
@@ -2426,9 +2452,18 @@ expose(XEvent *e)
   Monitor      *m;
   XExposeEvent *ev = &e->xexpose;
 
-  if (    ev->count == 0
-      && (m = wintomon(ev->window))
-      )
+  if (ev->count != 0)
+    return;
+
+  if (osd.win != None && ev->window == osd.win)
+  {
+    if (osd.visible && osd.pixmap != None)
+      XCopyArea(dpy, osd.pixmap, osd.win, dc.gc, 0, 0,
+                osd.width, osd.height, 0, 0);
+    return;
+  }
+
+  if ((m = wintomon(ev->window)))
     drawbar(m);
 }
 
@@ -3386,6 +3421,7 @@ incnmaster(const Arg *arg)
       MAX(selmon->nmaster + arg->i, 0);
 
   arrange(selmon);
+  osdshowf(selmon, "master %d", selmon->nmaster);
 }
 
 static void
@@ -3926,6 +3962,182 @@ pop(Client *c)
   arrange(c->mon);
 }
 
+static uint64_t
+monotonicms(void)
+{
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0)
+    die("fatal: clock_gettime failed: %s\n", strerror(errno));
+
+  return (uint64_t)ts.tv_sec * 1000u + (uint64_t)ts.tv_nsec / 1000000u;
+}
+
+static void
+osdcreate(void)
+{
+  XSetWindowAttributes wa;
+
+  if (!config.show_osd || osd.win != None)
+    return;
+
+  memset(&wa, 0, sizeof wa);
+  wa.override_redirect = true;
+  wa.background_pixel = dc.colors[SchemeNorm][ColBG].pixel;
+  wa.event_mask = ExposureMask;
+
+  osd.win =
+      XCreateWindow(dpy, root, 0, 0, 1, 1, 0,
+                    DefaultDepth(dpy, screen), CopyFromParent,
+                    DefaultVisual(dpy, screen),
+                    CWOverrideRedirect | CWBackPixel | CWEventMask, &wa);
+
+  setsurfaceproperties(osd.win, "rawm-osd", "osd", 0);
+}
+
+static void
+osddraw(void)
+{
+  XftDraw *draw;
+  XGlyphInfo extents;
+  unsigned int padding;
+  unsigned int text_width;
+  int x, y;
+
+  if (!osd.mon || osd.win == None || !osd.text[0])
+    return;
+
+  padding = config.osd_padding;
+  XftTextExtentsUtf8(dpy, dc.font.xfont,
+                     (const FcChar8 *)osd.text, (int)strlen(osd.text),
+                     &extents);
+  text_width = extents.xOff > 0 ? (unsigned int)extents.xOff : 1u;
+
+  osd.width = text_width + 2u * padding;
+  osd.height = (unsigned int)dc.font.height + 2u * padding;
+
+  if (osd.width > (unsigned int)osd.mon->ww)
+    osd.width = (unsigned int)osd.mon->ww;
+  if (osd.height > (unsigned int)osd.mon->wh)
+    osd.height = (unsigned int)osd.mon->wh;
+
+  x = osd.mon->wx + (osd.mon->ww - (int)osd.width) / 2;
+  if (config.osd_top)
+    y = osd.mon->wy + (int)config.osd_offset;
+  else
+    y = osd.mon->wy + osd.mon->wh - (int)osd.height -
+        (int)config.osd_offset;
+
+  if (y < osd.mon->wy)
+    y = osd.mon->wy;
+  if (y + (int)osd.height > osd.mon->wy + osd.mon->wh)
+    y = osd.mon->wy + osd.mon->wh - (int)osd.height;
+
+  if (osd.pixmap != None)
+    XFreePixmap(dpy, osd.pixmap);
+  osd.pixmap = XCreatePixmap(dpy, root, osd.width, osd.height,
+                             DefaultDepth(dpy, screen));
+
+  XSetForeground(dpy, dc.gc, dc.colors[SchemeNorm][ColBG].pixel);
+  XFillRectangle(dpy, osd.pixmap, dc.gc, 0, 0, osd.width, osd.height);
+
+  draw = XftDrawCreate(dpy, osd.pixmap, DefaultVisual(dpy, screen),
+                       DefaultColormap(dpy, screen));
+  if (!draw)
+    die("fatal: could not create Xft OSD drawing context\n");
+
+  XftDrawStringUtf8(draw, &dc.colors[SchemeNorm][ColFG], dc.font.xfont,
+                    (int)padding,
+                    (int)padding + dc.font.ascent,
+                    (const FcChar8 *)osd.text, (int)strlen(osd.text));
+  XftDrawDestroy(draw);
+
+  XMoveResizeWindow(dpy, osd.win, x, y, osd.width, osd.height);
+  setcardinalproperty(osd.win, rawmatom[RawmAtomMonitor],
+                      (unsigned long)osd.mon->num);
+  XCopyArea(dpy, osd.pixmap, osd.win, dc.gc, 0, 0,
+            osd.width, osd.height, 0, 0);
+}
+
+static void
+osdhide(void)
+{
+  if (!osd.visible || osd.win == None)
+    return;
+
+  XUnmapWindow(dpy, osd.win);
+  XFlush(dpy);
+  osd.visible = false;
+  osd.deadline_ms = 0;
+}
+
+static void
+osdexpire(void)
+{
+  if (osd.visible && monotonicms() >= osd.deadline_ms)
+    osdhide();
+}
+
+static int
+osdpolltimeout(void)
+{
+  uint64_t now, remaining;
+
+  if (!osd.visible)
+    return -1;
+
+  now = monotonicms();
+  if (now >= osd.deadline_ms)
+    return 0;
+
+  remaining = osd.deadline_ms - now;
+  return remaining > (uint64_t)INT_MAX ? INT_MAX : (int)remaining;
+}
+
+static void
+osdshow(Monitor *m, const char *text)
+{
+  if (!running || !config.show_osd || osd.win == None ||
+      !m || !text || !text[0])
+    return;
+
+  osd.mon = m;
+  snprintf(osd.text, sizeof osd.text, "%s", text);
+  osddraw();
+  XMapRaised(dpy, osd.win);
+  XFlush(dpy);
+  osd.visible = true;
+  osd.deadline_ms = monotonicms() + config.osd_duration_ms;
+}
+
+static void
+osdshowf(Monitor *m, const char *fmt, ...)
+{
+  char text[sizeof osd.text];
+  va_list ap;
+
+  if (!config.show_osd)
+    return;
+
+  va_start(ap, fmt);
+  vsnprintf(text, sizeof text, fmt, ap);
+  va_end(ap);
+  osdshow(m, text);
+}
+
+static void
+osdshowview(Monitor *m)
+{
+  const char *tag = "all";
+
+  if (!m)
+    return;
+  if (m->pertag->curtag > 0 && m->pertag->curtag <= config.tag_count)
+    tag = m->tag_names[m->pertag->curtag - 1];
+
+  osdshowf(m, "%s  ·  %s", tag, m->lt[m->sellt]->symbol);
+}
+
 static void
 propertynotify(XEvent *e)
 {
@@ -4370,12 +4582,24 @@ run(void)
     if (!running)
       break;
 
-    if (poll(fds, 2, -1) < 0)
+    osdexpire();
+
     {
-      if (errno == EINTR)
+      int poll_result = poll(fds, 2, osdpolltimeout());
+
+      if (poll_result < 0)
+      {
+        if (errno == EINTR)
+          continue;
+        die("fatal: poll failed: %s\n", strerror(errno));
+      }
+      if (poll_result == 0)
+      {
+        osdexpire();
         continue;
-      die("fatal: poll failed: %s\n", strerror(errno));
+      }
     }
+
     if (fds[1].revents & POLLIN)
       drainsignalpipe();
   }
@@ -4631,6 +4855,8 @@ setlayout(const Arg *arg)
     arrange(selmon);
   else
     drawbar(selmon);
+
+  osdshowf(selmon, "%s", selmon->lt[selmon->sellt]->symbol);
 }
 
 /* arg > 1.0 will set mfact absolutely */
@@ -4651,6 +4877,7 @@ setmfact(const Arg *arg)
 
   selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag] = f;
   arrange(selmon);
+  osdshowf(selmon, "master %d%%", (int)(selmon->mfact * 100.0f + 0.5f));
 }
 
 static void
@@ -4741,6 +4968,8 @@ setup(void)
   dc.gc              = XCreateGC(dpy, root, 0, NULL);
 
   XSetLineAttributes(dpy, dc.gc, 1, LineSolid, CapButt, JoinMiter);
+
+  osdcreate();
 
 #ifdef SYSTRAY
   /* init system tray */
@@ -5052,13 +5281,19 @@ togglefloating(__attribute__((unused)) const Arg *arg)
   }
 
   arrange(c->mon);
+  osdshowf(c->mon, "%s", clientiselevated(c) ? "float" : "tile");
 }
 
 static void
 togglefullscr(__attribute__((unused)) const Arg *arg)
 {
   if (selmon->sel)
-    setfullscreen(selmon->sel, !selmon->sel->isfullscreen);
+  {
+    Client *c = selmon->sel;
+
+    setfullscreen(c, !c->isfullscreen);
+    osdshowf(c->mon, "%s", c->isfullscreen ? "fullscreen" : "windowed");
+  }
 }
 
 static void
@@ -5814,6 +6049,7 @@ view(const Arg *arg)
 
   focus(NULL);
   arrange(selmon);
+  osdshowview(selmon);
 }
 
 static Client *

@@ -116,6 +116,10 @@ interactive tags, layout/title regions, and status segments use the hand
 cursor while hovered. Quiet regions receive a short workspace-facing marker;
 the focused-title marker widens while the title region is interactive.
 
+When enabled, rawm also presents a transient OSD for keyboard-driven view,
+layout, master-area, floating, and fullscreen changes. The OSD is a
+rawm-owned compositor surface and never enters normal client management.
+
 *rawm* draws a small border around windows to indicate the focus state.
 
 The options are as follows:
