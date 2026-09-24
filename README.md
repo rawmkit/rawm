@@ -52,12 +52,14 @@ Build time
   * `scdoc(1)` to build the manual pages
 
 The test suite additionally uses POSIX `sh(1p)` plus optional test fixtures.
-Meson discovers these during setup: the X11 integration tests require Xvfb,
-`xwininfo`, `xkbcomp`, and the `xkeyboard-config` data package; the gap tests
-also require `xterm`. Individual scripts use standard tools such as `awk`,
-`sed`, `grep`, `sort`, and `wc`. Missing optional fixtures are reported during
-Meson setup and the affected tests are registered as skips rather than failures.
-An installed fixture that starts but is unusable remains a test failure.
+Meson discovers their programs during setup and probes a disposable Xvfb server
+before registering the X11 integration tests. Those tests require a usable Xvfb
+runtime and `xwininfo`; `xkbcomp` and `xkeyboard-config` metadata are reported
+as XKB diagnostics, while the runtime probe is authoritative. The gap tests also
+require `xterm`. Individual scripts use standard tools such as `awk`, `sed`,
+`grep`, `sort`, and `wc`. Missing programs or an unusable virtual-X fixture are
+reported during Meson setup and the affected tests are registered as skips. Once
+the fixture starts successfully, failures remain behavioral test failures.
 
 
 BUILD AND INSTALL
