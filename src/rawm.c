@@ -6373,23 +6373,29 @@ updatewmhints(Client *c)
 static void
 view(const Arg *arg)
 {
-  if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
+  unsigned int tags;
+
+  if (!arg)
+    return;
+
+  tags = arg->ui & TAGMASK;
+  if (tags == selmon->tagset[selmon->seltags])
     return;
 
   selmon->seltags ^= 1; /* toggle sel tagset */
 
-  if (arg->ui & TAGMASK)
+  if (tags)
   {
     selmon->pertag->prevtag         = selmon->pertag->curtag;
-    selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+    selmon->tagset[selmon->seltags] = tags;
 
-    if (arg->ui == ~0u)
+    if (tags == TAGMASK)
       selmon->pertag->curtag = 0;
     else
     {
       size_t i;
 
-      for (i = 0; !(arg->ui & 1 << i); i++)
+      for (i = 0; !(tags & (1u << i)); i++)
         /* NOTHING */;
 
       selmon->pertag->curtag = i + 1;
