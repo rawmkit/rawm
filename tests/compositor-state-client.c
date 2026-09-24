@@ -101,6 +101,21 @@ find_surface(Display *display, Window root, const char *wanted)
 }
 
 static int
+inspect_surface_geometry(Display *display, const char *wanted)
+{
+  Window window = find_surface(display, DefaultRootWindow(display), wanted);
+  XWindowAttributes attributes;
+
+  if (window == None)
+    fail("surface not found");
+  if (!XGetWindowAttributes(display, window, &attributes))
+    fail("cannot inspect surface geometry");
+
+  printf("width=%d height=%d\n", attributes.width, attributes.height);
+  return EXIT_SUCCESS;
+}
+
+static int
 inspect_surface_state(Display *display, const char *wanted)
 {
   Window window = find_surface(display, DefaultRootWindow(display), wanted);
@@ -207,8 +222,14 @@ main(int argc, char **argv)
     XCloseDisplay(display);
     return result;
   }
+  if (argc == 3 && !strcmp(argv[1], "--surface-geometry"))
+  {
+    int result = inspect_surface_geometry(display, argv[2]);
+    XCloseDisplay(display);
+    return result;
+  }
   if (argc != 1)
-    fail("usage: compositor-state-client [--inspect WINDOW | --surface NAME | --surface-state NAME]");
+    fail("usage: compositor-state-client [--inspect WINDOW | --surface NAME | --surface-state NAME | --surface-geometry NAME]");
 
   root = DefaultRootWindow(display);
   window = XCreateSimpleWindow(display, root, 60, 70, 320, 200, 0, 0, 0);

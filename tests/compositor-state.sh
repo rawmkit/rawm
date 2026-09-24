@@ -53,7 +53,7 @@ cat >"$tmp/rawm.conf" <<'EOC'
 ui = {
   border_width = 2;
   bar = { show = true; };
-  osd = { show = true; position = "bottom"; duration_ms = 300; padding = 6; offset = 12; };
+  osd = { show = true; position = "bottom"; duration_ms = 300; padding = 6; offset = 12; min_width = 180; };
   systray = { show = false; };
 };
 tags = { default = ({ name = "one"; layout = "tile"; }); };
@@ -130,6 +130,10 @@ press F1
   fail "explicit floating state not published: $(state "$b_win")"
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "floating action did not map osd"
+case "$("$client" --surface-geometry osd)" in
+  "width=180 "*) ;;
+  *) fail "osd did not honor configured minimum width: $("$client" --surface-geometry osd)" ;;
+esac
 sleep 0.35
 [ "$("$client" --surface-state osd)" = "unmapped" ] ||
   fail "osd did not expire after configured timeout"
