@@ -75,7 +75,9 @@ input = {
     { key = "F7"; action = "tag"; tag = 2; },
     { key = "F8"; action = "view"; tag = 2; },
     { key = "F9"; action = "cycle_layout"; number = 1; },
-    { key = "F10"; action = "cycle_layout"; number = -1; }
+    { key = "F10"; action = "cycle_layout"; number = -1; },
+    { key = "F11"; action = "cycle_view"; number = 1; },
+    { key = "F12"; action = "cycle_view"; number = -1; }
   );
   buttons = (
     { click = "client"; button = 1; action = "move"; },
@@ -253,5 +255,26 @@ after_resize=$("$client" --client-geometry "$b_win")
   fail "pointer drag did not resize floating client"
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "interactive resize did not map geometry osd"
+
+sleep 0.35
+press F11
+[ "$(state "$a_win")" = "floating=0 selected=1 layout=tile monitor=0" ] ||
+  fail "forward view cycle did not wrap tag two to tag one: $(state "$a_win")"
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "forward view cycle did not map osd"
+
+press F12
+[ "$(state "$b_win")" = "floating=1 selected=1 layout=floating monitor=0" ] ||
+  fail "backward view cycle did not wrap tag one to tag two: $(state "$b_win")"
+
+press F5
+press F11
+[ "$(state "$a_win")" = "floating=0 selected=1 layout=tile monitor=0" ] ||
+  fail "forward cycle from all-tags view did not select tag one: $(state "$a_win")"
+
+press F5
+press F12
+[ "$(state "$b_win")" = "floating=1 selected=1 layout=floating monitor=0" ] ||
+  fail "backward cycle from all-tags view did not select final tag: $(state "$b_win")"
 
 echo "compositor state tests: ok"
