@@ -6,6 +6,8 @@
 #include <stdio.h>
 
 #define RAWM_MAX_TAGS 31
+#define RAWM_TAG_NAME_MAX 22u
+#define RAWM_LAYOUT_SYMBOL_MAX 32u
 #define RAWM_COLOR_SCHEMES 5
 #define RAWM_COLOR_COMPONENTS 3
 

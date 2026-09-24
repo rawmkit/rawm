@@ -414,7 +414,7 @@ typedef struct Pertag Pertag;
  * @brief Monitor structure to manage screens.
  */
 struct Monitor {
-  char ltsymbol[16];      /**< Layout symbol string displayed in the bar. */
+  char ltsymbol[MAX_LAYOUTLABEL]; /**< Dynamic layout label displayed in bar. */
   char tag_names[RAWM_MAX_TAGS][MAX_TAGLEN]; /**< Runtime tag labels. */
   float mfact;            /**< Master area factor [0.05..0.95] (per tag). */
   int nmaster;            /**< Number of clients in master area (per tag). */
@@ -1152,7 +1152,8 @@ arrangemon(Monitor *m)
   Client *c;
   unsigned int border;
 
-  strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, sizeof m->ltsymbol);
+  snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s",
+           m->lt[m->sellt]->symbol);
 
   for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
     n++;
@@ -4114,7 +4115,7 @@ movemouse(__attribute__((unused)) const Arg *arg)
 static void
 nametag(const Arg *arg)
 {
-  char buf[MAX_TAGNAMELEN];
+  char buf[RAWM_TAG_NAME_MAX + 1u];
   int result;
   size_t i;
 
@@ -5177,10 +5178,8 @@ setlayout(const Arg *arg)
   selmon->lt[selmon->sellt] =
     selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
 
-  strncpy(selmon->ltsymbol,
-          selmon->lt[selmon->sellt]->symbol,
-          sizeof selmon->ltsymbol
-          );
+  snprintf(selmon->ltsymbol, sizeof selmon->ltsymbol, "%s",
+           selmon->lt[selmon->sellt]->symbol);
 
   if (selmon->sel)
     arrange(selmon);
