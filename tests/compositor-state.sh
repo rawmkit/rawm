@@ -50,7 +50,12 @@ done
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = true; }; systray = { show = false; }; };
+ui = {
+  border_width = 2;
+  bar = { show = true; };
+  osd = { show = true; position = "bottom"; duration_ms = 300; padding = 6; offset = 12; };
+  systray = { show = false; };
+};
 tags = { default = ({ name = "one"; layout = "tile"; }); };
 input = {
   keys = (
@@ -72,6 +77,10 @@ kill -0 "$wm_pid" 2>/dev/null || {
 
 [ "$("$client" --surface bar)" = "surface=bar monitor=0 class=rawm instance=rawm-bar type=dock" ] ||
   fail "bar compositor surface metadata is incorrect"
+[ "$("$client" --surface osd)" = "surface=osd monitor=0 class=rawm instance=rawm-osd type=dock" ] ||
+  fail "osd compositor surface metadata is incorrect"
+[ "$("$client" --surface-state osd)" = "unmapped" ] ||
+  fail "osd must start unmapped"
 
 wait_window()
 {
@@ -119,6 +128,11 @@ sleep 0.12
 press F1
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=tile monitor=0" ] ||
   fail "explicit floating state not published: $(state "$b_win")"
+[ "$("$client" --surface-state osd)" = "mapped" ] ||
+  fail "floating action did not map osd"
+sleep 0.35
+[ "$("$client" --surface-state osd)" = "unmapped" ] ||
+  fail "osd did not expire after configured timeout"
 
 press F2
 [ "$(state "$a_win")" = "floating=1 selected=0 layout=floating monitor=0" ] ||
