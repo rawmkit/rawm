@@ -11,19 +11,6 @@ rawm=${1:-./rawm}
 client=${2:-./tests/geometry-client}
 sendkey=${3:-./tests/send-key}
 
-for tool in Xvfb xwininfo xkbcomp awk sed wc; do
-  command -v "$tool" >/dev/null 2>&1 || {
-    echo "geometry tests: skipped ($tool not found)"
-    exit 77
-  }
-done
-for helper in "$client" "$sendkey"; do
-  [ -x "$helper" ] || {
-    echo "geometry tests: skipped ($helper not built)"
-    exit 77
-  }
-done
-
 tmp=${TMPDIR:-/tmp}/rawm-geometry-test.$$
 mkdir -p "$tmp"
 wm_pid=
@@ -39,13 +26,26 @@ cleanup()
 }
 trap cleanup EXIT HUP INT TERM
 
+skip()
+{
+  echo "geometry tests: skipped ($*)"
+  exit 77
+}
+
 fail()
 {
   echo "geometry test failed: $*" >&2
   exit 1
 }
 
-test_xvfb_start "$tmp" || fail "Xvfb did not become ready"
+for tool in Xvfb xwininfo awk sed wc; do
+  command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
+done
+for helper in "$client" "$sendkey"; do
+  [ -x "$helper" ] || skip "$helper not built"
+done
+
+test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
 geometry()
 {

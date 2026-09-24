@@ -10,17 +10,6 @@ esac
 rawm=${1:-./rawm}
 client=${2:-./tests/geometry-client}
 
-for tool in Xvfb xwininfo xkbcomp awk sed; do
-  command -v "$tool" >/dev/null 2>&1 || {
-    echo "placement tests: skipped ($tool not found)"
-    exit 77
-  }
-done
-[ -x "$client" ] || {
-  echo "placement tests: skipped ($client not built)"
-  exit 77
-}
-
 tmp=${TMPDIR:-/tmp}/rawm-placement-test.$$
 mkdir -p "$tmp"
 wm_pid=
@@ -34,13 +23,24 @@ cleanup()
 }
 trap cleanup EXIT HUP INT TERM
 
+skip()
+{
+  echo "placement tests: skipped ($*)"
+  exit 77
+}
+
 fail()
 {
   echo "placement test failed: $*" >&2
   exit 1
 }
 
-test_xvfb_start "$tmp" || fail "Xvfb did not become ready"
+for tool in Xvfb xwininfo awk sed; do
+  command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
+done
+[ -x "$client" ] || skip "$client not built"
+
+test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
 geometry()
 {

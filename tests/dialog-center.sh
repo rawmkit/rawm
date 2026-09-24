@@ -10,18 +10,6 @@ esac
 rawm=${1:-./rawm}
 helper=${2:-./tests/dialog-center-client}
 
-for tool in Xvfb xwininfo xkbcomp awk sed; do
-  command -v "$tool" >/dev/null 2>&1 || {
-    echo "dialog center tests: skipped ($tool not found)"
-    exit 77
-  }
-done
-
-[ -x "$helper" ] || {
-  echo "dialog center tests: skipped ($helper not built)"
-  exit 77
-}
-
 tmp=${TMPDIR:-/tmp}/rawm-dialog-center-test.$$
 mkdir -p "$tmp"
 wm_pid=
@@ -35,13 +23,25 @@ cleanup()
 }
 trap cleanup EXIT HUP INT TERM
 
+skip()
+{
+  echo "dialog center tests: skipped ($*)"
+  exit 77
+}
+
 fail()
 {
   echo "dialog center test failed: $*" >&2
   exit 1
 }
 
-test_xvfb_start "$tmp" || fail "Xvfb did not become ready"
+for tool in Xvfb xwininfo awk sed; do
+  command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
+done
+
+[ -x "$helper" ] || skip "$helper not built"
+
+test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
 write_config()
 {

@@ -10,18 +10,6 @@ esac
 rawm=${1:-./rawm}
 helper=${2:-./tests/fullscreen-rule-client}
 
-for tool in Xvfb xwininfo xkbcomp awk sed wc; do
-  command -v "$tool" >/dev/null 2>&1 || {
-    echo "fullscreen rule tests: skipped ($tool not found)"
-    exit 77
-  }
-done
-
-[ -x "$helper" ] || {
-  echo "fullscreen rule tests: skipped ($helper not built)"
-  exit 77
-}
-
 tmp=${TMPDIR:-/tmp}/rawm-fullscreen-rule-test.$$
 mkdir -p "$tmp"
 wm_pid=
@@ -35,13 +23,25 @@ cleanup()
 }
 trap cleanup EXIT HUP INT TERM
 
+skip()
+{
+  echo "fullscreen rule tests: skipped ($*)"
+  exit 77
+}
+
 fail()
 {
   echo "fullscreen rule test failed: $*" >&2
   exit 1
 }
 
-test_xvfb_start "$tmp" || fail "Xvfb did not become ready"
+for tool in Xvfb xwininfo awk sed wc; do
+  command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
+done
+
+[ -x "$helper" ] || skip "$helper not built"
+
+test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
 geometry()
 {
