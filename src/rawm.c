@@ -6497,15 +6497,25 @@ winview(__attribute__((unused)) const Arg* arg)
   if (!XGetInputFocus(dpy, &win, &unused))
     return;
 
-  while (   XQueryTree(dpy, win, &win_r, &win_p, &win_c, &nc)
-         && win_p != win_r
-         )
+  for (;;)
+  {
+    win_c = NULL;
+    if (!XQueryTree(dpy, win, &win_r, &win_p, &win_c, &nc))
+      return;
+
+    if (win_c)
+      XFree(win_c);
+
+    if (win_p == win_r)
+      break;
+
     win = win_p;
+  }
 
   if (!(c = wintoclient(win)))
     return;
 
-  a.ui = c->tags;
+  a.ui = c->tags & TAGMASK;
   view(&a);
 }
 
