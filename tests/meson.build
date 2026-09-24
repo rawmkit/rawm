@@ -37,6 +37,13 @@ geometry_client = executable(
   build_by_default: false,
 )
 
+compositor_state_client = executable(
+  'compositor-state-client',
+  'compositor-state-client.c',
+  dependencies: x11_dep,
+  build_by_default: false,
+)
+
 tagbar_client = executable(
   'tagbar-client',
   'tagbar-client.c',
@@ -70,6 +77,7 @@ dialog_center_test = find_program('dialog-center.sh')
 fullscreen_rule_test = find_program('fullscreen-rule.sh')
 attention_rule_test = find_program('attention-rule.sh')
 geometry_test = find_program('geometry.sh')
+compositor_state_test = find_program('compositor-state.sh')
 placement_test = find_program('placement.sh')
 tagbar_test = find_program('tagbar.sh')
 status_test = find_program('status.sh')
@@ -290,6 +298,22 @@ else
     'geometry',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(geometry_missing))],
+  )
+endif
+
+compositor_state_missing = x11_missing
+if compositor_state_missing.length() == 0
+  test(
+    'compositor-state',
+    compositor_state_test,
+    args: [rawm, compositor_state_client, send_key],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'compositor-state',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(compositor_state_missing))],
   )
 endif
 

@@ -248,6 +248,15 @@ enum {
   WMLast       /**< Sentinel value for the last WM atom. */
 };
 
+/** rawm-private client properties for compositor integration. */
+enum {
+  RawmAtomFloating, /**< _RAWM_FLOATING effective presentation plane. */
+  RawmAtomSelected, /**< _RAWM_SELECTED global selection state. */
+  RawmAtomLayout,   /**< _RAWM_LAYOUT stable layout name. */
+  RawmAtomMonitor,  /**< _RAWM_MONITOR monitor number. */
+  RawmAtomLast      /**< Sentinel value for the last rawm-private atom. */
+};
+
 /** Bar click areas for button bindings. */
 enum {
   ClkTagBar,     /**< Click on a tag button. */
@@ -452,6 +461,8 @@ static void           focusstack(const Arg *arg);
 static void           grid(Monitor *m);
 static bool           atomlistcontains(Window w, Atom prop, Atom atom);
 static void           setatomlistmember(Window w, Atom prop, Atom atom, bool present);
+static void           clearclientcomposition(Client *c);
+static void           updateclientcomposition(Client *c);
 
 #ifdef SYSTRAY
 static Atom           getatomprop(Client *c, Atom prop);
@@ -606,6 +617,7 @@ static Atom           wmatom[WMLast], netatom[NetLast], xatom[XLast];
 #else
 static Atom           wmatom[WMLast], netatom[NetLast];
 #endif /* SYSTRAY */
+static Atom           rawmatom[RawmAtomLast];
 
 static volatile sig_atomic_t restart = 0;
 static volatile sig_atomic_t running = 1;
@@ -1077,6 +1089,9 @@ arrangemon(Monitor *m)
 
   if (m->lt[m->sellt]->arrange)
     m->lt[m->sellt]->arrange(m);
+
+  for (c = m->clients; c; c = c->next)
+    updateclientcomposition(c);
 
   restack(m);
 }
@@ -2225,6 +2240,8 @@ focus(Client *c)
   }
 
   selmon->sel = c;
+  if (c)
+    updateclientcomposition(c);
   drawbars();
 }
 
@@ -2876,6 +2893,63 @@ statuswidth(void)
     width += TEXTW(statusdata.segments[i].text);
   }
   return width;
+}
+
+static const char *
+clientlayoutname(const Client *c)
+{
+  static const char *const names[RAWM_LAYOUT_COUNT] = {
+    "tile", "floating", "monocle", "bstack", "bstack_horizontal", "grid"
+  };
+  size_t i;
+
+  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
+    if (c->mon->lt[c->mon->sellt] == &layouts[i])
+      return names[i];
+
+  return "unknown";
+}
+
+static void
+setcardinalproperty(Window window, Atom atom, unsigned long value)
+{
+  XChangeProperty(dpy, window, atom, XA_CARDINAL, 32, PropModeReplace,
+                  (unsigned char *)&value, 1);
+}
+
+static void
+updateclientcomposition(Client *c)
+{
+  const char *layout;
+  unsigned long floating;
+  unsigned long selected;
+
+  if (!c || !c->mon)
+    return;
+
+  floating = c->isfloating || !c->mon->lt[c->mon->sellt]->arrange;
+  selected = c->mon == selmon && c->mon->sel == c;
+  layout = clientlayoutname(c);
+
+  setcardinalproperty(c->win, rawmatom[RawmAtomFloating], floating);
+  setcardinalproperty(c->win, rawmatom[RawmAtomSelected], selected);
+  setcardinalproperty(c->win, rawmatom[RawmAtomMonitor],
+                      (unsigned long)c->mon->num);
+  XChangeProperty(dpy, c->win, rawmatom[RawmAtomLayout], utf8atom, 8,
+                  PropModeReplace, (const unsigned char *)layout,
+                  (int)strlen(layout));
+}
+
+static void
+clearclientcomposition(Client *c)
+{
+  size_t i;
+
+  if (!c)
+    return;
+
+  for (i = 0; i < RawmAtomLast; ++i)
+    XDeleteProperty(dpy, c->win, rawmatom[i]);
 }
 
 static bool
@@ -4177,6 +4251,8 @@ setfullscreen(Client *c, bool fullscreen)
     resizeclient(c, c->x, c->y, c->w, c->h);
     arrange(c->mon);
   }
+
+  updateclientcomposition(c);
 }
 
 static void
@@ -4283,6 +4359,10 @@ setup(void)
   netatom[NetWMWindowTypeDialog]    = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",   false);
   utf8atom                           = XInternAtom(dpy, "UTF8_STRING",                   false);
   statusatom                         = XInternAtom(dpy, "_RAWM_STATUS_V2",               false);
+  rawmatom[RawmAtomFloating]         = XInternAtom(dpy, "_RAWM_FLOATING",                false);
+  rawmatom[RawmAtomSelected]         = XInternAtom(dpy, "_RAWM_SELECTED",                false);
+  rawmatom[RawmAtomLayout]           = XInternAtom(dpy, "_RAWM_LAYOUT",                  false);
+  rawmatom[RawmAtomMonitor]          = XInternAtom(dpy, "_RAWM_MONITOR",                 false);
 #ifdef SYSTRAY
   xatom[Manager]                    = XInternAtom(dpy, "MANAGER",                      false);
   xatom[Xembed]                     = XInternAtom(dpy, "_XEMBED",                      false);
@@ -4702,6 +4782,7 @@ unfocus(Client *c, bool setfocus)
 
   grabbuttons(c, false);
   XSetWindowBorder(dpy, c->win, dc.colors[0][ColBorder].pixel);
+  setcardinalproperty(c->win, rawmatom[RawmAtomSelected], 0);
 
   if (setfocus)
   {
@@ -4729,6 +4810,8 @@ unmanage(Client *c, bool destroyed)
     wc.border_width = c->oldbw;
     XGrabServer(dpy);
     XSetErrorHandler(xerrordummy);
+
+    clearclientcomposition(c);
 
     /* restore border */
     XConfigureWindow(dpy, c->win, CWBorderWidth, &wc);
@@ -5302,6 +5385,8 @@ updatewindowtype(Client *c)
       c->center = config.dialog_center;
     c->isfloating = true;
   }
+
+  updateclientcomposition(c);
 }
 
 static void

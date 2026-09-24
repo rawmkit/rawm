@@ -159,6 +159,34 @@ The options are as follows:
 	Click on a tag label adds/removes that tag to/from the focused
 	window.
 
+## Compositor integration
+
+rawm publishes private per-client properties describing window-manager state
+that a compositor cannot reliably infer from generic ICCCM/EWMH properties.
+They are descriptive outputs only; clients and compositors must not write them
+as commands back to rawm.
+
+*\_RAWM\_FLOATING*
+	CARDINAL 0 or 1. One means the client is effectively on the floating
+	presentation plane, either because the client itself is floating or because
+	the monitor currently uses the floating layout. Fullscreen clients also
+	report one; compositors should give standard fullscreen state precedence.
+
+*\_RAWM\_SELECTED*
+	CARDINAL 0 or 1. One only for the globally selected client on the selected
+	monitor. This is rawm's compositor-facing focus authority.
+
+*\_RAWM\_LAYOUT*
+	UTF8_STRING naming the selected monitor layout. Stable values are *tile*,
+	*floating*, *monocle*, *bstack*, *bstack_horizontal*, and *grid*.
+
+*\_RAWM\_MONITOR*
+	CARDINAL monitor number, starting at zero.
+
+The properties are removed when rawm releases a surviving client. They are
+private rawm protocol and are intentionally not advertised through
+*\_NET\_SUPPORTED*, which is reserved for EWMH atoms.
+
 ## Keyboard commands
 
 These are the built-in bindings. An *input.keys* list in *rawm.conf*(5)
