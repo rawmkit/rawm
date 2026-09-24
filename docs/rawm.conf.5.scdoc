@@ -636,6 +636,13 @@ or *"root"*. The *"title"* area requires a build with
 
 *button* is an integer from 1 through 9.
 
+For *click = "status"*, optional *status_id* targets one *rawm-v2* segment by
+its stable identifier. The identifier uses the same 1..64 character syntax as
+the status protocol. A binding without *status_id* is a fallback for the whole
+status area. Segment-specific bindings take precedence over the fallback when
+both match the same button and modifiers. *status_id* is invalid for other
+click areas.
+
 For *view*, *toggle_view*, *tag*, and *toggle_tag* on *"tag_bar"*, omitting the
 *tag* member means the tag under the pointer. This is how the conventional tag
 bar bindings are expressed.

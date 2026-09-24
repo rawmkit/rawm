@@ -210,8 +210,10 @@ static void
 free_buttons(RawmButtonBinding *buttons, size_t count)
 {
   size_t i;
-  for (i = 0; i < count; ++i)
+  for (i = 0; i < count; ++i) {
+    free(buttons[i].status_id);
     free_binding(&buttons[i].binding);
+  }
   free(buttons);
 }
 
@@ -1513,12 +1515,35 @@ parse_click_name(const char *name, RawmClick *click)
   return -1;
 }
 
+static bool
+status_id_valid(const char *id)
+{
+  size_t i, length;
+
+  if (!id)
+    return false;
+  length = strlen(id);
+  if (!length || length > 64)
+    return false;
+  for (i = 0; i < length; ++i) {
+    unsigned char c = (unsigned char)id[i];
+
+    if (   (c >= 'a' && c <= 'z')
+        || (c >= 'A' && c <= 'Z')
+        || (c >= '0' && c <= '9')
+        || c == '.' || c == '_' || c == '-')
+      continue;
+    return false;
+  }
+  return true;
+}
+
 static int
 parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
 {
   static const char *const allowed[] = {
-    "modifiers", "click", "button", "action", "command", "layout",
-    "number", "factor", "delta", "tag", "restart"
+    "modifiers", "click", "button", "status_id", "action", "command",
+    "layout", "number", "factor", "delta", "tag", "restart"
   };
   RawmButtonBinding *buttons;
   int i, n;
@@ -1529,13 +1554,13 @@ parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
   buttons = xcalloc((size_t)n, sizeof(*buttons));
   for (i = 0; i < n; ++i) {
     config_setting_t *entry = config_setting_get_elem(list, (unsigned int)i);
-    config_setting_t *click, *button;
+    config_setting_t *click, *button, *status_id;
     const char *click_name;
     if (config_setting_type(entry) != CONFIG_TYPE_GROUP) {
       cfg_error(err, entry, "%s entries must be groups", "input.buttons");
       goto fail;
     }
-    if (validate_members(err, entry, allowed, 11) < 0 ||
+    if (validate_members(err, entry, allowed, 12) < 0 ||
         parse_modifiers(err, entry, &buttons[i].modifiers) < 0 ||
         parse_binding(err, entry, &buttons[i].binding) < 0)
       goto fail;
@@ -1549,6 +1574,22 @@ parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
     if (parse_click_name(click_name, &buttons[i].click) < 0) {
       cfg_error(err, click, "unknown click area '%s'", click_name);
       goto fail;
+    }
+    status_id = config_setting_get_member(entry, "status_id");
+    if (status_id) {
+      const char *value;
+
+      if (config_setting_type(status_id) != CONFIG_TYPE_STRING) {
+        cfg_error(err, status_id, "%s must be a string", "status_id");
+        goto fail;
+      }
+      value = config_setting_get_string(status_id);
+      if (!status_id_valid(value)) {
+        cfg_error(err, status_id, "%s is not a valid rawm-v2 segment id",
+                  "status_id");
+        goto fail;
+      }
+      buttons[i].status_id = xstrdup(value);
     }
     if (!button || config_setting_type(button) != CONFIG_TYPE_INT) {
       cfg_error(err, entry, "%s requires integer member 'button'", "button binding");
@@ -2235,13 +2276,25 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
     }
   }
   for (i = 0; i < cfg->button_count; ++i) {
+    if (cfg->buttons[i].status_id &&
+        cfg->buttons[i].click != RAWM_CLICK_STATUS) {
+      fputs("rawm: configuration error: status_id is only valid for status click bindings\n",
+            err);
+      return -1;
+    }
     if (validate_binding(cfg, &cfg->buttons[i].binding, true,
                          cfg->buttons[i].click, err) < 0)
       return -1;
     for (j = 0; j < i; ++j) {
+      bool same_status_id =
+          (!cfg->buttons[j].status_id && !cfg->buttons[i].status_id) ||
+          (cfg->buttons[j].status_id && cfg->buttons[i].status_id &&
+           !strcmp(cfg->buttons[j].status_id, cfg->buttons[i].status_id));
+
       if (cfg->buttons[j].click == cfg->buttons[i].click &&
           cfg->buttons[j].modifiers == cfg->buttons[i].modifiers &&
-          cfg->buttons[j].button == cfg->buttons[i].button) {
+          cfg->buttons[j].button == cfg->buttons[i].button &&
+          same_status_id) {
         fputs("rawm: configuration error: duplicate mouse binding\n", err);
         return -1;
       }

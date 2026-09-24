@@ -153,6 +153,7 @@ typedef struct {
   RawmClick click;
   unsigned int modifiers;
   unsigned int button;
+  char *status_id;
   RawmBinding binding;
 } RawmButtonBinding;
 

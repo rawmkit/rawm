@@ -84,6 +84,52 @@ input = {
 EOC
 expect_ok "$tmp/valid.conf"
 
+cat >"$tmp/status-button-id.conf" <<'EOC'
+commands = { noop = ("true"); };
+input = {
+  buttons = (
+    { click = "status"; status_id = "volume"; button = 1; action = "spawn"; command = "noop"; },
+    { click = "status"; status_id = "network"; button = 1; action = "spawn"; command = "noop"; },
+    { click = "status"; button = 1; action = "spawn"; command = "noop"; }
+  );
+};
+EOC
+expect_ok "$tmp/status-button-id.conf"
+
+cat >"$tmp/status-button-id-invalid-area.conf" <<'EOC'
+input = {
+  buttons = (
+    { click = "title"; status_id = "volume"; button = 1; action = "zoom"; }
+  );
+};
+EOC
+expect_fail "$tmp/status-button-id-invalid-area.conf"
+grep -q "status_id is only valid" "$tmp/stderr" ||
+  fail "status_id click-area diagnostic missing"
+
+cat >"$tmp/status-button-id-invalid-value.conf" <<'EOC'
+input = {
+  buttons = (
+    { click = "status"; status_id = "bad id"; button = 1; action = "quit"; }
+  );
+};
+EOC
+expect_fail "$tmp/status-button-id-invalid-value.conf"
+grep -q "valid rawm-v2 segment id" "$tmp/stderr" ||
+  fail "invalid status_id diagnostic missing"
+
+cat >"$tmp/status-button-id-duplicate.conf" <<'EOC'
+input = {
+  buttons = (
+    { click = "status"; status_id = "volume"; button = 1; action = "quit"; },
+    { click = "status"; status_id = "volume"; button = 1; action = "quit"; }
+  );
+};
+EOC
+expect_fail "$tmp/status-button-id-duplicate.conf"
+grep -q "duplicate mouse binding" "$tmp/stderr" ||
+  fail "duplicate status_id binding diagnostic missing"
+
 cat >"$tmp/bar-metric-range.conf" <<'EOC'
 ui = { bar = { indicator_size = 33; }; };
 EOC
