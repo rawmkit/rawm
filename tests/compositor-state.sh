@@ -50,7 +50,7 @@ done
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; bar = { show = true; }; systray = { show = false; }; };
 tags = { default = ({ name = "one"; layout = "tile"; }); };
 input = {
   keys = (
@@ -69,6 +69,9 @@ kill -0 "$wm_pid" 2>/dev/null || {
   cat "$tmp/rawm.log" >&2
   fail "rawm exited"
 }
+
+[ "$("$client" --surface bar)" = "surface=bar monitor=0 class=rawm instance=rawm-bar type=dock" ] ||
+  fail "bar compositor surface metadata is incorrect"
 
 wait_window()
 {

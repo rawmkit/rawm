@@ -463,6 +463,9 @@ static void           focusstack(const Arg *arg);
 static void           grid(Monitor *m);
 static bool           atomlistcontains(Window w, Atom prop, Atom atom);
 static void           setatomlistmember(Window w, Atom prop, Atom atom, bool present);
+static void           setsurfaceproperties(Window window, const char *instance,
+                                           const char *surface,
+                                           unsigned long monitor);
 static void           clearclientcomposition(Client *c);
 static void           updateclientcomposition(Client *c);
 
@@ -588,7 +591,7 @@ static const char     broken[] = "broken";
 #define RAWM_STATUS_V2_MAX 4096u
 #define RAWM_STATUS_ID_MAX 64u
 static StatusData     statusdata = {0};
-static Atom           statusatom, utf8atom;
+static Atom           dockatom, statusatom, surfaceatom, utf8atom;
 static int            screen;
 static int            sw, sh; /* X display screen geometry width, height */
 static int            bh, blw = 0; /* bar geometry */
@@ -2944,6 +2947,24 @@ setcardinalproperty(Window window, Atom atom, unsigned long value)
 }
 
 static void
+setsurfaceproperties(Window window, const char *instance, const char *surface,
+                     unsigned long monitor)
+{
+  XClassHint class_hint = { (char *)instance, (char *)"rawm" };
+
+  XSetClassHint(dpy, window, &class_hint);
+  XStoreName(dpy, window, instance);
+  XChangeProperty(dpy, window, netatom[NetWMName], utf8atom, 8,
+                  PropModeReplace, (const unsigned char *)instance,
+                  (int)strlen(instance));
+  XChangeProperty(dpy, window, netatom[NetWMWindowType], XA_ATOM, 32,
+                  PropModeReplace, (unsigned char *)&dockatom, 1);
+  XChangeProperty(dpy, window, surfaceatom, utf8atom, 8, PropModeReplace,
+                  (const unsigned char *)surface, (int)strlen(surface));
+  setcardinalproperty(window, rawmatom[RawmAtomMonitor], monitor);
+}
+
+static void
 updateclientcomposition(Client *c)
 {
   const char *layout;
@@ -4384,7 +4405,9 @@ setup(void)
   netatom[NetWMWindowType]          = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",          false);
   netatom[NetWMWindowTypeDialog]    = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",   false);
   utf8atom                           = XInternAtom(dpy, "UTF8_STRING",                   false);
+  dockatom                           = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK",      false);
   statusatom                         = XInternAtom(dpy, "_RAWM_STATUS_V2",               false);
+  surfaceatom                        = XInternAtom(dpy, "_RAWM_SURFACE",                 false);
   rawmatom[RawmAtomFloating]         = XInternAtom(dpy, "_RAWM_FLOATING",                false);
   rawmatom[RawmAtomSelected]         = XInternAtom(dpy, "_RAWM_SELECTED",                false);
   rawmatom[RawmAtomLayout]           = XInternAtom(dpy, "_RAWM_LAYOUT",                  false);
@@ -4912,6 +4935,8 @@ updatebars(void)
                     &wa
                     );
 
+    setsurfaceproperties(m->barwin, "rawm-bar", "bar",
+                         (unsigned long)m->num);
     XDefineCursor(dpy, m->barwin, cursor[CurNormal]);
     XMapRaised(dpy, m->barwin);
 
@@ -5285,6 +5310,8 @@ updatesystray(void)
                                        0,
                                        dc.colors[1][ColBG].pixel
                                        );
+    setsurfaceproperties(systray->win, "rawm-systray", "systray",
+                         (unsigned long)selmon->num);
 
     if (config.opacity >= 0  &&  config.opacity <= 1)
     {
@@ -5368,6 +5395,8 @@ updatesystray(void)
   w = w ? w + config.systray_spacing : 1;
   x -= w;
   XMoveResizeWindow(dpy, systray->win, x, selmon->by, w, bh);
+  setcardinalproperty(systray->win, rawmatom[RawmAtomMonitor],
+                      (unsigned long)selmon->num);
 
   /* redraw background */
   XSetForeground(dpy, dc.gc, dc.colors[0][ColBG].pixel);

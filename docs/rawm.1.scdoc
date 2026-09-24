@@ -181,10 +181,20 @@ as commands back to rawm.
 	*floating*, *monocle*, *bstack*, *bstack_horizontal*, and *grid*.
 
 *\_RAWM\_MONITOR*
-	CARDINAL monitor number, starting at zero.
+	CARDINAL monitor number, starting at zero. The same property is also
+	published on rawm-owned compositor surfaces.
 
-The properties are removed when rawm releases a surviving client. They are
-private rawm protocol and are intentionally not advertised through
+rawm-owned non-client surfaces additionally publish:
+
+*\_RAWM\_SURFACE*
+	UTF8_STRING describing the surface role. Stable values are *bar* and
+	*systray*. Bar windows use *rawm-bar* as WM_CLASS instance and systray
+	windows use *rawm-systray*; both use *rawm* as the class and advertise
+	*\_NET\_WM\_WINDOW\_TYPE\_DOCK*. This lets compositors distinguish the
+	desktop chrome from ordinary clients without title or geometry heuristics.
+
+The client properties are removed when rawm releases a surviving client.
+Private rawm protocol atoms are intentionally not advertised through
 *\_NET\_SUPPORTED*, which is reserved for EWMH atoms.
 
 ## Keyboard commands

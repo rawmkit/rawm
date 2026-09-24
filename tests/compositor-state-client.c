@@ -1,5 +1,6 @@
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -62,6 +63,79 @@ string_property(Display *display, Window window, const char *name,
   XFree(data);
 }
 
+
+static Window
+find_surface(Display *display, Window root, const char *wanted)
+{
+  Atom surface_atom = XInternAtom(display, "_RAWM_SURFACE", True);
+  Window root_return, parent_return, *children = NULL;
+  unsigned int count = 0, i;
+  Window found = None;
+
+  if (surface_atom == None ||
+      !XQueryTree(display, root, &root_return, &parent_return, &children, &count))
+    return None;
+
+  for (i = 0; i < count; ++i)
+  {
+    Atom actual_type = None;
+    unsigned char *data = NULL;
+    unsigned long after = 0, nitems = 0;
+    int actual_format = 0;
+
+    if (XGetWindowProperty(display, children[i], surface_atom, 0, 64, False,
+                           AnyPropertyType, &actual_type, &actual_format,
+                           &nitems, &after, &data) == Success &&
+        actual_format == 8 && data && strlen(wanted) == nitems &&
+        !memcmp(data, wanted, nitems))
+      found = children[i];
+    if (data)
+      XFree(data);
+    if (found != None)
+      break;
+  }
+
+  if (children)
+    XFree(children);
+  return found;
+}
+
+static int
+inspect_surface(Display *display, const char *wanted)
+{
+  Window window = find_surface(display, DefaultRootWindow(display), wanted);
+  Atom type_atom = XInternAtom(display, "_NET_WM_WINDOW_TYPE", True);
+  Atom dock_atom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DOCK", True);
+  Atom actual_type = None;
+  unsigned char *data = NULL;
+  unsigned long after = 0, count = 0;
+  int actual_format = 0;
+  XClassHint hint = {0};
+  const char *type = "other";
+
+  if (window == None)
+    fail("surface not found");
+  if (!XGetClassHint(display, window, &hint) || !hint.res_name || !hint.res_class)
+    fail("surface WM_CLASS missing");
+  if (type_atom != None && dock_atom != None &&
+      XGetWindowProperty(display, window, type_atom, 0, 1, False, XA_ATOM,
+                         &actual_type, &actual_format, &count, &after,
+                         &data) == Success &&
+      actual_type == XA_ATOM && actual_format == 32 && count == 1 && data &&
+      *(Atom *)data == dock_atom)
+    type = "dock";
+
+  printf("surface=%s monitor=%lu class=%s instance=%s type=%s\n",
+         wanted, cardinal(display, window, "_RAWM_MONITOR"),
+         hint.res_class, hint.res_name, type);
+
+  if (data)
+    XFree(data);
+  XFree(hint.res_name);
+  XFree(hint.res_class);
+  return EXIT_SUCCESS;
+}
+
 static Window
 parse_window(const char *text)
 {
@@ -106,8 +180,14 @@ main(int argc, char **argv)
     XCloseDisplay(display);
     return result;
   }
+  if (argc == 3 && !strcmp(argv[1], "--surface"))
+  {
+    int result = inspect_surface(display, argv[2]);
+    XCloseDisplay(display);
+    return result;
+  }
   if (argc != 1)
-    fail("usage: compositor-state-client [--inspect WINDOW]");
+    fail("usage: compositor-state-client [--inspect WINDOW | --surface NAME]");
 
   root = DefaultRootWindow(display);
   window = XCreateSimpleWindow(display, root, 60, 70, 320, 200, 0, 0, 0);
