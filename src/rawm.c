@@ -327,6 +327,7 @@ typedef struct {
   Monitor *mon;                 /**< Monitor owning the current feedback. */
   unsigned int width, height;   /**< Current OSD geometry. */
   uint64_t deadline_ms;         /**< Monotonic expiry deadline. */
+  int scheme;                   /**< Configured semantic color scheme. */
   bool visible;                 /**< Whether the surface is currently mapped. */
   char text[256];               /**< Current UTF-8 feedback text. */
 } RawmOSD;
@@ -565,8 +566,8 @@ static void           osddraw(void);
 static void           osdexpire(void);
 static void           osdhide(void);
 static int            osdpolltimeout(void);
-static void           osdshow(Monitor *m, const char *text);
-static void           osdshowf(Monitor *m, const char *fmt, ...);
+static void           osdshow(Monitor *m, int scheme, const char *text);
+static void           osdshowf(Monitor *m, int scheme, const char *fmt, ...);
 static void           osdshowview(Monitor *m);
 static Client        *nexttiled(Client *c);
 static void           pop(Client *);
@@ -3421,7 +3422,7 @@ incnmaster(const Arg *arg)
       MAX(selmon->nmaster + arg->i, 0);
 
   arrange(selmon);
-  osdshowf(selmon, "master %d", selmon->nmaster);
+  osdshowf(selmon, SchemeSel, "master %d", selmon->nmaster);
 }
 
 static void
@@ -3998,22 +3999,26 @@ osdcreate(void)
 static void
 osddraw(void)
 {
+  XftColor *col;
   XftDraw *draw;
   XGlyphInfo extents;
+  unsigned int marker_height, marker_width;
   unsigned int padding;
   unsigned int text_width;
+  int text_x;
   int x, y;
 
   if (!osd.mon || osd.win == None || !osd.text[0])
     return;
 
+  col = dc.colors[osd.scheme];
   padding = config.osd_padding;
   XftTextExtentsUtf8(dpy, dc.font.xfont,
                      (const FcChar8 *)osd.text, (int)strlen(osd.text),
                      &extents);
   text_width = extents.xOff > 0 ? (unsigned int)extents.xOff : 1u;
 
-  osd.width = text_width + 2u * padding;
+  osd.width = MAX(text_width + 2u * padding, config.osd_min_width);
   osd.height = (unsigned int)dc.font.height + 2u * padding;
 
   if (osd.width > (unsigned int)osd.mon->ww)
@@ -4038,7 +4043,7 @@ osddraw(void)
   osd.pixmap = XCreatePixmap(dpy, root, osd.width, osd.height,
                              DefaultDepth(dpy, screen));
 
-  XSetForeground(dpy, dc.gc, dc.colors[SchemeNorm][ColBG].pixel);
+  XSetForeground(dpy, dc.gc, col[ColBG].pixel);
   XFillRectangle(dpy, osd.pixmap, dc.gc, 0, 0, osd.width, osd.height);
 
   draw = XftDrawCreate(dpy, osd.pixmap, DefaultVisual(dpy, screen),
@@ -4046,11 +4051,25 @@ osddraw(void)
   if (!draw)
     die("fatal: could not create Xft OSD drawing context\n");
 
-  XftDrawStringUtf8(draw, &dc.colors[SchemeNorm][ColFG], dc.font.xfont,
-                    (int)padding,
+  text_x = osd.width > text_width
+      ? ((int)osd.width - (int)text_width) / 2
+      : 0;
+  XftDrawStringUtf8(draw, &col[ColFG], dc.font.xfont,
+                    text_x,
                     (int)padding + dc.font.ascent,
                     (const FcChar8 *)osd.text, (int)strlen(osd.text));
   XftDrawDestroy(draw);
+
+  marker_height = MIN(2u, osd.height);
+  marker_width = MIN(osd.width / 3u, 64u);
+  if (marker_height && marker_width)
+  {
+    XSetForeground(dpy, dc.gc, col[ColBorder].pixel);
+    XFillRectangle(dpy, osd.pixmap, dc.gc,
+                   (osd.width - marker_width) / 2u,
+                   osd.height - marker_height,
+                   marker_width, marker_height);
+  }
 
   XMoveResizeWindow(dpy, osd.win, x, y, osd.width, osd.height);
   setcardinalproperty(osd.win, rawmatom[RawmAtomMonitor],
@@ -4095,13 +4114,14 @@ osdpolltimeout(void)
 }
 
 static void
-osdshow(Monitor *m, const char *text)
+osdshow(Monitor *m, int scheme, const char *text)
 {
   if (!running || !config.show_osd || osd.win == None ||
       !m || !text || !text[0])
     return;
 
   osd.mon = m;
+  osd.scheme = scheme;
   snprintf(osd.text, sizeof osd.text, "%s", text);
   osddraw();
   XMapRaised(dpy, osd.win);
@@ -4111,7 +4131,7 @@ osdshow(Monitor *m, const char *text)
 }
 
 static void
-osdshowf(Monitor *m, const char *fmt, ...)
+osdshowf(Monitor *m, int scheme, const char *fmt, ...)
 {
   char text[sizeof osd.text];
   va_list ap;
@@ -4122,7 +4142,7 @@ osdshowf(Monitor *m, const char *fmt, ...)
   va_start(ap, fmt);
   vsnprintf(text, sizeof text, fmt, ap);
   va_end(ap);
-  osdshow(m, text);
+  osdshow(m, scheme, text);
 }
 
 static void
@@ -4135,7 +4155,7 @@ osdshowview(Monitor *m)
   if (m->pertag->curtag > 0 && m->pertag->curtag <= config.tag_count)
     tag = m->tag_names[m->pertag->curtag - 1];
 
-  osdshowf(m, "%s  ·  %s", tag, m->lt[m->sellt]->symbol);
+  osdshowf(m, SchemeSel, "%s  ·  %s", tag, m->lt[m->sellt]->symbol);
 }
 
 static void
@@ -4856,7 +4876,7 @@ setlayout(const Arg *arg)
   else
     drawbar(selmon);
 
-  osdshowf(selmon, "%s", selmon->lt[selmon->sellt]->symbol);
+  osdshowf(selmon, SchemeSel, "%s", selmon->lt[selmon->sellt]->symbol);
 }
 
 /* arg > 1.0 will set mfact absolutely */
@@ -4877,7 +4897,7 @@ setmfact(const Arg *arg)
 
   selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag] = f;
   arrange(selmon);
-  osdshowf(selmon, "master %d%%", (int)(selmon->mfact * 100.0f + 0.5f));
+  osdshowf(selmon, SchemeSel, "master %d%%", (int)(selmon->mfact * 100.0f + 0.5f));
 }
 
 static void
@@ -5281,7 +5301,9 @@ togglefloating(__attribute__((unused)) const Arg *arg)
   }
 
   arrange(c->mon);
-  osdshowf(c->mon, "%s", clientiselevated(c) ? "float" : "tile");
+  osdshowf(c->mon,
+           clientiselevated(c) ? SchemeFloating : SchemeSel,
+           "%s", clientiselevated(c) ? "float" : "tile");
 }
 
 static void
@@ -5292,7 +5314,8 @@ togglefullscr(__attribute__((unused)) const Arg *arg)
     Client *c = selmon->sel;
 
     setfullscreen(c, !c->isfullscreen);
-    osdshowf(c->mon, "%s", c->isfullscreen ? "fullscreen" : "windowed");
+    osdshowf(c->mon, SchemeSel, "%s",
+             c->isfullscreen ? "fullscreen" : "windowed");
   }
 }
 
