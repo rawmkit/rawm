@@ -173,6 +173,7 @@
 /** Maximum rawm-v2 property and segment identifier sizes. */
 #define RAWM_STATUS_V2_MAX 4096u
 #define RAWM_STATUS_ID_MAX 64u
+#define RAWM_OSD_GEOMETRY_INTERVAL_MS 40u
 
 /*********************************************************************
  * Enums & Typedefs.
@@ -327,6 +328,7 @@ typedef struct {
   Monitor *mon;                 /**< Monitor owning the current feedback. */
   unsigned int width, height;   /**< Current OSD geometry. */
   uint64_t deadline_ms;         /**< Monotonic expiry deadline. */
+  uint64_t last_geometry_ms;    /**< Last live geometry OSD redraw. */
   int scheme;                   /**< Configured semantic color scheme. */
   bool visible;                 /**< Whether the surface is currently mapped. */
   char text[256];               /**< Current UTF-8 feedback text. */
@@ -569,6 +571,7 @@ static void           osdhide(void);
 static int            osdpolltimeout(void);
 static void           osdformattags(const Monitor *m, unsigned int tags,
                                     char *buf, size_t buflen);
+static void           osdshowgeometry(Client *c, bool resizing, bool force);
 static void           osdshow(Monitor *m, int scheme, const char *text);
 static void           osdshowf(Monitor *m, int scheme, const char *fmt, ...);
 static void           osdshowmonitor(Monitor *m);
@@ -3833,6 +3836,7 @@ static void
 movemouse(__attribute__((unused)) const Arg *arg)
 {
   int      x, y, ocx, ocy, nx, ny;
+  bool     moved = false;
   Client  *c;
   Monitor *m;
   XEvent   ev;
@@ -3843,6 +3847,7 @@ movemouse(__attribute__((unused)) const Arg *arg)
   restack(selmon);
   ocx = c->x;
   ocy = c->y;
+  osd.last_geometry_ms = 0;
 
   if (XGrabPointer(dpy,
                    root,
@@ -3909,7 +3914,17 @@ movemouse(__attribute__((unused)) const Arg *arg)
       }
 
       if (!selmon->lt[ selmon->sellt ]->arrange || c->isfloating)
+      {
+        int oldx = c->x;
+        int oldy = c->y;
+
         resize(c, nx, ny, c->w, c->h, true);
+        if (c->x != oldx || c->y != oldy)
+        {
+          moved = true;
+          osdshowgeometry(c, false, false);
+        }
+      }
 
       break;
     }
@@ -3923,6 +3938,9 @@ movemouse(__attribute__((unused)) const Arg *arg)
     selmon = m;
     focus(NULL);
   }
+
+  if (moved)
+    osdshowgeometry(c, false, true);
 }
 
 static void
@@ -4194,6 +4212,33 @@ osdformattags(const Monitor *m, unsigned int tags, char *buf, size_t buflen)
 
   if (first)
     snprintf(buf, buflen, "none");
+}
+
+static void
+osdshowgeometry(Client *c, bool resizing, bool force)
+{
+  Monitor *m;
+  uint64_t now;
+
+  if (!c || !config.show_osd || !config.osd_geometry)
+    return;
+
+  now = monotonicms();
+  if (!force && osd.last_geometry_ms &&
+      now - osd.last_geometry_ms < RAWM_OSD_GEOMETRY_INTERVAL_MS)
+    return;
+
+  m = recttomon(c->x, c->y, c->w, c->h);
+  if (!m)
+    m = c->mon;
+
+  if (resizing)
+    osdshowf(m, SchemeFloating, "%d × %d", c->w, c->h);
+  else
+    osdshowf(m, SchemeFloating, "x %d  ·  y %d",
+             c->x - m->wx, c->y - m->wy);
+
+  osd.last_geometry_ms = now;
 }
 
 static void
@@ -4536,6 +4581,7 @@ resizemouse(__attribute__((unused)) const Arg *arg)
 {
   int      ocx, ocy;
   int      nw,  nh;
+  bool     resized = false;
   Client  *c;
   Monitor *m;
   XEvent   ev;
@@ -4546,6 +4592,7 @@ resizemouse(__attribute__((unused)) const Arg *arg)
   restack(selmon);
   ocx = c->x;
   ocy = c->y;
+  osd.last_geometry_ms = 0;
 
   if (XGrabPointer(dpy,
                    root,
@@ -4605,7 +4652,17 @@ resizemouse(__attribute__((unused)) const Arg *arg)
       }
 
       if (!selmon->lt[selmon->sellt]->arrange || c->isfloating)
+      {
+        int oldw = c->w;
+        int oldh = c->h;
+
         resize(c, c->x, c->y, nw, nh, true);
+        if (c->w != oldw || c->h != oldh)
+        {
+          resized = true;
+          osdshowgeometry(c, true, false);
+        }
+      }
 
       break;
     }
@@ -4632,6 +4689,9 @@ resizemouse(__attribute__((unused)) const Arg *arg)
     selmon = m;
     focus(NULL);
   }
+
+  if (resized)
+    osdshowgeometry(c, true, true);
 }
 
 #ifdef SYSTRAY
@@ -5402,7 +5462,7 @@ togglebar(__attribute__((unused)) const Arg *arg)
 }
 
 static void
-togglefloating(__attribute__((unused)) const Arg *arg)
+togglefloating(const Arg *arg)
 {
   Client *c = selmon->sel;
 
@@ -5424,9 +5484,11 @@ togglefloating(__attribute__((unused)) const Arg *arg)
   }
 
   arrange(c->mon);
-  osdshowf(c->mon,
-           clientiselevated(c) ? SchemeFloating : SchemeSel,
-           "%s", clientiselevated(c) ? "float" : "tile");
+
+  if (arg)
+    osdshowf(c->mon,
+             clientiselevated(c) ? SchemeFloating : SchemeSel,
+             "%s", clientiselevated(c) ? "float" : "tile");
 }
 
 static void
