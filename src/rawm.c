@@ -292,6 +292,7 @@ typedef struct {
   unsigned int click;           /**< The click area (enum Clk...). */
   unsigned int mask;            /**< Modifier mask (e.g., MODKEY). */
   unsigned int button;          /**< Mouse button (e.g., Button1). */
+  const char *status_id;        /**< Optional rawm-v2 segment selector. */
   void (*func)(const Arg *arg); /**< Function to execute. */
   Arg arg;                      /**< Argument for the function. */
 } Button;
@@ -504,6 +505,7 @@ static bool           validutf8(const unsigned char *text, size_t length);
 static void           freestatus(StatusData *status);
 static bool           getstatusprop(StatusData *status);
 static int            statusscheme(StatusState state);
+static const char    *statusidat(int x, int start, int right);
 static int            statuswidth(void);
 static bool           gettextprop(Window w, Atom atom, char *text,
                                   unsigned int size);
@@ -843,6 +845,7 @@ initruntimeconfig(FILE *err)
     }
     buttons[i].mask = runtime_modifiers(config.buttons[i].modifiers);
     buttons[i].button = config.buttons[i].button;
+    buttons[i].status_id = config.buttons[i].status_id;
     buttons[i].func = action_function(config.buttons[i].binding.action);
     buttons[i].arg = runtime_argument(&config.buttons[i].binding);
   }
@@ -1312,6 +1315,7 @@ buttonpress(XEvent *e)
   Monitor             *m;
   XButtonPressedEvent *ev    = &e->xbutton;
   unsigned int         click = ClkRootWin;
+  const char          *status_id = NULL;
 
   /* focus monitor if necessary */
   if (  (m = wintomon(ev->window))
@@ -1381,7 +1385,10 @@ buttonpress(XEvent *e)
           status_x = layout_x + blw + (int)config.bar_section_spacing;
 
         if (status_w && ev->x >= status_x && ev->x < status_right)
+        {
           click = ClkStatusText;
+          status_id = statusidat(ev->x, status_x, status_right);
+        }
 #ifdef WINTITLE
         else
           click = ClkWinTitle;
@@ -1395,20 +1402,43 @@ buttonpress(XEvent *e)
     click = ClkClientWin;
   }
 
-  for (size_t i = 0; i < button_count; i++)
   {
-    if (   click                      == buttons[i].click
-        && buttons[i].func
-        && buttons[i].button          == ev->button
-        && CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state)
-        )
+    Button *fallback = NULL;
+    bool status_specific = false;
+
+    for (size_t i = 0; i < button_count; i++)
     {
+      if (   click                      != buttons[i].click
+          || !buttons[i].func
+          || buttons[i].button          != ev->button
+          || CLEANMASK(buttons[i].mask) != CLEANMASK(ev->state)
+          )
+        continue;
+
+      if (click == ClkStatusText)
+      {
+        if (buttons[i].status_id)
+        {
+          if (status_id && !strcmp(buttons[i].status_id, status_id))
+          {
+            buttons[i].func(&buttons[i].arg);
+            status_specific = true;
+          }
+        }
+        else
+          fallback = &buttons[i];
+        continue;
+      }
+
       buttons[i].func(
         (click == ClkTagBar && buttons[i].arg.i == 0)
           ? &arg
           : &buttons[i].arg
           );
     }
+
+    if (click == ClkStatusText && !status_specific && fallback)
+      fallback->func(&fallback->arg);
   }
 }
 
@@ -2963,6 +2993,46 @@ statusscheme(StatusState state)
   default:
     return 0;
   }
+}
+
+static const char *
+statusidat(int x, int start, int right)
+{
+  size_t i;
+  int cursor = start;
+  int separator_width = 0;
+
+  if (x < start || x >= right)
+    return NULL;
+  if (config.status_separator && config.status_separator[0])
+    separator_width = (int)textnw(config.status_separator,
+                                  strlen(config.status_separator));
+
+  for (i = 0; i < statusdata.count && cursor < right; ++i)
+  {
+    int width;
+
+    if (i)
+    {
+      cursor += (int)config.bar_item_spacing;
+      if (cursor >= right)
+        break;
+    }
+
+    if (i && separator_width)
+    {
+      cursor += separator_width;
+      if (cursor >= right)
+        break;
+    }
+
+    width = TEXTW(statusdata.segments[i].text);
+    if (x >= cursor && x < MIN(cursor + width, right))
+      return statusdata.segments[i].id;
+    cursor += width;
+  }
+
+  return NULL;
 }
 
 static int
