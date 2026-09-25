@@ -629,6 +629,7 @@ commands = {
   launcher = ("rawmenu-run");
   tag_rename = ("rawmenu", "-M", "input", "-p", "tag");
   window_select = ("rawmctl", "window", "select");
+  lock = ("rawlock");
   shell_example = ("/bin/sh", "-c", "printf '%s\\n' hello");
 };
 ```
@@ -643,9 +644,11 @@ arguments may use the *${path}* value references described above; expansion
 happens after all layers have been merged.
 
 The built-in and installed stock policy uses *rawmenu-run* for the launcher,
-*rawmenu*(1) input mode for tag renaming, and *rawmctl window select* for the
-window selector. These commands remain ordinary replaceable configuration;
-rawm does not own their presentation.
+*rawmenu*(1) input mode for tag renaming, *rawmctl window select* for the
+window selector, and *rawlock*(1) for screen locking. The stock lock binding is
+*Control+Mod1+Delete* (normally Control+Alt+Delete). These commands remain
+ordinary replaceable configuration; rawm does not own their presentation,
+authentication, or process lifecycle.
 
 # INPUT
 
@@ -822,6 +825,7 @@ status.
 
 # SEE ALSO
 
-*rawm*(1), *libconfig*(5), *XStringToKeysym*(3), *execvp*(3)
+*rawm*(1), *rawmctl*(1), *rawmenu*(1), *rawlock*(1), *libconfig*(5),
+*XStringToKeysym*(3), *execvp*(3)
 
 ; vim: ft=scdoc cc=72 tw=70

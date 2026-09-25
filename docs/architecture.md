@@ -66,7 +66,10 @@ authority.
 
 `rawlock` remains a separate repository. Screen locking and authentication form
 a privileged security boundary with materially different failure, review, and
-release requirements from the non-privileged desktop control plane.
+release requirements from the non-privileged desktop control plane. rawm may
+invoke it through an ordinary configured argv binding, but does not absorb its
+authentication policy, and rawmsession must not supervise it as a long-lived
+sidecar.
 
 `rawin` and `rawkb` are migration sources, not long-term architecture. Their
 useful behaviors are now implemented by `rawmctl` using explicit EWMH and XKB

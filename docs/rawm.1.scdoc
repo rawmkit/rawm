@@ -273,6 +273,14 @@ replaces them.
 *Meta-n*
 	Set the current tag name using the configured *tag_rename* command.
 
+*Meta-w*
+	Select a managed window using the configured *window_select* command.
+
+*Control-Alt-Delete*
+	Invoke the configured *lock* command. In the stock policy this runs
+	*rawlock*(1); rawm does not supervise the locker or participate in
+	authentication.
+
 *Meta-c*
 	Close focused window.
 
@@ -375,6 +383,6 @@ an edit.
 
 # SEE ALSO
 
-*rawm.conf*(5), *rawmctl*(1), *rawmenu*(1)
+*rawm.conf*(5), *rawmctl*(1), *rawmsession*(1), *rawmenu*(1), *rawlock*(1)
 
 ; vim: ft=scdoc cc=72 tw=70

@@ -121,10 +121,12 @@ Configuration strings can reuse final scalar settings with `${path}` references;
 for example, a terminal command may reuse `${ui.font}` instead of duplicating
 the configured face.
 
-The stock desktop command policy composes with the separately packaged
-`rawmenu`: `Mod4+r` runs `rawmenu-run`, tag renaming uses `rawmenu` input mode,
-and `Mod4+w` runs `rawmctl window select`. These are argv-level defaults, not
-hard-coded presentation logic; user configuration may replace any command.
+The stock desktop command policy composes with separately packaged tools:
+`Mod4+r` runs `rawmenu-run`, tag renaming uses `rawmenu` input mode, `Mod4+w`
+runs `rawmctl window select`, and `Control+Mod1+Delete` invokes `rawlock`. These
+are argv-level defaults, not hard-coded presentation or authentication logic;
+user configuration may replace any command. rawm only launches rawlock and does
+not participate in authentication or supervise the locker's lifetime.
 
 Tiled layouts support runtime-configured inner and outer gaps through
 `layout.gaps`; smart gaps may suppress the outer margin when only one tiled
