@@ -539,6 +539,7 @@ static void           updateclientcomposition(Client *c);
 static Atom           getatomprop(Client *c, Atom prop);
 static bool           getxembedflags(Client *c, unsigned long *flags);
 static bool           monitorhasfullscreen(const Monitor *m);
+static unsigned int   getsystrayiconsize(void);
 static unsigned int   getsystraywidth(void);
 static unsigned int   getsystraypresentationwidth(const Monitor *m);
 static void           removesystrayicon(Client *i);
@@ -3096,6 +3097,16 @@ monitorhasfullscreen(const Monitor *m)
       return true;
 
   return false;
+}
+
+static unsigned int
+getsystrayiconsize(void)
+{
+  unsigned int size;
+
+  size = config.systray_icon_size ? config.systray_icon_size
+                                  : (unsigned int)bh;
+  return MIN(size, (unsigned int)bh);
 }
 
 unsigned int
@@ -6148,16 +6159,19 @@ updatesystrayicongeom(Client *i, int w, int h)
   if (!i)
     return;
 
+  unsigned int size;
+
   (void)w;
   (void)h;
 
   /*
    * XEmbed clients provide content, not rail geometry. Keep every icon in a
-   * square slot bounded by the bar height so a pathological aspect ratio or
-   * size hint cannot reserve a wide transparent strip in desktop chrome.
+   * square slot owned by rawm and bounded by the bar height so neither client
+   * aspect ratio nor size hints can reserve transparent desktop chrome.
    */
-  i->w = bh;
-  i->h = bh;
+  size = getsystrayiconsize();
+  i->w = (int)size;
+  i->h = (int)size;
 }
 
 void
@@ -6309,7 +6323,9 @@ updatesystray(void)
 
     XMapRaised(dpy, i->win);
     w += config.systray_spacing;
-    XMoveResizeWindow(dpy, i->win, (i->x = (int)w), 0, i->w, i->h);
+    i->x = (int)w;
+    i->y = (bh - i->h) / 2;
+    XMoveResizeWindow(dpy, i->win, i->x, i->y, i->w, i->h);
     w += (unsigned int)i->w;
     if (i->mon != selmon)
       i->mon = selmon;
