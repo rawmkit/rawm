@@ -268,10 +268,12 @@ The *ui.systray* group accepts:
 	Horizontal spacing around each visible tray icon in pixels. Hidden XEmbed
 	icons do not consume spacing or bar width. Range 0..64. Default 2.
 
-rawm normalizes visible tray icons to the bar height while preserving their
-aspect ratio. XEmbed's mapped flag is authoritative for icon visibility; a
-client that clears it remains docked but is removed from visible tray
-geometry until it advertises the mapped state again.
+rawm allocates each visible tray icon one square slot whose side is the bar
+height. XEmbed clients provide icon content but do not control the width of
+desktop chrome; oversized or unusually wide icon requests therefore cannot
+reserve transparent rail space. XEmbed's mapped flag remains authoritative for
+icon visibility: a client that clears it stays docked but is removed from
+visible tray geometry until it advertises the mapped state again.
 
 ## Colors
 

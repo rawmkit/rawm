@@ -6148,27 +6148,16 @@ updatesystrayicongeom(Client *i, int w, int h)
   if (!i)
     return;
 
+  (void)w;
+  (void)h;
+
+  /*
+   * XEmbed clients provide content, not rail geometry. Keep every icon in a
+   * square slot bounded by the bar height so a pathological aspect ratio or
+   * size hint cannot reserve a wide transparent strip in desktop chrome.
+   */
+  i->w = bh;
   i->h = bh;
-
-  if      (w == h)
-    i->w = bh;
-  else if (h == bh)
-    i->w = w;
-  else
-    i->w = (int)((float)bh * ((float)w / (float)h));
-
-  applysizehints(i, &(i->x), &(i->y), &(i->w), &(i->h), False);
-
-  /* force icons into the systray dimenons if they don't want to */
-  if (i->h > bh)
-  {
-    if (i->w == i->h)
-      i->w = bh;
-    else
-      i->w = (int)((float)bh * ((float)i->w / (float)i->h));
-
-    i->h = bh;
-  }
 }
 
 void
