@@ -17,10 +17,25 @@ Current programs:
   `rawmenu` while retaining XID identity, and keyboard-group control uses XKB.
   These behaviors replace the useful portions of the historical `rawin` and
   `rawkb` utilities without importing their external-tool chains.
+* `rawmsession`: session-lifecycle authority. It starts rawm as the primary
+  process and supervises only long-lived desktop infrastructure such as
+  rawmstat and Picom. The primary defines session lifetime; sidecars may be
+  restarted under a bounded crash budget.
 
 `rawmstat` remains a separate process. Integrating its source and release
 authority does not make status command execution part of the window-manager
 process or failure domain.
+
+Session supervision is likewise kept out of rawm. rawm owns window-manager
+state and already performs an in-place SIGHUP restart. Starting sidecars from
+the WM would make that restart path duplicate-prone and would couple compositor
+or status failures to the X11 policy engine. rawmsession therefore owns the
+process tree one layer above rawm.
+
+The session boundary is intentionally narrower than a generic service manager.
+Only continuously desired desktop infrastructure belongs in `sidecars`; user
+applications, gpg-agent/Pinentry, screen locking, and one-shot startup actions
+retain their own lifecycle authorities.
 
 ## Private libraries
 

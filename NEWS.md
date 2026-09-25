@@ -1,3 +1,25 @@
+rawm 6.3.0 — 2026-09-25
+=========================
+
+Session lifecycle
+-----------------
+
+* `rawmsession` is now the explicit lifecycle authority for a rawm desktop
+  session. rawm is the non-respawned primary process; rawmstat and Picom are
+  stock supervised sidecars.
+* Sidecar exits are restarted after a short delay, but persistent failures are
+  disabled after five restart attempts within ten seconds so a broken service
+  cannot create an unbounded crash loop.
+* SIGTERM/SIGINT perform bounded orderly shutdown. SIGHUP restarts the complete
+  managed infrastructure in place and re-reads session configuration while a
+  direct SIGHUP to rawm remains the WM-only reload path.
+* `/etc/rawm/rawmsession.conf` and XDG user overrides describe direct argv
+  vectors only. There is no implicit shell and no generic application
+  autostart list.
+* Lifecycle tests cover primary status propagation, sidecar cleanup and
+  restart, crash-loop suppression, supervisor signals, and in-place session
+  restart without requiring an X server.
+
 rawm 6.2.0 — 2026-09-25
 =========================
 

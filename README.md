@@ -3,9 +3,10 @@ OVERVIEW
 
 `rawm` is a compact X11 desktop control-plane repository centered on a
 dynamic tiling window manager derived from suckless `dwm` 6.0. It builds the
-`rawm` window manager, the separate `rawmstat` status producer, and the
-`rawmctl` operational CLI from one source authority while keeping their
-process and runtime-policy boundaries explicit.
+`rawm` window manager, the separate `rawmstat` status producer, the
+`rawmctl` operational CLI, and the `rawmsession` lifecycle supervisor from one
+source authority while keeping their process and runtime-policy boundaries
+explicit.
 
 The code keeps the small, direct Xlib model of its ancestor while moving
 desktop policy out of compile-time headers and into validated runtime
@@ -31,12 +32,15 @@ configuration. Major facilities include:
     protocol;
   * `rawmctl` for direct EWMH window inspection/activation, rawmenu-backed
     window selection, and XKB keyboard-group control;
+  * `rawmsession` for one-primary session lifetime, supervised rawmstat/Picom
+    sidecars, bounded crash recovery, and orderly session shutdown;
   * one Meson build and behavioral test suite covering both sides of that
     producer/consumer contract with isolated Xvfb fixtures.
 
 `rawm` depends on `libX11`, `libXft`, `fontconfig`, and `libconfig`.
-`rawmstat` depends on `libX11` and `libconfig`; `rawmctl` depends on `libX11`.
-The `rawmctl window select` command additionally composes at run time with the
+`rawmstat` depends on `libX11` and `libconfig`; `rawmctl` depends on `libX11`;
+`rawmsession` depends on `libconfig`. The `rawmctl window select` command
+additionally composes at run time with the
 separately packaged `rawmenu`. Xinerama support is optional for the window
 manager.
 
@@ -147,6 +151,26 @@ built-in defaults. See `rawm.conf(5)` for the complete schema, precedence and
 binding semantics.
 
 
+
+SESSION LIFECYCLE
+=================
+
+For a rawm-owned X session, make `rawmsession` the final foreground command in
+`.xinitrc` or the equivalent session launcher:
+
+    exec rawmsession
+
+The installed `/etc/rawm/rawmsession.conf` starts `rawm` as the primary and
+supervises `rawmstat` and `picom` as long-lived sidecars. The primary defines
+session lifetime. Sidecar crashes are restarted with a bounded rate; repeated
+fast failures disable only that sidecar rather than killing or fork-bombing the
+session.
+
+`rawmsession` is deliberately not an application autostart mechanism. Remove a
+sidecar when another authority owns that process. `rawmenu` is invoked on
+demand, Pinentry remains owned by gpg-agent, and rawlock remains an invoked
+authentication boundary. See `rawmsession(1)` and `rawmsession.conf(5)`.
+
 RELEASE VERIFICATION
 ====================
 
@@ -164,9 +188,10 @@ host system:
     DESTDIR="$PWD/stage" meson install -C build
     find stage -type f -print | sort
 
-The staged tree must contain the `rawm`, `rawmstat`, and `rawmctl` binaries,
-their manual pages, `rawm.conf(5)`, `rawmstat.conf(5)`, and both configuration
-files under `/etc/rawm`. `rawm -C -c config/rawm.conf` is also covered by the
+The staged tree must contain the `rawm`, `rawmstat`, `rawmctl`, and
+`rawmsession` binaries, their manual pages, `rawm.conf(5)`, `rawmstat.conf(5)`,
+`rawmsession.conf(5)`, and all three configuration files under `/etc/rawm`.
+Configuration/default parity for rawm and rawmsession is covered by the
 test suite, including parity between the installed configuration and compiled
 defaults.
 

@@ -1,0 +1,131 @@
+RAWMSESSION.CONF(5)
+
+# NAME
+
+rawmsession.conf - rawm desktop-session lifecycle configuration
+
+# DESCRIPTION
+
+*rawmsession*(1) uses libconfig syntax. Configuration describes one primary
+process and the complete set of long-lived sidecars whose lifecycle belongs to
+the rawm desktop session.
+
+The built-in defaults start *rawm*(1) as the primary, with *rawmstat*(1) and
+*picom*(1) as supervised sidecars. In normal mode configuration is layered in
+this order:
+
+. built-in defaults
+. _${SYSCONFDIR}/rawm/rawmsession.conf_ (normally _/etc/rawm/rawmsession.conf_)
+. _$XDG_CONFIG_HOME/rawm/rawmsession.conf_, when *XDG_CONFIG_HOME* is absolute;
+  otherwise _$HOME/.config/rawm/rawmsession.conf_
+
+A later *primary* setting replaces the earlier primary command. A later
+*sidecars* setting replaces the complete sidecar list.
+
+With *rawmsession -c path*, the system and user files are skipped: built-in
+defaults are followed by exactly _path_. A missing explicitly selected file is
+an error. Missing normal system or user files are not errors.
+
+Unknown settings, wrong types, empty commands, invalid sidecar names, and
+duplicate sidecar names are fatal configuration errors. Use *rawmsession -C*
+to validate the effective configuration without starting the window manager or
+any sidecar.
+
+Libconfig *@include* directives are supported. Relative include paths are
+resolved relative to the directory of the configuration file being loaded.
+
+# PRIMARY
+
+*primary* = (string, ...)
+	Required non-empty argument vector defining the session-primary process.
+	Element zero names the executable. The stock value is:
+
+```
+primary = ("rawm");
+```
+
+The primary defines session lifetime. rawmsession never respawns it after it
+exits. This is intentional: an ordinary rawm SIGHUP performs an in-place WM
+restart without changing the process identity seen by rawmsession.
+
+# SIDECARS
+
+*sidecars* is a list of groups. Presence of the setting replaces the complete
+sidecar set inherited from an earlier configuration layer. An empty list is
+valid and means rawmsession supervises no sidecars.
+
+```
+sidecars = (
+  { name = "status";     command = ("rawmstat"); },
+  { name = "compositor"; command = ("picom"); }
+);
+```
+
+Each sidecar accepts exactly these settings:
+
+*name* = string
+	Required unique lifecycle identifier. Names contain one or more characters
+	from *A-Z*, *a-z*, *0-9*, period, underscore, or hyphen. The name is used
+	for diagnostics and has no process-discovery or security meaning.
+
+*command* = (string, ...)
+	Required non-empty argument vector. Element zero names the executable;
+	remaining elements are passed unchanged. rawmsession uses *execvp*(3)
+	directly and never invokes an implicit shell.
+
+A sidecar is semantically long-lived. Any exit while the session remains alive
+is unexpected, including status zero. The command must therefore remain in the
+foreground; do not use daemon/background options such as *picom -b*.
+rawmsession restarts an exited sidecar after 250 ms.
+After five restart attempts within a ten-second window, that sidecar is
+disabled for the remainder of the current session instance. SIGHUP of
+rawmsession starts a fresh session instance and therefore resets the restart
+budget.
+
+There is deliberately no per-sidecar *restart* switch. If a process is not
+supposed to remain alive, it is not a sidecar and does not belong in this file.
+
+# OWNERSHIP
+
+The stock file contains only session infrastructure:
+
+```
+primary = ("rawm");
+sidecars = (
+  { name = "status";     command = ("rawmstat"); },
+  { name = "compositor"; command = ("picom"); }
+);
+```
+
+Do not add ordinary applications merely to make them start with X. Doing so
+would declare that rawmsession should restart them whenever they exit.
+Likewise, Pinentry belongs to gpg-agent, and authentication tools such as
+rawlock are invoked when needed rather than supervised continuously.
+
+If a compositor or status producer is intentionally owned by another service
+manager, remove that sidecar from this list rather than running two supervisors
+for the same process.
+
+# EXAMPLES
+
+Run Picom with an explicit profile while retaining the stock status producer:
+
+```
+sidecars = (
+  { name = "status"; command = ("rawmstat"); },
+  {
+    name = "compositor";
+    command = ("picom", "--config", "/home/alice/.config/picom/picom.conf");
+  }
+);
+```
+
+Run rawm without supervised sidecars:
+
+```
+sidecars = ();
+```
+
+# SEE ALSO
+
+*rawmsession*(1), *rawm*(1), *rawmstat*(1), *picom*(1)
