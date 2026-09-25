@@ -117,6 +117,12 @@
 #define MAXCOLORS  RAWM_COLOR_SCHEMES
 #define NUMCOLORS  RAWM_COLOR_SCHEMES
 
+/** Maximum number of Fontconfig fallback faces cached for bar/OSD text. */
+#define RAWM_FONT_FALLBACK_MAX 32u
+
+/** Maximum number of unsupported codepoints cached after failed lookup. */
+#define RAWM_FONT_MISSING_MAX 128u
+
 /** Mouse mask for grabbing pointer motion and button events */
 #define MOUSEMASK  (BUTTONMASK|PointerMotionMask)
 
@@ -386,10 +392,14 @@ typedef struct {
   Drawable drawable; /**< Pixmap for double buffering. */
   GC gc;             /**< Graphics context. */
   struct {
-    int ascent;     /**< Font ascent. */
-    int descent;    /**< Font descent. */
-    int height;     /**< Font height (ascent + descent). */
-    XftFont *xfont; /**< Xft font. */
+    int ascent;     /**< Primary font ascent. */
+    int descent;    /**< Primary font descent. */
+    int height;     /**< Primary font height (ascent + descent). */
+    XftFont *xfont; /**< Primary Xft font. */
+    FcPattern *pattern; /**< Requested primary pattern used for fallback. */
+    XftFont *fallbacks[RAWM_FONT_FALLBACK_MAX]; /**< Cached fallback faces. */
+    size_t fallback_count; /**< Number of cached fallback faces. */
+    FcChar32 missing[RAWM_FONT_MISSING_MAX]; /**< Unsupported-codepoint cache. */
   } font; /**< Font information. */
 } DC;
 
@@ -565,7 +575,15 @@ static bool           gettextprop(Window w, Atom atom, char *text,
 static void           grabbuttons(Client *c, bool focused);
 static void           grabkeys(void);
 static void           incnmaster(const Arg *arg);
+static void           cleanupfont(void);
+static XftFont        *fontforchar(FcChar32 codepoint);
 static void           initfont(const char *fontstr);
+static int            fonttextwidth(XftFont *font, const char *text,
+                                    size_t len);
+static void           drawutf8(XftDraw *draw, XftColor *color,
+                               int x, int y, const char *text, size_t len);
+static size_t         utf8decode(const char *text, size_t len,
+                                 FcChar32 *codepoint);
 static void           keypress(XEvent *e);
 static void           killclient(const Arg *arg);
 static void           leavenotify(XEvent *e);
@@ -1744,6 +1762,7 @@ cleanup(void)
   XFreeCursor(dpy, cursor[CurHand]);
   XFreeCursor(dpy, cursor[CurResize]);
   XFreeCursor(dpy, cursor[CurMove]);
+  cleanupfont();
 
   while (mons)
     cleanupmon(mons);
@@ -2534,6 +2553,181 @@ drawstatus(int x, int right)
   }
 }
 
+static size_t
+utf8decode(const char *text, size_t len, FcChar32 *codepoint)
+{
+  int consumed;
+
+  if (!text || !len || !codepoint)
+    return 0;
+
+  consumed = FcUtf8ToUcs4((const FcChar8 *)text, codepoint,
+                          len > INT_MAX ? INT_MAX : (int)len);
+  if (consumed <= 0 || (size_t)consumed > len)
+  {
+    *codepoint = 0xfffdu;
+    return 1;
+  }
+
+  return (size_t)consumed;
+}
+
+static void
+fontmissingindexes(FcChar32 codepoint, size_t *first, size_t *second)
+{
+  unsigned int hash = (unsigned int)codepoint;
+
+  hash = ((hash >> 16) ^ hash) * 0x21f0aaadu;
+  hash = ((hash >> 15) ^ hash) * 0xd35a2d97u;
+  hash = (hash >> 15) ^ hash;
+
+  *first = hash % RAWM_FONT_MISSING_MAX;
+  *second = (hash >> 17) % RAWM_FONT_MISSING_MAX;
+}
+
+static bool
+fontmissing(FcChar32 codepoint)
+{
+  size_t first, second;
+
+  fontmissingindexes(codepoint, &first, &second);
+  return dc.font.missing[first] == codepoint ||
+         dc.font.missing[second] == codepoint;
+}
+
+static void
+fontremembermissing(FcChar32 codepoint)
+{
+  size_t first, second;
+
+  fontmissingindexes(codepoint, &first, &second);
+  dc.font.missing[dc.font.missing[first] ? second : first] = codepoint;
+}
+
+static XftFont *
+fontforchar(FcChar32 codepoint)
+{
+  FcCharSet *charset;
+  FcPattern *match;
+  FcPattern *pattern;
+  FcResult result;
+  XftFont *font;
+  size_t i;
+
+  if (XftCharExists(dpy, dc.font.xfont, codepoint))
+    return dc.font.xfont;
+
+  for (i = 0; i < dc.font.fallback_count; ++i)
+    if (XftCharExists(dpy, dc.font.fallbacks[i], codepoint))
+      return dc.font.fallbacks[i];
+
+  if (!dc.font.pattern || fontmissing(codepoint) ||
+      dc.font.fallback_count >= RAWM_FONT_FALLBACK_MAX)
+    return dc.font.xfont;
+
+  charset = FcCharSetCreate();
+  pattern = FcPatternDuplicate(dc.font.pattern);
+  if (!charset || !pattern)
+  {
+    if (charset)
+      FcCharSetDestroy(charset);
+    if (pattern)
+      FcPatternDestroy(pattern);
+    fontremembermissing(codepoint);
+    return dc.font.xfont;
+  }
+
+  FcCharSetAddChar(charset, codepoint);
+  FcPatternDel(pattern, FC_CHARSET);
+  FcPatternAddCharSet(pattern, FC_CHARSET, charset);
+
+  /*
+   * Do not force FC_SCALABLE here. Bitmap or color emoji faces can be valid
+   * fallbacks and should remain eligible when Xft can open them.
+   */
+  FcConfigSubstitute(NULL, pattern, FcMatchPattern);
+  FcDefaultSubstitute(pattern);
+
+  match = XftFontMatch(dpy, screen, pattern, &result);
+  FcPatternDestroy(pattern);
+  FcCharSetDestroy(charset);
+
+  if (!match)
+  {
+    fontremembermissing(codepoint);
+    return dc.font.xfont;
+  }
+
+  font = XftFontOpenPattern(dpy, match);
+  if (!font)
+  {
+    FcPatternDestroy(match);
+    fontremembermissing(codepoint);
+    return dc.font.xfont;
+  }
+
+  if (!XftCharExists(dpy, font, codepoint))
+  {
+    XftFontClose(dpy, font);
+    fontremembermissing(codepoint);
+    return dc.font.xfont;
+  }
+
+  dc.font.fallbacks[dc.font.fallback_count++] = font;
+  return font;
+}
+
+static int
+fonttextwidth(XftFont *font, const char *text, size_t len)
+{
+  XGlyphInfo extents;
+
+  if (!font || !text || !len)
+    return 0;
+
+  XftTextExtentsUtf8(dpy, font, (const FcChar8 *)text, (int)len, &extents);
+  return extents.xOff;
+}
+
+static void
+drawutf8(XftDraw *draw, XftColor *color, int x, int y,
+         const char *text, size_t len)
+{
+  size_t pos = 0;
+
+  while (pos < len)
+  {
+    FcChar32 codepoint;
+    XftFont *font;
+    size_t next;
+    size_t run_start = pos;
+
+    next = utf8decode(text + pos, len - pos, &codepoint);
+    if (!next)
+      break;
+    font = fontforchar(codepoint);
+    pos += next;
+
+    while (pos < len)
+    {
+      XftFont *next_font;
+
+      next = utf8decode(text + pos, len - pos, &codepoint);
+      if (!next)
+        break;
+      next_font = fontforchar(codepoint);
+      if (next_font != font)
+        break;
+      pos += next;
+    }
+
+    XftDrawStringUtf8(draw, color, font, x, y,
+                      (const FcChar8 *)text + run_start,
+                      (int)(pos - run_start));
+    x += fonttextwidth(font, text + run_start, pos - run_start);
+  }
+}
+
 static void
 drawtext(const char *text, XftColor col[ColLast], bool pad)
 {
@@ -2615,14 +2809,7 @@ drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
                     DefaultColormap(dpy, screen)
                     );
 
-  XftDrawStringUtf8(d,
-                    &col[ColFG],
-                    dc.font.xfont,
-                    x,
-                    y,
-                    (XftChar8 *)buf,
-                    (int)len
-                    );
+  drawutf8(d, &col[ColFG], x, y, buf, len);
 
   XftDrawDestroy(d);
   free(buf);
@@ -3689,12 +3876,41 @@ incnmaster(const Arg *arg)
 }
 
 static void
+cleanupfont(void)
+{
+  size_t i;
+
+  for (i = 0; i < dc.font.fallback_count; ++i)
+    XftFontClose(dpy, dc.font.fallbacks[i]);
+  if (dc.font.xfont)
+    XftFontClose(dpy, dc.font.xfont);
+  if (dc.font.pattern)
+    FcPatternDestroy(dc.font.pattern);
+
+  memset(&dc.font, 0, sizeof dc.font);
+}
+
+static void
 initfont(const char *fontstr)
 {
-  if (   !(dc.font.xfont = XftFontOpenName(dpy, screen, fontstr))
-      && !(dc.font.xfont = XftFontOpenName(dpy, screen, "fixed"))
-      )
+  const char *pattern_name = fontstr;
+
+  dc.font.xfont = XftFontOpenName(dpy, screen, fontstr);
+  if (!dc.font.xfont)
+  {
+    pattern_name = "fixed";
+    dc.font.xfont = XftFontOpenName(dpy, screen, pattern_name);
+  }
+  if (!dc.font.xfont)
     die("error, cannot load font: '%s'\n", fontstr);
+
+  dc.font.pattern = FcNameParse((const FcChar8 *)pattern_name);
+  if (!dc.font.pattern)
+  {
+    XftFontClose(dpy, dc.font.xfont);
+    dc.font.xfont = NULL;
+    die("error, cannot parse font pattern: '%s'\n", pattern_name);
+  }
 
   dc.font.ascent  = dc.font.xfont->ascent;
   dc.font.descent = dc.font.xfont->descent;
@@ -4256,7 +4472,6 @@ osddraw(void)
 {
   XftColor *col;
   XftDraw *draw;
-  XGlyphInfo extents;
   unsigned int marker_height, marker_width;
   unsigned int padding;
   unsigned int text_width;
@@ -4268,10 +4483,7 @@ osddraw(void)
 
   col = dc.colors[osd.scheme];
   padding = config.osd_padding;
-  XftTextExtentsUtf8(dpy, dc.font.xfont,
-                     (const FcChar8 *)osd.text, (int)strlen(osd.text),
-                     &extents);
-  text_width = extents.xOff > 0 ? (unsigned int)extents.xOff : 1u;
+  text_width = (unsigned int)MAX(textnw(osd.text, strlen(osd.text)), 1);
 
   osd.width = MAX(text_width + 2u * padding, config.osd_min_width);
   osd.height = (unsigned int)dc.font.height + 2u * padding;
@@ -4309,10 +4521,9 @@ osddraw(void)
   text_x = osd.width > text_width
       ? ((int)osd.width - (int)text_width) / 2
       : 0;
-  XftDrawStringUtf8(draw, &col[ColFG], dc.font.xfont,
-                    text_x,
-                    (int)padding + dc.font.ascent,
-                    (const FcChar8 *)osd.text, (int)strlen(osd.text));
+  drawutf8(draw, &col[ColFG],
+           text_x, (int)padding + dc.font.ascent,
+           osd.text, strlen(osd.text));
   XftDrawDestroy(draw);
 
   marker_height = MIN(2u, osd.height);
@@ -5552,10 +5763,39 @@ tagmon(const Arg *arg)
 static int
 textnw(const char *text, unsigned int len)
 {
-  XGlyphInfo ext;
+  size_t pos = 0;
+  int width = 0;
 
-  XftTextExtentsUtf8(dpy, dc.font.xfont, (XftChar8 *)text, len, &ext);
-  return ext.xOff;
+  while (pos < len)
+  {
+    FcChar32 codepoint;
+    XftFont *font;
+    size_t next;
+    size_t run_start = pos;
+
+    next = utf8decode(text + pos, len - pos, &codepoint);
+    if (!next)
+      break;
+    font = fontforchar(codepoint);
+    pos += next;
+
+    while (pos < len)
+    {
+      XftFont *next_font;
+
+      next = utf8decode(text + pos, len - pos, &codepoint);
+      if (!next)
+        break;
+      next_font = fontforchar(codepoint);
+      if (next_font != font)
+        break;
+      pos += next;
+    }
+
+    width += fonttextwidth(font, text + run_start, pos - run_start);
+  }
+
+  return width;
 }
 
 static void

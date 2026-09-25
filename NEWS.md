@@ -1,3 +1,11 @@
+Unreleased
+==========
+
+* Bar and OSD text now use Fontconfig fallback faces when the configured
+  primary Xft face lacks a Unicode glyph. This keeps the configured UI font
+  authoritative while allowing application titles containing symbols, emoji,
+  or other scripts to render instead of producing missing-glyph boxes.
+
 rawm 6.1 — 2026-09-25
 =======================
 

@@ -138,7 +138,10 @@ explicit *sh -c* command.
 The *ui* group controls presentation and pointer geometry.
 
 *font* = string
-	Fontconfig/Xft font pattern. The default is *monospace:size=9*.
+	Fontconfig/Xft font pattern. The default is *monospace:size=9*. The matched
+	face is the primary UI font; when it lacks a Unicode character, rawm asks
+	Fontconfig for a size/style-compatible fallback face and caches that face
+	for subsequent bar and OSD rendering.
 
 *border_width* = integer
 	Window border width in pixels. Range 0..64. Default 2.
