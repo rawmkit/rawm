@@ -53,6 +53,13 @@ compositor_state_client = executable(
   build_by_default: false,
 )
 
+rawmctl_client = executable(
+  'rawmctl-client',
+  'rawmctl-client.c',
+  dependencies: x11_dep,
+  build_by_default: false,
+)
+
 tagbar_client = executable(
   'tagbar-client',
   'tagbar-client.c',
@@ -112,6 +119,7 @@ fullscreen_rule_test = find_program('fullscreen-rule.sh')
 attention_rule_test = find_program('attention-rule.sh')
 geometry_test = find_program('geometry.sh')
 compositor_state_test = find_program('compositor-state.sh')
+rawmctl_test = find_program('rawmctl.sh')
 focus_index_test = find_program('focus-index.sh')
 window_view_test = find_program('window-view.sh')
 actions_test = find_program('actions.sh')
@@ -363,6 +371,28 @@ else
     'compositor-state',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(compositor_state_missing))],
+  )
+endif
+
+rawmctl_missing = x11_missing
+if not grep_program.found()
+  rawmctl_missing += ['grep']
+endif
+if not sed_program.found()
+  rawmctl_missing += ['sed']
+endif
+if rawmctl_missing.length() == 0
+  test(
+    'rawmctl',
+    rawmctl_test,
+    args: [rawm, rawmctl, rawmctl_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'rawmctl',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(rawmctl_missing))],
   )
 endif
 

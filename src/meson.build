@@ -11,3 +11,5 @@ rawm = executable(
 )
 
 subdir('rawmstat')
+
+subdir('rawmctl')
