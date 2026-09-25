@@ -584,6 +584,7 @@ static void           drawutf8(XftDraw *draw, XftColor *color,
                                int x, int y, const char *text, size_t len);
 static size_t         utf8decode(const char *text, size_t len,
                                  FcChar32 *codepoint);
+static size_t         utf8prev(const char *text, size_t len);
 static void           keypress(XEvent *e);
 static void           killclient(const Arg *arg);
 static void           leavenotify(XEvent *e);
@@ -2572,6 +2573,18 @@ utf8decode(const char *text, size_t len, FcChar32 *codepoint)
   return (size_t)consumed;
 }
 
+static size_t
+utf8prev(const char *text, size_t len)
+{
+  if (!text || !len)
+    return 0;
+
+  --len;
+  while (len && (((unsigned char)text[len] & 0xc0u) == 0x80u))
+    --len;
+  return len;
+}
+
 static void
 fontmissingindexes(FcChar32 codepoint, size_t *first, size_t *second)
 {
@@ -2751,8 +2764,8 @@ drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
                 bool centered, unsigned int margin)
 {
   char     *buf;
-  int       box_h, box_y, x, y, h;
-  size_t    len, olen;
+  int       box_h, box_y, x, y, h, max_text_width;
+  size_t    dots, len, olen, outlen;
   XftDraw  *d;
 
   margin = MIN(margin, dc.h > 1 ? (unsigned int)(dc.h - 1) / 2 : 0);
@@ -2768,28 +2781,34 @@ drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
   olen = strlen(text);
   h = pad ? (dc.font.ascent + dc.font.descent) : 0;
   y = box_y + (box_h + dc.font.ascent - dc.font.descent) / 2;
+  max_text_width = MAX(dc.w - h, 0);
 
-  for (len = olen;
-       len && textnw(text, (unsigned int)len) > (dc.w - h);
-       len--)
-    /* NOTHING */;
+  len = olen;
+  while (len && textnw(text, (unsigned int)len) > max_text_width)
+    len = utf8prev(text, len);
 
-  if (!len)
+  dots = len < olen ? 3u : 0u;
+  while (dots &&
+         textnw("...", (unsigned int)dots) > max_text_width)
+    --dots;
+
+  while (len && dots &&
+         textnw(text, (unsigned int)len) +
+             textnw("...", (unsigned int)dots) > max_text_width)
+    len = utf8prev(text, len);
+
+  outlen = len + dots;
+  if (!outlen)
     return;
 
-  if (!(buf = malloc(len + 1)))
-    die("fatal: could not malloc() %lu bytes\n", (unsigned long)(len + 1));
+  if (!(buf = malloc(outlen + 1)))
+    die("fatal: could not malloc() %lu bytes\n",
+        (unsigned long)(outlen + 1));
   memcpy(buf, text, len);
-  buf[len] = '\0';
-
-  if (len < olen)
-  {
-    size_t dots = MIN(len, 3u);
-    size_t i;
-
-    for (i = 0; i < dots; ++i)
-      buf[len - 1 - i] = '.';
-  }
+  if (dots)
+    memcpy(buf + len, "...", dots);
+  buf[outlen] = '\0';
+  len = outlen;
 
   if (centered)
   {
