@@ -1,10 +1,21 @@
-Unreleased
-==========
+rawm 6.1.1 — 2026-09-25
+=========================
+
+Text rendering
+--------------
 
 * Bar and OSD text now use scalable monochrome Fontconfig fallback faces when
-  the configured primary Xft face lacks a Unicode glyph. Fallback runs are
-  centered using their own Xft metrics, while color-font faces are excluded so
-  Xft does not accept glyphs it cannot actually rasterize, such as COLR v1.
+  the configured primary Xft face lacks a Unicode glyph. Fallback runs use
+  their own Xft metrics and are vertically centered in the rawm text line.
+* Color-font fallback is deliberately excluded. Some modern color formats,
+  notably COLR v1, can advertise glyph coverage through Fontconfig/Xft while
+  producing no visible raster through the Xft rendering path. A monochrome
+  fallback such as Noto Emoji keeps the result deterministic.
+* Label truncation now preserves UTF-8 codepoint boundaries and reserves the
+  ellipsis width before copying the displayed prefix.
+* Long-label fitting builds UTF-8 boundaries once and binary-searches the
+  largest fitting prefix, avoiding repeated byte-by-byte remeasurement of
+  maximum-size status/title strings.
 
 rawm 6.1 — 2026-09-25
 =======================
