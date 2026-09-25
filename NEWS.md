@@ -15,6 +15,12 @@ Repository architecture
 * The rawm-v2 wire codec, state vocabulary, identifier validation, and payload
   limits now live in one private static library shared by rawm and rawmstat;
   neither process reconstructs the other side's protocol rules independently.
+* `rawmctl` is now the repository-owned operational CLI. It lists and activates
+  managed windows through EWMH, selects windows through `rawmenu` while keeping
+  XID identity authoritative, and gets/sets XKB keyboard groups directly. This
+  replaces the useful behavior of the historical `rawin`/`rawkb` utilities
+  without Perl, wmctrl, xdotool, xdo, shell command construction, or
+  title-based reverse lookup.
 
 rawm 6.1.1 — 2026-09-25
 =========================

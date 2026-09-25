@@ -3,8 +3,8 @@
 The repository contains code with two permissive licenses whose original
 notices remain authoritative.
 
-* The rawm window-manager sources and repository integration code are licensed
-  under the MIT/X Consortium license in `../LICENSE`.
+* The rawm window-manager sources, `rawmctl`, and repository integration code
+  are licensed under the MIT/X Consortium license in `../LICENSE`.
 * The imported rawmstat component remains licensed under the ISC license in
   `ISC.txt`. This covers `src/rawmstat/`, `tests/rawmstat/`,
   `docs/rawmstat.1.scdoc`, `docs/rawmstat.conf.5.scdoc`, and

@@ -3,9 +3,9 @@ OVERVIEW
 
 `rawm` is a compact X11 desktop control-plane repository centered on a
 dynamic tiling window manager derived from suckless `dwm` 6.0. It builds the
-`rawm` window manager and the separate `rawmstat` status producer from one
-source authority while keeping their process and runtime-policy boundaries
-explicit.
+`rawm` window manager, the separate `rawmstat` status producer, and the
+`rawmctl` operational CLI from one source authority while keeping their
+process and runtime-policy boundaries explicit.
 
 The code keeps the small, direct Xlib model of its ancestor while moving
 desktop policy out of compile-time headers and into validated runtime
@@ -29,12 +29,16 @@ configuration. Major facilities include:
     window title support;
   * the independently running `rawmstat` producer for the rawm-v2 status
     protocol;
+  * `rawmctl` for direct EWMH window inspection/activation, rawmenu-backed
+    window selection, and XKB keyboard-group control;
   * one Meson build and behavioral test suite covering both sides of that
     producer/consumer contract with isolated Xvfb fixtures.
 
 `rawm` depends on `libX11`, `libXft`, `fontconfig`, and `libconfig`.
-`rawmstat` depends on `libX11` and `libconfig`. Xinerama support is optional
-for the window manager.
+`rawmstat` depends on `libX11` and `libconfig`; `rawmctl` depends on `libX11`.
+The `rawmctl window select` command additionally composes at run time with the
+separately packaged `rawmenu`. Xinerama support is optional for the window
+manager.
 
 The original `dwm` 6.0 sources remain the historical base:
 
@@ -155,9 +159,9 @@ host system:
     DESTDIR="$PWD/stage" meson install -C build
     find stage -type f -print | sort
 
-The staged tree must contain the `rawm` and `rawmstat` binaries, their manual
-pages, `rawm.conf(5)`, `rawmstat.conf(5)`, and both configuration files under
-`/etc/rawm`. `rawm -C -c config/rawm.conf` is also covered by the
+The staged tree must contain the `rawm`, `rawmstat`, and `rawmctl` binaries,
+their manual pages, `rawm.conf(5)`, `rawmstat.conf(5)`, and both configuration
+files under `/etc/rawm`. `rawm -C -c config/rawm.conf` is also covered by the
 test suite, including parity between the installed configuration and compiled
 defaults.
 

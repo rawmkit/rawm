@@ -12,12 +12,11 @@ Current programs:
   compositor-facing state, and rawm-owned X11 properties.
 * `rawmstat`: asynchronous status production and publication through the
   rawm-v2 contract.
-
-Planned program:
-
-* `rawmctl`: direct operational control and inspection of rawm/X11 state. It is
-  intended to replace the historical `rawin` and `rawkb` utility repositories
-  after behavioral parity is covered by tests.
+* `rawmctl`: direct operational control and inspection of rawm/X11 state.
+  Window list/activation use EWMH authority, window selection composes with
+  `rawmenu` while retaining XID identity, and keyboard-group control uses XKB.
+  These behaviors replace the useful portions of the historical `rawin` and
+  `rawkb` utilities without importing their external-tool chains.
 
 `rawmstat` remains a separate process. Integrating its source and release
 authority does not make status command execution part of the window-manager
@@ -55,9 +54,9 @@ a privileged security boundary with materially different failure, review, and
 release requirements from the non-privileged desktop control plane.
 
 `rawin` and `rawkb` are migration sources, not long-term architecture. Their
-small behaviors should be reimplemented under `rawmctl` using explicit EWMH,
-XKB, and future rawm command contracts. Their original repositories should then
-be retained read-only for provenance rather than kept as compatibility ghosts.
+useful behaviors are now implemented by `rawmctl` using explicit EWMH and XKB
+authorities. After release acceptance, their original repositories should be
+retained read-only for provenance rather than kept as compatibility ghosts.
 
 ## History and licensing
 

@@ -1,0 +1,103 @@
+RAWMCTL(1)
+
+# NAME
+
+rawmctl - inspect and control rawm desktop state
+
+# SYNOPSIS
+
+*rawmctl window list*
+
+*rawmctl window activate* _window_
+
+*rawmctl window select*
+
+*rawmctl keyboard get*
+
+*rawmctl keyboard set* _group_
+
+*rawmctl -v*
+
+# DESCRIPTION
+
+*rawmctl* is the non-privileged command-line control surface for the rawm X11
+session. It uses existing X11 authorities instead of reconstructing window
+manager state from process lists or invoking external window-control tools.
+
+Window inspection uses the EWMH *\_NET_CLIENT_LIST* root property. Activation
+is requested with an EWMH *\_NET_ACTIVE_WINDOW* client message. Keyboard group
+inspection and control use the X Keyboard Extension directly.
+
+*rawmctl* does not start, supervise, or configure *rawm*(1). Commands requiring
+X fail when no display can be opened.
+
+# WINDOW COMMANDS
+
+*window list*
+	List the windows currently admitted to *\_NET_CLIENT_LIST*. Each line has
+	three tab-separated fields:
+
+	```
+	WINDOW<TAB>CLASS<TAB>TITLE
+	```
+
+	_WINDOW_ is printed as a hexadecimal XID. _CLASS_ is the WM_CLASS resource
+	class. _TITLE_ prefers *\_NET_WM_NAME* and falls back to the ICCCM WM_NAME.
+	ASCII control characters in class/title presentation are replaced by spaces
+	so one managed window always occupies exactly one output line.
+
+*window activate* _window_
+	Request activation of the hexadecimal or decimal XID _window_. The XID must
+	be present in the current *\_NET_CLIENT_LIST* snapshot. rawm follows the
+	client to its admitted tag set when necessary, using its normal
+	*\_NET_ACTIVE_WINDOW* handling.
+
+*window select*
+	Read the current managed-window set, invoke *rawmenu*(1) in explicit
+	*select* mode, and activate the selected XID. Selector rows begin with the
+	XID followed by class and title presentation. The selected window is
+	therefore identified by XID, not by title; duplicate window titles are
+	unambiguous.
+
+	*rawmenu* is executed directly through *execvp*(3) as:
+
+	```
+	rawmenu -M select -p Window:
+	```
+
+	No shell, *wmctrl*, *xdotool*, or *xdo* is involved. *rawmenu* must be
+	available through PATH for this command only. Cancellation or rejection by
+	the selector returns failure without changing the active window.
+
+# KEYBOARD COMMANDS
+
+*keyboard get*
+	Print the current XKB core-keyboard group number.
+
+*keyboard set* _group_
+	Lock the XKB core keyboard to _group_, where _group_ is in the XKB range
+	0 through 3. The command synchronizes with the X server and verifies that
+	the resulting group is the requested one before returning success.
+
+# EXIT STATUS
+
+*0* on success; *>0* on invalid arguments, X11/XKB failure, an unmanaged window
+identifier, selector cancellation/failure, or an unavailable required runtime
+component.
+
+# AUTHORITY BOUNDARY
+
+The EWMH and XKB state used by *rawmctl* are desktop control mechanisms inside
+the existing X11 trust domain; they are not authentication or privilege
+boundaries. *rawmctl* deliberately does not introduce a private rawm command
+protocol for operations that already have an established X11 authority.
+
+Future rawm-specific control operations should acquire an explicit protocol
+before being added rather than encoding ad-hoc commands in presentation
+properties.
+
+# SEE ALSO
+
+*rawm*(1), *rawmenu*(1), *X*(7)
+
+; vim: ft=scdoc cc=80 tw=78
