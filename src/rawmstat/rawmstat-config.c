@@ -1,4 +1,5 @@
 #include "rawmstat-config.h"
+#include "status.h"
 
 #include <errno.h>
 #include <libconfig.h>
@@ -66,106 +67,6 @@ free_blocks(RawmstatBlock *blocks, size_t count)
   for (i = 0; i < count; ++i)
     free_block(&blocks[i]);
   free(blocks);
-}
-
-int
-rawmstat_utf8_valid(const unsigned char *text, size_t length)
-{
-  size_t i = 0;
-
-  while (i < length) {
-    unsigned char c = text[i++];
-
-    if (c <= 0x7f)
-      continue;
-    if (c >= 0xc2 && c <= 0xdf) {
-      if (i >= length || text[i] < 0x80 || text[i] > 0xbf)
-        return 0;
-      ++i;
-      continue;
-    }
-    if (c == 0xe0) {
-      if (i + 1 >= length || text[i] < 0xa0 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return 0;
-      i += 2;
-      continue;
-    }
-    if ((c >= 0xe1 && c <= 0xec) || (c >= 0xee && c <= 0xef)) {
-      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return 0;
-      i += 2;
-      continue;
-    }
-    if (c == 0xed) {
-      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0x9f ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return 0;
-      i += 2;
-      continue;
-    }
-    if (c == 0xf0) {
-      if (i + 2 >= length || text[i] < 0x90 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return 0;
-      i += 3;
-      continue;
-    }
-    if (c >= 0xf1 && c <= 0xf3) {
-      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return 0;
-      i += 3;
-      continue;
-    }
-    if (c == 0xf4) {
-      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0x8f ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return 0;
-      i += 3;
-      continue;
-    }
-    return 0;
-  }
-  return 1;
-}
-
-int
-rawmstat_status_text_valid(const unsigned char *text, size_t length)
-{
-  size_t i;
-
-  if (!rawmstat_utf8_valid(text, length))
-    return 0;
-  for (i = 0; i < length; ++i)
-    if (text[i] < 0x20 || text[i] == 0x7f)
-      return 0;
-  return 1;
-}
-
-static int
-status_id_valid(const char *name)
-{
-  size_t i, length;
-
-  if (!name)
-    return 0;
-  length = strlen(name);
-  if (!length || length > RAWMSTAT_STATUS_ID_MAX)
-    return 0;
-  for (i = 0; i < length; ++i) {
-    unsigned char c = (unsigned char)name[i];
-
-    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-')
-      continue;
-    return 0;
-  }
-  return 1;
 }
 
 const char *
@@ -528,13 +429,14 @@ rawmstat_config_validate(const RawmstatConfig *cfg, FILE *err)
   for (i = 0; i < cfg->block_count; ++i) {
     const RawmstatBlock *block = &cfg->blocks[i];
 
-    if (!status_id_valid(block->name)) {
+    if (!rawm_status_id_valid((const unsigned char *)block->name,
+                              strlen(block->name))) {
       fputs("rawmstat: configuration error: block name must be 1..64 characters from [A-Za-z0-9._-]\n", err);
       return -1;
     }
-    if (!block->prefix || strlen(block->prefix) > RAWMSTAT_RAWM_V2_MAX ||
-        !rawmstat_status_text_valid((const unsigned char *)block->prefix,
-                                    strlen(block->prefix))) {
+    if (!block->prefix || strlen(block->prefix) > RAWM_STATUS_V2_MAX ||
+        !rawm_status_printable_utf8_valid(
+          (const unsigned char *)block->prefix, strlen(block->prefix))) {
       fprintf(err, "rawmstat: configuration error: block '%s' prefix must be printable UTF-8 within the rawm-v2 limit\n",
               block->name);
       return -1;

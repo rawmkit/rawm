@@ -60,6 +60,7 @@ rawm_c_args += [
   '-DSYSCONFDIR="@0@"'.format(runtime_sysconfdir),
 ]
 
+subdir('lib')
 subdir('src')
 
 subdir('docs')

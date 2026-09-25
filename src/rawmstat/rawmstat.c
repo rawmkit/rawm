@@ -1,6 +1,7 @@
 /* See LICENSE file for copyright and license details. */
 
 #include "rawmstat-config.h"
+#include "status.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -28,15 +29,9 @@
 
 #define RAWMSTAT_SHUTDOWN_GRACE_MS 500u
 
-typedef enum {
-  RAWMSTAT_STATE_NORMAL,
-  RAWMSTAT_STATE_WARNING,
-  RAWMSTAT_STATE_CRITICAL
-} RawmstatState;
-
 typedef struct {
   char *text;
-  RawmstatState state;
+  RawmStatusState state;
   uint64_t next_update;
   bool active;
   bool pending;
@@ -280,7 +275,7 @@ start_block(const RawmstatBlock *block, BlockState *state, uint64_t now)
   state->fd = fds[0];
   state->wait_status = 0;
   state->deadline = now + block->timeout_ms;
-  state->output = xmalloc((size_t)RAWMSTAT_RAWM_V2_MAX + 1);
+  state->output = xmalloc((size_t)RAWM_STATUS_V2_MAX + 1);
   state->output_len = 0;
   state->line_done = false;
   state->too_long = false;
@@ -315,7 +310,7 @@ read_block_output(BlockState *state)
           state->embedded_nul = true;
           continue;
         }
-        if (state->output_len < RAWMSTAT_RAWM_V2_MAX)
+        if (state->output_len < RAWM_STATUS_V2_MAX)
           state->output[state->output_len++] = ch;
         else
           state->too_long = true;
@@ -360,36 +355,8 @@ reap_children(BlockState *states, size_t count)
   }
 }
 
-static const char *
-state_name(RawmstatState state)
-{
-  switch (state) {
-  case RAWMSTAT_STATE_WARNING:
-    return "warning";
-  case RAWMSTAT_STATE_CRITICAL:
-    return "critical";
-  case RAWMSTAT_STATE_NORMAL:
-  default:
-    return "normal";
-  }
-}
-
 static int
-parse_state(const unsigned char *text, size_t length, RawmstatState *state)
-{
-  if (length == 6 && !memcmp(text, "normal", 6))
-    *state = RAWMSTAT_STATE_NORMAL;
-  else if (length == 7 && !memcmp(text, "warning", 7))
-    *state = RAWMSTAT_STATE_WARNING;
-  else if (length == 8 && !memcmp(text, "critical", 8))
-    *state = RAWMSTAT_STATE_CRITICAL;
-  else
-    return 0;
-  return 1;
-}
-
-static int
-set_block_sample(BlockState *state, RawmstatState sample_state,
+set_block_sample(BlockState *state, RawmStatusState sample_state,
                  const char *text)
 {
   char *copy = xstrdup(text);
@@ -412,7 +379,7 @@ finish_block(const RawmstatBlock *block, BlockState *state)
   size_t prefix_len, total, sample_len;
   const unsigned char *sample;
   const unsigned char *tab;
-  RawmstatState sample_state = RAWMSTAT_STATE_NORMAL;
+  RawmStatusState sample_state = RAWM_STATUS_NORMAL;
   char *text;
   const char *sample_error = NULL;
 
@@ -436,9 +403,9 @@ finish_block(const RawmstatBlock *block, BlockState *state)
     tab = memchr(sample, '\t', sample_len);
     if (tab) {
       size_t state_len = (size_t)(tab - sample);
-      RawmstatState parsed;
+      RawmStatusState parsed;
 
-      if (parse_state(sample, state_len, &parsed)) {
+      if (rawm_status_state_parse(sample, state_len, &parsed)) {
         sample_state = parsed;
         sample_len -= state_len + 1;
         sample = tab + 1;
@@ -447,17 +414,17 @@ finish_block(const RawmstatBlock *block, BlockState *state)
   }
 
   if (success && sample_len &&
-      !rawmstat_status_text_valid(sample, sample_len)) {
+      !rawm_status_text_valid(sample, sample_len)) {
     sample_error = "sample text must be printable UTF-8";
     success = false;
   }
 
   if (success && sample_len == 0) {
-    changed = set_block_sample(state, RAWMSTAT_STATE_NORMAL, "");
+    changed = set_block_sample(state, RAWM_STATUS_NORMAL, "");
   } else if (success) {
     prefix_len = strlen(block->prefix);
     total = prefix_len + sample_len;
-    if (total > RAWMSTAT_RAWM_V2_MAX) {
+    if (total > RAWM_STATUS_V2_MAX) {
       sample_error = "sample text exceeds rawm-v2 limit";
       success = false;
     } else {
@@ -530,52 +497,41 @@ finish_ready_blocks(const RawmstatConfig *cfg, BlockState *states, uint64_t now)
 static char *
 build_status(const RawmstatConfig *cfg, const BlockState *states)
 {
-  size_t i, len = 0;
-  char *status;
+  RawmStatusView *segments;
+  RawmStatusResult result;
+  size_t i, count = 0, length = 0;
+  char *status = NULL;
 
+  segments = xcalloc(cfg->block_count, sizeof(*segments));
   for (i = 0; i < cfg->block_count; ++i) {
     const char *text = states[i].text ? states[i].text : "";
-    const char *state = state_name(states[i].state);
-    size_t id_len, state_len, text_len, extra;
 
     if (!text[0])
       continue;
-    id_len = strlen(cfg->blocks[i].name);
-    state_len = strlen(state);
-    text_len = strlen(text);
-    extra = id_len + 1 + state_len + 1 + text_len + 1;
-    if (extra > RAWMSTAT_RAWM_V2_MAX - len) {
-      fprintf(stderr,
-              "rawmstat: composed status exceeds rawm-v2 %u-byte limit\n",
-              RAWMSTAT_RAWM_V2_MAX);
-      return NULL;
-    }
-    len += extra;
+    segments[count].id = cfg->blocks[i].name;
+    segments[count].text = text;
+    segments[count].state = states[i].state;
+    ++count;
   }
 
-  status = xmalloc(len + 1);
-  len = 0;
-  for (i = 0; i < cfg->block_count; ++i) {
-    const char *text = states[i].text ? states[i].text : "";
-    const char *state = state_name(states[i].state);
-    size_t id_len, state_len, text_len;
-
-    if (!text[0])
-      continue;
-    id_len = strlen(cfg->blocks[i].name);
-    state_len = strlen(state);
-    text_len = strlen(text);
-    memcpy(status + len, cfg->blocks[i].name, id_len);
-    len += id_len;
-    status[len++] = '\t';
-    memcpy(status + len, state, state_len);
-    len += state_len;
-    status[len++] = '\t';
-    memcpy(status + len, text, text_len);
-    len += text_len;
-    status[len++] = '\n';
+  result = rawm_status_v2_encode(segments, count, &status, &length);
+  free(segments);
+  if (result == RAWM_STATUS_TOO_LARGE) {
+    fprintf(stderr,
+            "rawmstat: composed status exceeds rawm-v2 %u-byte limit\n",
+            RAWM_STATUS_V2_MAX);
+    return NULL;
   }
-  status[len] = '\0';
+  if (result == RAWM_STATUS_NO_MEMORY) {
+    fputs("rawmstat: out of memory\n", stderr);
+    exit(EXIT_FAILURE);
+  }
+  if (result != RAWM_STATUS_OK) {
+    fputs("rawmstat: internal invalid rawm-v2 status state\n", stderr);
+    free(status);
+    return NULL;
+  }
+  (void)length;
   return status;
 }
 

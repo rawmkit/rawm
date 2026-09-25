@@ -12,6 +12,9 @@ Repository architecture
   producer/consumer compatibility a repository-local release invariant.
 * rawmstat keeps its ISC licensing and provenance explicitly alongside rawm's
   MIT/X sources.
+* The rawm-v2 wire codec, state vocabulary, identifier validation, and payload
+  limits now live in one private static library shared by rawm and rawmstat;
+  neither process reconstructs the other side's protocol rules independently.
 
 rawm 6.1.1 — 2026-09-25
 =========================

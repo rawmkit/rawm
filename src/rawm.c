@@ -48,6 +48,7 @@
 #include <X11/Xft/Xft.h>
 
 #include "rawm-config.h"
+#include "status.h"
 
 /* Xinerama support for multiple monitors. */
 #ifdef XINERAMA
@@ -182,9 +183,6 @@
  */
 #define MAX_LAYOUTLABEL (RAWM_LAYOUT_SYMBOL_MAX + 32u)
 
-/** Maximum rawm-v2 property and segment identifier sizes. */
-#define RAWM_STATUS_V2_MAX 4096u
-#define RAWM_STATUS_ID_MAX 64u
 #define RAWM_OSD_GEOMETRY_INTERVAL_MS 40u
 
 /*********************************************************************
@@ -216,23 +214,6 @@ enum {
   SchemeErr,
   SchemeFloating
 };
-
-typedef enum {
-  StatusNormal,
-  StatusWarning,
-  StatusCritical
-} StatusState;
-
-typedef struct {
-  char *id;
-  char *text;
-  StatusState state;
-} StatusSegment;
-
-typedef struct {
-  StatusSegment *segments;
-  size_t count;
-} StatusData;
 
 typedef struct {
   unsigned int occupied;
@@ -564,10 +545,9 @@ static Client        *wintosystrayicon(Window w);
 static XftColor       getcolor(const char *colstr);
 static bool           getrootptr(int *x, int *y);
 static long           getstate(Window w);
-static bool           validutf8(const unsigned char *text, size_t length);
-static void           freestatus(StatusData *status);
-static bool           getstatusprop(StatusData *status);
-static int            statusscheme(StatusState state);
+static void           freestatus(RawmStatusData *status);
+static bool           getstatusprop(RawmStatusData *status);
+static int            statusscheme(RawmStatusState state);
 static const char    *statusidat(int x, int start, int right);
 static int            statuswidth(void);
 static bool           gettextprop(Window w, Atom atom, char *text,
@@ -696,7 +676,7 @@ static unsigned long systrayorientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 #endif /* SYSTRAY */
 
 static const char     broken[] = "broken";
-static StatusData     statusdata = {0};
+static RawmStatusData statusdata = {0};
 static Atom           dockatom, statusatom, surfaceatom, utf8atom;
 static int            screen;
 static int            sw, sh; /* X display screen geometry width, height */
@@ -2536,7 +2516,7 @@ drawstatus(int x, int right)
     {
       int scheme = statusscheme(statusdata.segments[i].state);
 
-      if (statusdata.segments[i].state == StatusNormal)
+      if (statusdata.segments[i].state == RAWM_STATUS_NORMAL)
       {
         drawtext(statusdata.segments[i].text, dc.colors[SchemeNorm], true);
         if (barhovermatches(selmon, ClkStatusText, 0,
@@ -3400,231 +3380,20 @@ getsystraypresentationwidth(const Monitor *m)
 }
 #endif /* SYSTRAY */
 
-static bool
-validutf8(const unsigned char *text, size_t length)
-{
-  size_t i = 0;
-
-  while (i < length)
-  {
-    unsigned char c = text[i++];
-
-    if (c <= 0x7f)
-      continue;
-    if (c >= 0xc2 && c <= 0xdf)
-    {
-      if (i >= length || text[i] < 0x80 || text[i] > 0xbf)
-        return false;
-      i++;
-      continue;
-    }
-    if (c == 0xe0)
-    {
-      if (i + 1 >= length || text[i] < 0xa0 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return false;
-      i += 2;
-      continue;
-    }
-    if ((c >= 0xe1 && c <= 0xec) || (c >= 0xee && c <= 0xef))
-    {
-      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return false;
-      i += 2;
-      continue;
-    }
-    if (c == 0xed)
-    {
-      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0x9f ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return false;
-      i += 2;
-      continue;
-    }
-    if (c == 0xf0)
-    {
-      if (i + 2 >= length || text[i] < 0x90 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return false;
-      i += 3;
-      continue;
-    }
-    if (c >= 0xf1 && c <= 0xf3)
-    {
-      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return false;
-      i += 3;
-      continue;
-    }
-    if (c == 0xf4)
-    {
-      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0x8f ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return false;
-      i += 3;
-      continue;
-    }
-    return false;
-  }
-  return true;
-}
-
 static void
-freestatus(StatusData *status)
+freestatus(RawmStatusData *status)
 {
-  size_t i;
-
-  if (!status)
-    return;
-  for (i = 0; i < status->count; ++i)
-  {
-    free(status->segments[i].id);
-    free(status->segments[i].text);
-  }
-  free(status->segments);
-  status->segments = NULL;
-  status->count = 0;
+  rawm_status_data_destroy(status);
 }
 
 static bool
-statusidvalid(const unsigned char *id, size_t length)
-{
-  size_t i;
-
-  if (!id || !length || length > RAWM_STATUS_ID_MAX)
-    return false;
-  for (i = 0; i < length; ++i)
-  {
-    unsigned char c = id[i];
-
-    if (   (c >= 'a' && c <= 'z')
-        || (c >= 'A' && c <= 'Z')
-        || (c >= '0' && c <= '9')
-        || c == '.' || c == '_' || c == '-')
-      continue;
-    return false;
-  }
-  return true;
-}
-
-static bool
-statustextvalid(const unsigned char *text, size_t length)
-{
-  size_t i;
-
-  if (!text || !length || !validutf8(text, length))
-    return false;
-  for (i = 0; i < length; ++i)
-    if (text[i] < 0x20 || text[i] == 0x7f)
-      return false;
-  return true;
-}
-
-static bool
-parsestatusstate(const unsigned char *text, size_t length, StatusState *state)
-{
-  if (length == 6 && !memcmp(text, "normal", 6))
-    *state = StatusNormal;
-  else if (length == 7 && !memcmp(text, "warning", 7))
-    *state = StatusWarning;
-  else if (length == 8 && !memcmp(text, "critical", 8))
-    *state = StatusCritical;
-  else
-    return false;
-  return true;
-}
-
-static bool
-parsestatus(const unsigned char *value, size_t length, StatusData *status)
-{
-  StatusData parsed = {0};
-  size_t pos = 0;
-
-  if (!status)
-    return false;
-  if (!length)
-  {
-    *status = parsed;
-    return true;
-  }
-  if (!value || length > RAWM_STATUS_V2_MAX || value[length - 1] != '\n')
-    return false;
-
-  while (pos < length)
-  {
-    const unsigned char *line = value + pos;
-    const unsigned char *newline = memchr(line, '\n', length - pos);
-    const unsigned char *first, *second;
-    size_t line_len, id_len, state_len, text_len, i;
-    StatusSegment *segments;
-    StatusSegment *segment;
-    StatusState state;
-
-    if (!newline)
-      goto fail;
-    line_len = (size_t)(newline - line);
-    first = memchr(line, '\t', line_len);
-    if (!first)
-      goto fail;
-    second = memchr(first + 1, '\t', line_len - (size_t)(first + 1 - line));
-    if (!second)
-      goto fail;
-
-    id_len = (size_t)(first - line);
-    state_len = (size_t)(second - first - 1);
-    text_len = line_len - (size_t)(second + 1 - line);
-    if (!statusidvalid(line, id_len) ||
-        !parsestatusstate(first + 1, state_len, &state) ||
-        !statustextvalid(second + 1, text_len))
-      goto fail;
-
-    for (i = 0; i < parsed.count; ++i)
-      if (strlen(parsed.segments[i].id) == id_len &&
-          !memcmp(parsed.segments[i].id, line, id_len))
-        goto fail;
-
-    segments = realloc(parsed.segments,
-                       (parsed.count + 1) * sizeof(*parsed.segments));
-    if (!segments)
-      die("fatal: could not realloc status segments\n");
-    parsed.segments = segments;
-    segment = &parsed.segments[parsed.count];
-    memset(segment, 0, sizeof(*segment));
-
-    segment->id = malloc(id_len + 1);
-    segment->text = malloc(text_len + 1);
-    if (!segment->id || !segment->text)
-      die("fatal: could not allocate status segment\n");
-    memcpy(segment->id, line, id_len);
-    segment->id[id_len] = '\0';
-    memcpy(segment->text, second + 1, text_len);
-    segment->text[text_len] = '\0';
-    segment->state = state;
-
-    parsed.count++;
-    pos += line_len + 1;
-  }
-
-  *status = parsed;
-  return true;
-
-fail:
-  freestatus(&parsed);
-  return false;
-}
-
-static bool
-getstatusprop(StatusData *status)
+getstatusprop(RawmStatusData *status)
 {
   Atom actual_type;
   int actual_format;
   unsigned long nitems, bytes_after;
   unsigned char *value = NULL;
+  RawmStatusResult result;
   bool ok = false;
   long request_units = (long)((RAWM_STATUS_V2_MAX + 3u) / 4u + 1u);
 
@@ -3643,7 +3412,10 @@ getstatusprop(StatusData *status)
       )
     goto out;
 
-  ok = parsestatus(value, (size_t)nitems, status);
+  result = rawm_status_v2_parse(value, (size_t)nitems, status);
+  if (result == RAWM_STATUS_NO_MEMORY)
+    die("fatal: could not allocate status data\n");
+  ok = result == RAWM_STATUS_OK;
 
 out:
   if (value)
@@ -3652,15 +3424,15 @@ out:
 }
 
 static int
-statusscheme(StatusState state)
+statusscheme(RawmStatusState state)
 {
   switch (state)
   {
-  case StatusWarning:
+  case RAWM_STATUS_WARNING:
     return 2;
-  case StatusCritical:
+  case RAWM_STATUS_CRITICAL:
     return 3;
-  case StatusNormal:
+  case RAWM_STATUS_NORMAL:
   default:
     return 0;
   }
@@ -6684,7 +6456,7 @@ updatetitle(Client *c)
 static void
 updatestatus(void)
 {
-  StatusData next = {0};
+  RawmStatusData next = {0};
 
   if (config.status_enabled)
     (void)getstatusprop(&next);

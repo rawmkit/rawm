@@ -11,6 +11,6 @@ rawmstat = executable(
     'rawmstat-config.c',
   ],
   c_args: rawmstat_c_args,
-  dependencies: [x11_dep, libconfig_dep],
+  dependencies: [x11_dep, libconfig_dep, rawm_status_dep],
   install: true,
 )

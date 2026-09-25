@@ -1,4 +1,5 @@
 #include "rawm-config.h"
+#include "status.h"
 
 #include <errno.h>
 #include <libconfig.h>
@@ -1593,29 +1594,6 @@ parse_click_name(const char *name, RawmClick *click)
   return -1;
 }
 
-static bool
-status_id_valid(const char *id)
-{
-  size_t i, length;
-
-  if (!id)
-    return false;
-  length = strlen(id);
-  if (!length || length > 64)
-    return false;
-  for (i = 0; i < length; ++i) {
-    unsigned char c = (unsigned char)id[i];
-
-    if (   (c >= 'a' && c <= 'z')
-        || (c >= 'A' && c <= 'Z')
-        || (c >= '0' && c <= '9')
-        || c == '.' || c == '_' || c == '-')
-      continue;
-    return false;
-  }
-  return true;
-}
-
 static int
 parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
 {
@@ -1662,7 +1640,7 @@ parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
         goto fail;
       }
       value = config_setting_get_string(status_id);
-      if (!status_id_valid(value)) {
+      if (!rawm_status_id_valid((const unsigned char *)value, strlen(value))) {
         cfg_error(err, status_id, "%s is not a valid rawm-v2 segment id",
                   "status_id");
         goto fail;
