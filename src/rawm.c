@@ -2696,13 +2696,17 @@ fontforchar(FcChar32 codepoint)
   FcPatternAddCharSet(pattern, FC_CHARSET, charset);
 
   /*
-   * Keep fallback faces compatible with rawm's compact text line. Fixed-size
-   * bitmap fonts can advertise a glyph while exposing strike metrics much
-   * larger than the bar, producing an apparently blank character after
-   * clipping. This is the same constraint used by dwm's Xft fallback path.
+   * Keep fallback faces inside Xft's dependable text-rendering subset.
+   * Fixed-size bitmap faces can expose strike metrics larger than the bar,
+   * while modern color fonts can advertise a Unicode glyph that Xft cannot
+   * necessarily rasterize (notably COLR v1). Prefer a scalable monochrome
+   * outline instead; if none exists, preserve the primary font's missing
+   * glyph rather than reserving an invisible advance.
    */
   FcPatternDel(pattern, FC_SCALABLE);
   FcPatternAddBool(pattern, FC_SCALABLE, FcTrue);
+  FcPatternDel(pattern, FC_COLOR);
+  FcPatternAddBool(pattern, FC_COLOR, FcFalse);
   FcConfigSubstitute(NULL, pattern, FcMatchPattern);
   FcDefaultSubstitute(pattern);
 

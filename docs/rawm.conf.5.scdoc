@@ -140,9 +140,11 @@ The *ui* group controls presentation and pointer geometry.
 *font* = string
 	Fontconfig/Xft font pattern. The default is *monospace:size=9*. The matched
 	face is the primary UI font; when it lacks a Unicode character, rawm asks
-	Fontconfig for a scalable fallback face, caches it, and vertically centers
-	that face inside the same bar/OSD text line. This avoids fixed bitmap-strike
-	metrics escaping the compact UI surface.
+	Fontconfig for a scalable monochrome fallback face, caches it, and vertically
+	centers that face inside the same bar/OSD text line. Color-font fallback is
+	intentionally excluded because Xft cannot reliably rasterize every color-font
+	format, including COLR v1. Install a monochrome outline font covering the
+	desired characters when the primary face does not provide them.
 
 *border_width* = integer
 	Window border width in pixels. Range 0..64. Default 2.
