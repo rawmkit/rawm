@@ -95,6 +95,49 @@ window_viewable(Display *dpy, Window window)
   return attributes.map_state == IsViewable;
 }
 
+static int
+window_managed(Display *dpy, Window window)
+{
+  Atom actual = None;
+  Atom property = XInternAtom(dpy, "_RAWM_MONITOR", True);
+  unsigned char *data = NULL;
+  unsigned long after = 0, count = 0;
+  int format = 0;
+  int managed = 0;
+
+  if (property != None &&
+      XGetWindowProperty(dpy, window, property, 0L, 1L, False, XA_CARDINAL,
+                         &actual, &format, &count, &after, &data) == Success &&
+      actual == XA_CARDINAL && format == 32 && count == 1 && data)
+    managed = 1;
+
+  if (data)
+    XFree(data);
+  return managed;
+}
+
+static void
+send_fullscreen(Display *dpy, Window root, Window window, int add)
+{
+  Atom state = XInternAtom(dpy, "_NET_WM_STATE", False);
+  Atom fullscreen = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+  XEvent event;
+
+  memset(&event, 0, sizeof event);
+  event.xclient.type = ClientMessage;
+  event.xclient.window = window;
+  event.xclient.message_type = state;
+  event.xclient.format = 32;
+  event.xclient.data.l[0] = add ? 1 : 0;
+  event.xclient.data.l[1] = (long)fullscreen;
+  event.xclient.data.l[3] = 1;
+
+  if (!XSendEvent(dpy, root, False,
+                  SubstructureRedirectMask | SubstructureNotifyMask, &event))
+    fail("cannot send fullscreen request");
+  XFlush(dpy);
+}
+
 static Window
 window_parent(Display *dpy, Window window)
 {
@@ -155,7 +198,7 @@ int
 main(void)
 {
   Display *dpy;
-  Window root, tray = None, bar = None, icon;
+  Window root, tray = None, bar = None, icon, fullscreen_client;
   Atom surface_atom, xembed_info, opcode, selection;
   char selection_name[64];
   int screen, screen_width;
@@ -194,7 +237,8 @@ main(void)
   if (window_width(dpy, bar) != screen_width)
     fail("empty tray must not reserve bar width");
 
-  icon = XCreateSimpleWindow(dpy, root, 10, 10, 16, 16, 0, 0, 0);
+  /* A wide request must not be allowed to expand desktop chrome. */
+  icon = XCreateSimpleWindow(dpy, root, 10, 10, 80, 20, 0, 0, 0);
   set_xembed_info(dpy, icon, xembed_info, XEMBED_MAPPED);
   request_dock(dpy, tray, opcode, icon);
 
@@ -215,8 +259,34 @@ main(void)
     fail("tray width does not match spacing + normalized icon geometry");
   if (window_width(dpy, bar) + tray_width != screen_width)
     fail("bar did not reserve exactly the visible tray width");
-  if (window_height(dpy, icon) != 24)
-    fail("tray icon was not normalized to bar height");
+  if (window_width(dpy, icon) != 24 || window_height(dpy, icon) != 24)
+    fail("wide tray icon was not normalized to one square bar-height slot");
+
+  /* Fullscreen owns the complete monitor plane; tray chrome must disappear. */
+  fullscreen_client =
+      XCreateSimpleWindow(dpy, root, 30, 30, 240, 160, 0, 0, 0);
+  XStoreName(dpy, fullscreen_client, "rawm-systray-fullscreen");
+  XMapWindow(dpy, fullscreen_client);
+  XFlush(dpy);
+  wait_for(window_managed, dpy, fullscreen_client, 1,
+           "fullscreen test client was not managed");
+
+  send_fullscreen(dpy, root, fullscreen_client, 1);
+  wait_for(window_viewable, dpy, tray, 0,
+           "tray remained visible over fullscreen client");
+  if (window_width(dpy, bar) != screen_width)
+    fail("fullscreen-suppressed tray still reserved bar width");
+
+  send_fullscreen(dpy, root, fullscreen_client, 0);
+  wait_for(window_viewable, dpy, tray, 1,
+           "tray did not return after leaving fullscreen");
+  tray_width = window_width(dpy, tray);
+  if (tray_width != 34 ||
+      window_width(dpy, bar) + tray_width != screen_width)
+    fail("tray/bar geometry was not restored after fullscreen");
+
+  XDestroyWindow(dpy, fullscreen_client);
+  XFlush(dpy);
 
   set_xembed_info(dpy, icon, xembed_info, 0);
   wait_for(window_viewable, dpy, tray, 0,
