@@ -584,7 +584,8 @@ static void           drawutf8(XftDraw *draw, XftColor *color,
                                int x, int y, const char *text, size_t len);
 static size_t         utf8decode(const char *text, size_t len,
                                  FcChar32 *codepoint);
-static size_t         utf8prev(const char *text, size_t len);
+static size_t         textfitprefix(const char *text, size_t len,
+                                    int max_width);
 static void           keypress(XEvent *e);
 static void           killclient(const Arg *arg);
 static void           leavenotify(XEvent *e);
@@ -2574,15 +2575,54 @@ utf8decode(const char *text, size_t len, FcChar32 *codepoint)
 }
 
 static size_t
-utf8prev(const char *text, size_t len)
+textfitprefix(const char *text, size_t len, int max_width)
 {
-  if (!text || !len)
+  size_t *boundaries;
+  size_t count = 1;
+  size_t high, low = 0;
+  size_t pos = 0;
+  size_t best = 0;
+
+  if (!text || !len || max_width <= 0)
     return 0;
 
-  --len;
-  while (len && (((unsigned char)text[len] & 0xc0u) == 0x80u))
-    --len;
-  return len;
+  if (!(boundaries = malloc((len + 1) * sizeof(*boundaries))))
+    die("fatal: could not malloc() %lu bytes\n",
+        (unsigned long)((len + 1) * sizeof(*boundaries)));
+
+  boundaries[0] = 0;
+  while (pos < len)
+  {
+    FcChar32 codepoint;
+    size_t consumed = utf8decode(text + pos, len - pos, &codepoint);
+
+    if (!consumed)
+      break;
+    pos += consumed;
+    boundaries[count++] = pos;
+  }
+
+  high = count - 1;
+  while (low <= high)
+  {
+    size_t mid = low + (high - low) / 2;
+    size_t bytes = boundaries[mid];
+
+    if (textnw(text, (unsigned int)bytes) <= max_width)
+    {
+      best = bytes;
+      low = mid + 1;
+    }
+    else
+    {
+      if (!mid)
+        break;
+      high = mid - 1;
+    }
+  }
+
+  free(boundaries);
+  return best;
 }
 
 static void
@@ -2784,18 +2824,19 @@ drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
   max_text_width = MAX(dc.w - h, 0);
 
   len = olen;
-  while (len && textnw(text, (unsigned int)len) > max_text_width)
-    len = utf8prev(text, len);
+  dots = 0;
+  if (textnw(text, (unsigned int)olen) > max_text_width)
+  {
+    int suffix_width;
 
-  dots = len < olen ? 3u : 0u;
-  while (dots &&
-         textnw("...", (unsigned int)dots) > max_text_width)
-    --dots;
+    dots = 3u;
+    while (dots &&
+           textnw("...", (unsigned int)dots) > max_text_width)
+      --dots;
 
-  while (len && dots &&
-         textnw(text, (unsigned int)len) +
-             textnw("...", (unsigned int)dots) > max_text_width)
-    len = utf8prev(text, len);
+    suffix_width = dots ? textnw("...", (unsigned int)dots) : 0;
+    len = textfitprefix(text, olen, max_text_width - suffix_width);
+  }
 
   outlen = len + dots;
   if (!outlen)
