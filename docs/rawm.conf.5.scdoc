@@ -90,12 +90,7 @@ ui = {
 };
 
 commands = {
-  launcher = (
-    "dmenu_run",
-    "-fn", "${ui.font}",
-    "-nb", "${ui.colors.normal.background}",
-    "-sb", "${ui.colors.selected.background}"
-  );
+  terminal = ("st", "-f", "${ui.font}");
   transset = ("transset", "-a", "-t", "${ui.opacity}");
 };
 ```
@@ -631,7 +626,9 @@ values are non-empty argv lists.
 ```
 commands = {
   terminal = ("st");
-  launcher = ("dmenu_run", "-p", "Run:");
+  launcher = ("rawmenu-run");
+  tag_rename = ("rawmenu", "-M", "input", "-p", "tag");
+  window_select = ("rawmctl", "window", "select");
   shell_example = ("/bin/sh", "-c", "printf '%s\\n' hello");
 };
 ```
@@ -644,6 +641,11 @@ Command definitions merge by name across configuration layers. A later
 *terminal* definition replaces only the earlier *terminal* definition. Command
 arguments may use the *${path}* value references described above; expansion
 happens after all layers have been merged.
+
+The built-in and installed stock policy uses *rawmenu-run* for the launcher,
+*rawmenu*(1) input mode for tag renaming, and *rawmctl window select* for the
+window selector. These commands remain ordinary replaceable configuration;
+rawm does not own their presentation.
 
 # INPUT
 
@@ -744,7 +746,7 @@ input.buttons = (
 	Requires *command* naming a configured command whose first standard-output
 	line is the new tag label. No output leaves the current label unchanged; an
 	empty first line restores the numeric label. The built-in default command is
-	*tag_rename*, implemented with *dmenu*.
+	*tag_rename*, implemented by the stock policy with *rawmenu*(1) input mode.
 
 *focus_stack*
 	Requires non-zero integer *number*. Positive selects forward, negative

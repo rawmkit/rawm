@@ -21,6 +21,10 @@ Repository architecture
   replaces the useful behavior of the historical `rawin`/`rawkb` utilities
   without Perl, wmctrl, xdotool, xdo, shell command construction, or
   title-based reverse lookup.
+* The stock command policy now uses `rawmenu-run` for launching, `rawmenu` input
+  mode for tag renaming, and `rawmctl window select` on Mod4+w. The inherited
+  dmenu defaults and their duplicated presentation flags are no longer part of
+  rawm policy.
 
 rawm 6.1.1 — 2026-09-25
 =========================

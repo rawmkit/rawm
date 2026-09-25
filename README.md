@@ -114,8 +114,13 @@ CONFIGURATION
 `$HOME/.config/rawm/rawm.conf`.
 
 Configuration strings can reuse final scalar settings with `${path}` references;
-for example, a dmenu command may use `${ui.font}` and
-`${ui.colors.normal.background}` instead of duplicating theme values.
+for example, a terminal command may reuse `${ui.font}` instead of duplicating
+the configured face.
+
+The stock desktop command policy composes with the separately packaged
+`rawmenu`: `Mod4+r` runs `rawmenu-run`, tag renaming uses `rawmenu` input mode,
+and `Mod4+w` runs `rawmctl window select`. These are argv-level defaults, not
+hard-coded presentation logic; user configuration may replace any command.
 
 Tiled layouts support runtime-configured inner and outer gaps through
 `layout.gaps`; smart gaps may suppress the outer margin when only one tiled

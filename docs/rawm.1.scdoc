@@ -375,6 +375,6 @@ an edit.
 
 # SEE ALSO
 
-*rawm.conf*(5), *rawmctl*(1), *dmenu*(1)
+*rawm.conf*(5), *rawmctl*(1), *rawmenu*(1)
 
 ; vim: ft=scdoc cc=72 tw=70
