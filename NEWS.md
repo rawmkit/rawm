@@ -1,4 +1,4 @@
-rawm 6.1 — 2026-09-24
+rawm 6.1 — 2026-09-25
 =======================
 
 This release turns rawm from a compile-time-customized dwm derivative into a
@@ -59,6 +59,9 @@ System tray
 
 * XEmbed mapped state now controls tray presentation independently of icon
   lifetime.
+* A visible fullscreen client suppresses the tray surface and releases its bar
+  reservation until fullscreen ends, so desktop chrome cannot overlap the
+  monitor-owning client.
 * `ui.systray.icon_size` can size and center icon slots independently of a
   taller bar while keeping the automatic bar-height policy available with 0.
 * Hidden icons remain docked but consume no rail geometry.
