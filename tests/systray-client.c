@@ -86,6 +86,16 @@ window_height(Display *dpy, Window window)
 }
 
 static int
+window_y(Display *dpy, Window window)
+{
+  XWindowAttributes attributes;
+
+  if (!XGetWindowAttributes(dpy, window, &attributes))
+    fail("cannot query window attributes");
+  return attributes.y;
+}
+
+static int
 window_viewable(Display *dpy, Window window)
 {
   XWindowAttributes attributes;
@@ -255,12 +265,14 @@ main(void)
     fail("mapped XEmbed icon did not map tray");
 
   tray_width = window_width(dpy, tray);
-  if (tray_width != 34)
-    fail("tray width does not match spacing + normalized icon geometry");
+  if (tray_width != 26)
+    fail("tray width does not match spacing + configured icon geometry");
   if (window_width(dpy, bar) + tray_width != screen_width)
     fail("bar did not reserve exactly the visible tray width");
-  if (window_width(dpy, icon) != 24 || window_height(dpy, icon) != 24)
-    fail("wide tray icon was not normalized to one square bar-height slot");
+  if (window_width(dpy, icon) != 16 || window_height(dpy, icon) != 16)
+    fail("wide tray icon was not normalized to configured square slot");
+  if (window_y(dpy, icon) != 4)
+    fail("configured tray icon was not vertically centered in the rail");
 
   /* Fullscreen owns the complete monitor plane; tray chrome must disappear. */
   fullscreen_client =
@@ -281,7 +293,7 @@ main(void)
   wait_for(window_viewable, dpy, tray, 1,
            "tray did not return after leaving fullscreen");
   tray_width = window_width(dpy, tray);
-  if (tray_width != 34 ||
+  if (tray_width != 26 ||
       window_width(dpy, bar) + tray_width != screen_width)
     fail("tray/bar geometry was not restored after fullscreen");
 
@@ -302,7 +314,7 @@ main(void)
   wait_for(window_viewable, dpy, tray, 1,
            "restoring XEMBED_MAPPED did not remap tray");
   tray_width = window_width(dpy, tray);
-  if (tray_width != 34 ||
+  if (tray_width != 26 ||
       window_width(dpy, bar) + tray_width != screen_width)
     fail("remapped icon did not restore tray/bar geometry");
 

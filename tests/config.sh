@@ -303,6 +303,13 @@ grep -q "cell_margin" "$tmp/stderr" ||
   fail "bar cell margin range diagnostic missing"
 
 
+cat >"$tmp/systray-icon-size-range.conf" <<'EOC'
+ui = { systray = { icon_size = 513; }; };
+EOC
+expect_fail "$tmp/systray-icon-size-range.conf"
+grep -q "icon_size" "$tmp/stderr" ||
+  fail "systray icon-size range diagnostic missing"
+
 cat >"$tmp/osd-geometry-type.conf" <<'EOC'
 ui = { osd = { geometry = "yes"; }; };
 EOC

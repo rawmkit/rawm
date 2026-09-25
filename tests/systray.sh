@@ -52,6 +52,7 @@ ui = {
   systray = {
     show = true;
     spacing = 5;
+    icon_size = 16;
   };
 };
 status = { enabled = false; protocol = "rawm-v2"; };

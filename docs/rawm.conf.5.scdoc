@@ -110,7 +110,7 @@ The reference namespace contains these scalar paths:
 - *ui.osd.show*, *ui.osd.position*, *ui.osd.geometry*,
   *ui.osd.duration_ms*, *ui.osd.padding*, *ui.osd.offset*,
   *ui.osd.min_width*
-- *ui.systray.show*, *ui.systray.spacing*
+- *ui.systray.show*, *ui.systray.spacing*, *ui.systray.icon_size*
 - *status.enabled*, *status.protocol*, *status.separator*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
   *urgent*, *error*, or *floating*, and _component_ is *border*,
@@ -268,12 +268,17 @@ The *ui.systray* group accepts:
 	Horizontal spacing around each visible tray icon in pixels. Hidden XEmbed
 	icons do not consume spacing or bar width. Range 0..64. Default 2.
 
-rawm allocates each visible tray icon one square slot whose side is the bar
-height. XEmbed clients provide icon content but do not control the width of
-desktop chrome; oversized or unusually wide icon requests therefore cannot
-reserve transparent rail space. XEmbed's mapped flag remains authoritative for
-icon visibility: a client that clears it stays docked but is removed from
-visible tray geometry until it advertises the mapped state again.
+*icon_size* = integer
+	Side of each square XEmbed icon slot in pixels. Zero derives the slot from
+	the bar height. A non-zero value is clamped to the bar height and centered
+	vertically inside the tray surface. Range 0..512. Default 0.
+
+rawm owns tray cell geometry independently of the rail height. XEmbed clients
+provide icon content but do not control desktop-chrome width; oversized or
+unusually wide icon requests therefore cannot reserve transparent rail space.
+XEmbed's mapped flag remains authoritative for icon visibility: a client that
+clears it stays docked but is removed from visible tray geometry until it
+advertises the mapped state again.
 
 ## Colors
 

@@ -59,6 +59,8 @@ System tray
 
 * XEmbed mapped state now controls tray presentation independently of icon
   lifetime.
+* `ui.systray.icon_size` can size and center icon slots independently of a
+  taller bar while keeping the automatic bar-height policy available with 0.
 * Hidden icons remain docked but consume no rail geometry.
 * An empty tray remains unmapped and reserves no bar width.
 
