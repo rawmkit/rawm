@@ -462,14 +462,12 @@ void
 rawm_config_init(RawmConfig *cfg)
 {
   static const char *const terminal[] = { "st" };
-  static const char *const launcher[] = { "dmenu_run" };
+  static const char *const launcher[] = { "rawmenu-run" };
   static const char *const tag_rename[] = {
-    "dmenu", "-p", "tag",
-    "-fn", "${ui.font}",
-    "-nb", "${ui.colors.normal.background}",
-    "-nf", "${ui.colors.normal.foreground}",
-    "-sb", "${ui.colors.selected.background}",
-    "-sf", "${ui.colors.selected.foreground}"
+    "rawmenu", "-M", "input", "-p", "tag"
+  };
+  static const char *const window_select[] = {
+    "rawmctl", "window", "select"
   };
   static const char *scheme_defaults[RAWM_COLOR_SCHEMES][3] = {
     { "#cccccc", "#000000", "#cccccc" },
@@ -543,6 +541,8 @@ rawm_config_init(RawmConfig *cfg)
   append_command(cfg, "launcher", launcher, 1);
   append_command(cfg, "tag_rename", tag_rename,
                  sizeof(tag_rename) / sizeof(tag_rename[0]));
+  append_command(cfg, "window_select", window_select,
+                 sizeof(window_select) / sizeof(window_select[0]));
 
   append_key(cfg, mod, "r", RAWM_ACTION_SPAWN);
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("launcher");
@@ -551,6 +551,8 @@ rawm_config_init(RawmConfig *cfg)
   append_key(cfg, mod, "b", RAWM_ACTION_TOGGLE_BAR);
   append_key(cfg, mod, "n", RAWM_ACTION_RENAME_TAG);
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("tag_rename");
+  append_key(cfg, mod, "w", RAWM_ACTION_SPAWN);
+  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("window_select");
   append_key(cfg, mod, "j", RAWM_ACTION_FOCUS_STACK);
   set_key_number(&cfg->keys[cfg->key_count - 1], 1);
   append_key(cfg, mod, "k", RAWM_ACTION_FOCUS_STACK);

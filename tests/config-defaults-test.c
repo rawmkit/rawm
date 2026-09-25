@@ -19,6 +19,61 @@ expect_string(const char *what, const char *a, const char *b)
     fail(what);
 }
 
+
+static void
+expect_command(const RawmConfig *cfg, const char *name,
+               const char *const *argv, size_t argc)
+{
+  const RawmCommand *cmd = rawm_config_find_command(cfg, name);
+  size_t i;
+
+  if (!cmd)
+    fail("required default command is missing");
+  if (cmd->argc != argc)
+    fail("required default command argc differs");
+  for (i = 0; i < argc; ++i)
+    if (strcmp(cmd->argv[i], argv[i]))
+      fail("required default command argv differs");
+}
+
+static void
+expect_spawn_key(const RawmConfig *cfg, unsigned int modifiers,
+                 const char *key, const char *command)
+{
+  size_t i;
+
+  for (i = 0; i < cfg->key_count; ++i)
+    if (cfg->keys[i].modifiers == modifiers &&
+        !strcmp(cfg->keys[i].key, key) &&
+        cfg->keys[i].binding.action == RAWM_ACTION_SPAWN &&
+        cfg->keys[i].binding.command &&
+        !strcmp(cfg->keys[i].binding.command, command))
+      return;
+
+  fail("required default spawn binding is missing");
+}
+
+static void
+check_desktop_defaults(const RawmConfig *cfg)
+{
+  static const char *const launcher[] = { "rawmenu-run" };
+  static const char *const tag_rename[] = {
+    "rawmenu", "-M", "input", "-p", "tag"
+  };
+  static const char *const window_select[] = {
+    "rawmctl", "window", "select"
+  };
+
+  expect_command(cfg, "launcher", launcher,
+                 sizeof(launcher) / sizeof(launcher[0]));
+  expect_command(cfg, "tag_rename", tag_rename,
+                 sizeof(tag_rename) / sizeof(tag_rename[0]));
+  expect_command(cfg, "window_select", window_select,
+                 sizeof(window_select) / sizeof(window_select[0]));
+  expect_spawn_key(cfg, RAWM_MOD_4, "r", "launcher");
+  expect_spawn_key(cfg, RAWM_MOD_4, "w", "window_select");
+}
+
 static void
 compare_binding(const RawmBinding *a, const RawmBinding *b)
 {
@@ -233,6 +288,7 @@ main(int argc, char **argv)
   }
 
   compare_config(&built_in, &installed);
+  check_desktop_defaults(&built_in);
 
   rawm_config_destroy(&installed);
   rawm_config_destroy(&built_in);
