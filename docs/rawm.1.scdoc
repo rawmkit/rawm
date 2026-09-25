@@ -194,7 +194,8 @@ rawm-owned non-client surfaces additionally publish:
 	and advertise *\_NET\_WM\_WINDOW\_TYPE\_DOCK*. This lets compositors
 	distinguish desktop chrome and transient rawm feedback from ordinary clients
 	without title or geometry heuristics. The systray surface is unmapped while
-	empty or while the selected monitor's bar is hidden.
+	empty, while the selected monitor's bar is hidden, or while a visible
+	fullscreen client owns that monitor.
 
 The client properties are removed when rawm releases a surviving client.
 Private rawm protocol atoms are intentionally not advertised through

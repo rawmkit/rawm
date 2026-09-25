@@ -260,9 +260,9 @@ The *ui.systray* group accepts:
 *show* = boolean
 	Whether rawm owns the XEmbed system-tray selection when built with
 	*-Dsystray=true*. Default true. The tray follows the selected monitor and
-	is visible only while that monitor's bar is visible and at least one
-	XEmbed icon advertises the mapped state. An empty tray reserves no bar
-	width.
+	is visible only while that monitor's bar is visible, no visible client is
+	fullscreen, and at least one XEmbed icon advertises the mapped state. An
+	empty or suppressed tray reserves no bar width.
 
 *spacing* = integer
 	Horizontal spacing around each visible tray icon in pixels. Hidden XEmbed

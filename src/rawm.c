@@ -538,7 +538,9 @@ static void           updateclientcomposition(Client *c);
 #ifdef SYSTRAY
 static Atom           getatomprop(Client *c, Atom prop);
 static bool           getxembedflags(Client *c, unsigned long *flags);
-static unsigned int   getsystraywidth();
+static bool           monitorhasfullscreen(const Monitor *m);
+static unsigned int   getsystraywidth(void);
+static unsigned int   getsystraypresentationwidth(const Monitor *m);
 static void           removesystrayicon(Client *i);
 static void           resizebarwin(Monitor *m);
 static void           resizerequest(XEvent *e);
@@ -1432,10 +1434,14 @@ barhitat(Monitor *m, int x)
     int title_x = cursor + blw + (int)config.bar_section_spacing;
 
 #ifdef SYSTRAY
-    if (config.show_systray && m == selmon)
     {
-      status_right -= getsystraywidth();
-      status_right -= (int)config.bar_section_spacing;
+      unsigned int tray_width = getsystraypresentationwidth(m);
+
+      if (tray_width)
+      {
+        status_right -= (int)tray_width;
+        status_right -= (int)config.bar_section_spacing;
+      }
     }
 #endif /* SYSTRAY */
 
@@ -2376,10 +2382,14 @@ drawbar(Monitor *m)
 
     /* status is only drawn on selected monitor */
 #ifdef SYSTRAY
-    if (config.show_systray  &&  m == selmon)
     {
-      status_right -= getsystraywidth();
-      status_right -= (int)config.bar_section_spacing;
+      unsigned int tray_width = getsystraypresentationwidth(m);
+
+      if (tray_width)
+      {
+        status_right -= (int)tray_width;
+        status_right -= (int)config.bar_section_spacing;
+      }
     }
 #endif /* SYSTRAY */
 
@@ -3073,8 +3083,23 @@ getstate(Window w)
 }
 
 #ifdef SYSTRAY
+static bool
+monitorhasfullscreen(const Monitor *m)
+{
+  Client *c;
+
+  if (!m)
+    return false;
+
+  for (c = m->clients; c; c = c->next)
+    if (c->isfullscreen && ISVISIBLE(c))
+      return true;
+
+  return false;
+}
+
 unsigned int
-getsystraywidth()
+getsystraywidth(void)
 {
   unsigned int w = 0;
   Client *i;
@@ -3091,6 +3116,16 @@ getsystraywidth()
   }
 
   return w ? w + config.systray_spacing : 0;
+}
+
+static unsigned int
+getsystraypresentationwidth(const Monitor *m)
+{
+  if (!config.show_systray || !systray || m != selmon || !m->showbar ||
+      monitorhasfullscreen(m))
+    return 0;
+
+  return getsystraywidth();
 }
 #endif /* SYSTRAY */
 
@@ -4720,8 +4755,7 @@ resizebarwin(Monitor *m)
 {
   unsigned int w = m->ww;
 
-  if (config.show_systray  &&  m == selmon)
-    w -= getsystraywidth();
+  w -= getsystraypresentationwidth(m);
 
   XMoveResizeWindow(dpy, m->barwin, m->wx, m->by, w, bh);
 }
@@ -5162,6 +5196,14 @@ setfullscreen(Client *c, bool fullscreen)
   }
 
   updateclientcomposition(c);
+
+#ifdef SYSTRAY
+  if (systray && c->mon == selmon)
+  {
+    resizebarwin(selmon);
+    updatesystray();
+  }
+#endif /* SYSTRAY */
 }
 
 static void
@@ -5806,9 +5848,7 @@ updatebars(void)
   for (m = mons; m; m = m->next)
   {
 #ifdef SYSTRAY
-    w = m->ww;
-    if (config.show_systray && m == selmon)
-      w -= getsystraywidth();
+    w = m->ww - getsystraypresentationwidth(m);
 
     m->barwin =
       XCreateWindow(dpy, root, m->wx, m->by, w,     bh, 0,
@@ -6292,7 +6332,7 @@ updatesystray(void)
   setcardinalproperty(systray->win, rawmatom[RawmAtomMonitor],
                       (unsigned long)selmon->num);
 
-  if (!w || !selmon->showbar)
+  if (!w || !getsystraypresentationwidth(selmon))
   {
     XMoveResizeWindow(dpy, systray->win,
                       selmon->mx + selmon->mw - 1,
