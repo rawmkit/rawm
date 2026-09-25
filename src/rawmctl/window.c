@@ -10,6 +10,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #define RAWMCTL_CLIENT_LIMIT 65536L
 #define RAWMCTL_TEXT_LIMIT 4096L
@@ -377,6 +380,148 @@ rawmctl_window_activate(Display *display, const char *window_text)
     return EXIT_FAILURE;
 
   result = activate_window(display, &list, window);
+  free_window_list(&list);
+  return result;
+}
+
+static int
+write_menu(FILE *menu, const RawmctlWindowList *list)
+{
+  size_t i;
+
+  for (i = 0; i < list->count; ++i)
+  {
+    if (fprintf(menu, "0x%lx  %s - %s\n", list->items[i].id,
+                list->items[i].class_name, list->items[i].title) < 0)
+      return -1;
+  }
+  return fflush(menu) == 0 ? 0 : -1;
+}
+
+static int
+run_rawmenu(FILE *menu, char **selection, int *child_status)
+{
+  int output_pipe[2];
+  pid_t pid;
+  FILE *output = NULL;
+  char *line = NULL;
+  size_t capacity = 0;
+  ssize_t length;
+  int status;
+
+  *selection = NULL;
+  *child_status = -1;
+  if (pipe(output_pipe) < 0)
+  {
+    fprintf(stderr, "rawmctl: pipe: %s\n", strerror(errno));
+    return -1;
+  }
+
+  pid = fork();
+  if (pid < 0)
+  {
+    fprintf(stderr, "rawmctl: fork: %s\n", strerror(errno));
+    close(output_pipe[0]);
+    close(output_pipe[1]);
+    return -1;
+  }
+  if (pid == 0)
+  {
+    if (dup2(fileno(menu), STDIN_FILENO) < 0 ||
+        dup2(output_pipe[1], STDOUT_FILENO) < 0)
+    {
+      fprintf(stderr, "rawmctl: dup2: %s\n", strerror(errno));
+      _exit(126);
+    }
+    close(output_pipe[0]);
+    close(output_pipe[1]);
+    execlp("rawmenu", "rawmenu", "-M", "select", "-p", "Window:",
+           (char *)NULL);
+    fprintf(stderr, "rawmctl: cannot execute rawmenu: %s\n", strerror(errno));
+    _exit(errno == ENOENT ? 127 : 126);
+  }
+
+  close(output_pipe[1]);
+  output = fdopen(output_pipe[0], "r");
+  if (!output)
+  {
+    fprintf(stderr, "rawmctl: fdopen: %s\n", strerror(errno));
+    close(output_pipe[0]);
+    (void)waitpid(pid, &status, 0);
+    return -1;
+  }
+
+  length = getline(&line, &capacity, output);
+  fclose(output);
+  if (waitpid(pid, &status, 0) < 0)
+  {
+    fprintf(stderr, "rawmctl: waitpid: %s\n", strerror(errno));
+    free(line);
+    return -1;
+  }
+
+  *child_status = status;
+  if (length > 0)
+  {
+    while (length > 0 && (line[length - 1] == '\n' || line[length - 1] == '\r'))
+      line[--length] = '\0';
+    *selection = line;
+  }
+  else
+    free(line);
+  return 0;
+}
+
+int
+rawmctl_window_select(Display *display)
+{
+  RawmctlWindowList list;
+  FILE *menu = NULL;
+  char *selection = NULL;
+  const char *end = NULL;
+  Window window;
+  int child_status, result = EXIT_FAILURE;
+
+  if (load_windows(display, &list) < 0)
+    return EXIT_FAILURE;
+  if (!list.count)
+  {
+    fprintf(stderr, "rawmctl: no managed windows\n");
+    free_window_list(&list);
+    return EXIT_FAILURE;
+  }
+
+  menu = tmpfile();
+  if (!menu)
+  {
+    fprintf(stderr, "rawmctl: tmpfile: %s\n", strerror(errno));
+    free_window_list(&list);
+    return EXIT_FAILURE;
+  }
+  if (write_menu(menu, &list) < 0 || fseek(menu, 0, SEEK_SET) < 0)
+  {
+    fprintf(stderr, "rawmctl: cannot prepare rawmenu input\n");
+    fclose(menu);
+    free_window_list(&list);
+    return EXIT_FAILURE;
+  }
+
+  if (run_rawmenu(menu, &selection, &child_status) < 0)
+    goto out;
+  if (!WIFEXITED(child_status) || WEXITSTATUS(child_status) != 0)
+    goto out;
+  if (!selection || parse_window_id(selection, &window, &end) < 0 ||
+      (*end != '\0' && *end != ' ' && *end != '\t'))
+  {
+    fprintf(stderr, "rawmctl: rawmenu returned an invalid window selection\n");
+    goto out;
+  }
+
+  result = activate_window(display, &list, window);
+
+out:
+  free(selection);
+  fclose(menu);
   free_window_list(&list);
   return result;
 }

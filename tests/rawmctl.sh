@@ -144,4 +144,36 @@ grep -q 'not managed' "$tmp/unmanaged.err" ||
   fail "unmanaged activation did not explain the failure"
 
 
+cat >"$tmp/bin/rawmenu" <<'EOS'
+#!/bin/sh
+: > "$RAWMCTL_TEST_CAPTURE"
+picked=
+while IFS= read -r line; do
+  printf '%s\n' "$line" >> "$RAWMCTL_TEST_CAPTURE"
+  case $line in
+    "$RAWMCTL_TEST_PICK  "*) picked=$line ;;
+  esac
+done
+[ "${RAWMCTL_TEST_CANCEL:-0}" -eq 0 ] || exit 1
+[ -n "$picked" ] || exit 2
+printf '%s\n' "$picked"
+EOS
+chmod +x "$tmp/bin/rawmenu"
+
+RAWMCTL_TEST_CAPTURE="$tmp/menu" RAWMCTL_TEST_PICK="$b_win" \
+PATH="$tmp/bin:$PATH" "$rawmctl" window select
+wait_active "$b_win"
+grep -q "^${a_win}  ClassA - duplicate title$" "$tmp/menu" ||
+  fail "selector input omitted client A"
+grep -q "^${b_win}  ClassB - duplicate title$" "$tmp/menu" ||
+  fail "selector input omitted client B"
+
+if RAWMCTL_TEST_CAPTURE="$tmp/menu-cancel" RAWMCTL_TEST_PICK="$a_win" \
+   RAWMCTL_TEST_CANCEL=1 PATH="$tmp/bin:$PATH" \
+   "$rawmctl" window select >"$tmp/cancel.out" 2>"$tmp/cancel.err"; then
+  fail "selector cancellation returned success"
+fi
+wait_active "$b_win"
+
+
 echo "rawmctl window tests: ok"
