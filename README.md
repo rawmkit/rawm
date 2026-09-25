@@ -43,6 +43,8 @@ The original `dwm` 6.0 sources remain the historical base:
   3. https://dwm.suckless.org/patches/
 
 See the git history and `NEWS.md` for rawm-specific evolution.
+See `docs/architecture.md` for repository, process, library, history, and
+security-boundary policy.
 
 
 REQUIREMENTS
