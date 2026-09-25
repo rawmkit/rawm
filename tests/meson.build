@@ -13,6 +13,12 @@ test(
   args: [join_paths(meson.project_source_root(), 'config', 'rawmsession.conf')],
 )
 
+test(
+  'rawmsession-version',
+  rawmsession,
+  args: ['-v'],
+)
+
 cc = meson.get_compiler('c')
 
 config_reference_test = executable(
@@ -547,3 +553,21 @@ endif
 subdir('rawmstat')
 
 subdir('unit')
+
+rawmsession_config_script = find_program('rawmsession-config.sh')
+rawmsession_lifecycle_script = find_program('rawmsession-lifecycle.sh')
+
+test(
+  'rawmsession-config',
+  rawmsession_config_script,
+  args: [rawmsession],
+  workdir: test_workdir,
+)
+
+test(
+  'rawmsession-lifecycle',
+  rawmsession_lifecycle_script,
+  args: [rawmsession],
+  workdir: test_workdir,
+  timeout: 30,
+)
