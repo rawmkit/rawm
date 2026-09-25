@@ -63,6 +63,7 @@ check_desktop_defaults(const RawmConfig *cfg)
   static const char *const window_select[] = {
     "rawmctl", "window", "select"
   };
+  static const char *const lock[] = { "rawlock" };
 
   expect_command(cfg, "launcher", launcher,
                  sizeof(launcher) / sizeof(launcher[0]));
@@ -70,8 +71,11 @@ check_desktop_defaults(const RawmConfig *cfg)
                  sizeof(tag_rename) / sizeof(tag_rename[0]));
   expect_command(cfg, "window_select", window_select,
                  sizeof(window_select) / sizeof(window_select[0]));
+  expect_command(cfg, "lock", lock, sizeof(lock) / sizeof(lock[0]));
   expect_spawn_key(cfg, RAWM_MOD_4, "r", "launcher");
   expect_spawn_key(cfg, RAWM_MOD_4, "w", "window_select");
+  expect_spawn_key(cfg, RAWM_MOD_CONTROL | RAWM_MOD_1,
+                   "Delete", "lock");
 }
 
 static void

@@ -469,6 +469,7 @@ rawm_config_init(RawmConfig *cfg)
   static const char *const window_select[] = {
     "rawmctl", "window", "select"
   };
+  static const char *const lock[] = { "rawlock" };
   static const char *scheme_defaults[RAWM_COLOR_SCHEMES][3] = {
     { "#cccccc", "#000000", "#cccccc" },
     { "#0066ff", "#ffffff", "#0066ff" },
@@ -543,6 +544,7 @@ rawm_config_init(RawmConfig *cfg)
                  sizeof(tag_rename) / sizeof(tag_rename[0]));
   append_command(cfg, "window_select", window_select,
                  sizeof(window_select) / sizeof(window_select[0]));
+  append_command(cfg, "lock", lock, 1);
 
   append_key(cfg, mod, "r", RAWM_ACTION_SPAWN);
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("launcher");
@@ -553,6 +555,8 @@ rawm_config_init(RawmConfig *cfg)
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("tag_rename");
   append_key(cfg, mod, "w", RAWM_ACTION_SPAWN);
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("window_select");
+  append_key(cfg, RAWM_MOD_CONTROL | RAWM_MOD_1, "Delete", RAWM_ACTION_SPAWN);
+  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("lock");
   append_key(cfg, mod, "j", RAWM_ACTION_FOCUS_STACK);
   set_key_number(&cfg->keys[cfg->key_count - 1], 1);
   append_key(cfg, mod, "k", RAWM_ACTION_FOCUS_STACK);
