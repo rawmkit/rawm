@@ -581,7 +581,8 @@ static void           initfont(const char *fontstr);
 static int            fonttextwidth(XftFont *font, const char *text,
                                     size_t len);
 static void           drawutf8(XftDraw *draw, XftColor *color,
-                               int x, int y, const char *text, size_t len);
+                               int x, int y, int height,
+                               const char *text, size_t len);
 static size_t         utf8decode(const char *text, size_t len,
                                  FcChar32 *codepoint);
 static size_t         textfitprefix(const char *text, size_t len,
@@ -2695,9 +2696,13 @@ fontforchar(FcChar32 codepoint)
   FcPatternAddCharSet(pattern, FC_CHARSET, charset);
 
   /*
-   * Do not force FC_SCALABLE here. Bitmap or color emoji faces can be valid
-   * fallbacks and should remain eligible when Xft can open them.
+   * Keep fallback faces compatible with rawm's compact text line. Fixed-size
+   * bitmap fonts can advertise a glyph while exposing strike metrics much
+   * larger than the bar, producing an apparently blank character after
+   * clipping. This is the same constraint used by dwm's Xft fallback path.
    */
+  FcPatternDel(pattern, FC_SCALABLE);
+  FcPatternAddBool(pattern, FC_SCALABLE, FcTrue);
   FcConfigSubstitute(NULL, pattern, FcMatchPattern);
   FcDefaultSubstitute(pattern);
 
@@ -2743,7 +2748,7 @@ fonttextwidth(XftFont *font, const char *text, size_t len)
 }
 
 static void
-drawutf8(XftDraw *draw, XftColor *color, int x, int y,
+drawutf8(XftDraw *draw, XftColor *color, int x, int y, int height,
          const char *text, size_t len)
 {
   size_t pos = 0;
@@ -2774,9 +2779,14 @@ drawutf8(XftDraw *draw, XftColor *color, int x, int y,
       pos += next;
     }
 
-    XftDrawStringUtf8(draw, color, font, x, y,
-                      (const FcChar8 *)text + run_start,
-                      (int)(pos - run_start));
+    {
+      int font_height = font->ascent + font->descent;
+      int baseline = y + (height - font_height) / 2 + font->ascent;
+
+      XftDrawStringUtf8(draw, color, font, x, baseline,
+                        (const FcChar8 *)text + run_start,
+                        (int)(pos - run_start));
+    }
     x += fonttextwidth(font, text + run_start, pos - run_start);
   }
 }
@@ -2804,7 +2814,7 @@ drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
                 bool centered, unsigned int margin)
 {
   char     *buf;
-  int       box_h, box_y, x, y, h, max_text_width;
+  int       box_h, box_y, x, h, max_text_width;
   size_t    dots, len, olen, outlen;
   XftDraw  *d;
 
@@ -2820,7 +2830,6 @@ drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
 
   olen = strlen(text);
   h = pad ? (dc.font.ascent + dc.font.descent) : 0;
-  y = box_y + (box_h + dc.font.ascent - dc.font.descent) / 2;
   max_text_width = MAX(dc.w - h, 0);
 
   len = olen;
@@ -2869,7 +2878,7 @@ drawtextaligned(const char *text, XftColor col[ColLast], bool pad,
                     DefaultColormap(dpy, screen)
                     );
 
-  drawutf8(d, &col[ColFG], x, y, buf, len);
+  drawutf8(d, &col[ColFG], x, box_y, box_h, buf, len);
 
   XftDrawDestroy(d);
   free(buf);
@@ -4582,7 +4591,7 @@ osddraw(void)
       ? ((int)osd.width - (int)text_width) / 2
       : 0;
   drawutf8(draw, &col[ColFG],
-           text_x, (int)padding + dc.font.ascent,
+           text_x, (int)padding, dc.font.height,
            osd.text, strlen(osd.text));
   XftDrawDestroy(draw);
 
