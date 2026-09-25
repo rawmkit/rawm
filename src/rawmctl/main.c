@@ -21,6 +21,14 @@ usage(FILE *stream)
           "       rawmctl -v\n");
 }
 
+static int
+xerror(Display *display, XErrorEvent *event)
+{
+  (void)display;
+  (void)event;
+  return 0;
+}
+
 static Display *
 open_display(void)
 {
@@ -28,6 +36,8 @@ open_display(void)
 
   if (!display)
     fprintf(stderr, "rawmctl: cannot open X display %s\n", XDisplayName(NULL));
+  else
+    XSetErrorHandler(xerror);
   return display;
 }
 

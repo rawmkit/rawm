@@ -156,6 +156,10 @@ while IFS= read -r line; do
 done
 [ "${RAWMCTL_TEST_CANCEL:-0}" -eq 0 ] || exit 1
 [ -n "$picked" ] || exit 2
+if [ -n "${RAWMCTL_TEST_DESTROY:-}" ]; then
+  "$RAWMCTL_TEST_DESTROY" --destroy "$RAWMCTL_TEST_PICK"
+  sleep 0.10
+fi
 printf '%s\n' "$picked"
 EOS
 chmod +x "$tmp/bin/rawmenu"
@@ -175,6 +179,25 @@ if RAWMCTL_TEST_CAPTURE="$tmp/menu-cancel" RAWMCTL_TEST_PICK="$a_win" \
 fi
 wait_active "$b_win"
 
+if RAWMCTL_TEST_CAPTURE="$tmp/menu-stale" RAWMCTL_TEST_PICK="$a_win" \
+   RAWMCTL_TEST_DESTROY="$client" PATH="$tmp/bin:$PATH" \
+   "$rawmctl" window select >"$tmp/stale.out" 2>"$tmp/stale.err"; then
+  fail "selection of a destroyed window returned success"
+fi
+grep -q 'not managed' "$tmp/stale.err" ||
+  fail "destroyed selection did not fail through managed-window authority"
+wait_active "$b_win"
+
+# A stale EWMH snapshot must not let a disappeared client turn an ordinary
+# inspection race into a fatal Xlib BadWindow error.
+"$client" --client-list "$a_win" "$b_win"
+"$rawmctl" window list >"$tmp/stale-list" 2>"$tmp/stale-list.err" ||
+  fail "stale _NET_CLIENT_LIST made window list fail"
+if grep -q "^${a_win}${tab}" "$tmp/stale-list"; then
+  fail "destroyed client survived stale-list filtering"
+fi
+grep -q "^${b_win}${tab}" "$tmp/stale-list" ||
+  fail "live client disappeared during stale-list filtering"
 
 case $("$rawmctl" keyboard get) in
   0|1|2|3) ;;

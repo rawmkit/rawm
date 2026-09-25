@@ -517,6 +517,11 @@ rawmctl_window_select(Display *display)
     goto out;
   }
 
+  /* Selection UI is asynchronous with client lifetime. Re-read the managed
+   * set so a closed/replaced XID cannot be activated from the menu snapshot. */
+  free_window_list(&list);
+  if (load_windows(display, &list) < 0)
+    goto out;
   result = activate_window(display, &list, window);
 
 out:

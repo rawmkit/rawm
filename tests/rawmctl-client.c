@@ -80,8 +80,28 @@ main(int argc, char **argv)
     XCloseDisplay(display);
     return EXIT_SUCCESS;
   }
+  if (argc >= 3 && !strcmp(argv[1], "--client-list"))
+  {
+    Window *windows;
+    Atom client_list;
+    int i;
+
+    windows = calloc((size_t)(argc - 2), sizeof(*windows));
+    if (!windows)
+      fail("out of memory");
+    for (i = 2; i < argc; ++i)
+      windows[i - 2] = parse_window(argv[i]);
+
+    client_list = XInternAtom(display, "_NET_CLIENT_LIST", False);
+    XChangeProperty(display, DefaultRootWindow(display), client_list, XA_WINDOW,
+                    32, PropModeReplace, (unsigned char *)windows, argc - 2);
+    XSync(display, False);
+    free(windows);
+    XCloseDisplay(display);
+    return EXIT_SUCCESS;
+  }
   if (argc != 3)
-    fail("usage: rawmctl-client CLASS TITLE | --active | --destroy WINDOW");
+    fail("usage: rawmctl-client CLASS TITLE | --active | --destroy WINDOW | --client-list WINDOW...");
 
   root = DefaultRootWindow(display);
   window = XCreateSimpleWindow(display, root, 80, 90, 320, 180, 0, 0, 0);
