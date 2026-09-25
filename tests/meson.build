@@ -1,3 +1,18 @@
+rawmsession_config_test = executable(
+  'rawmsession-config-test',
+  'rawmsession-config-test.c',
+  rawmsession_config_source,
+  include_directories: rawmsession_include,
+  dependencies: libconfig_dep,
+  build_by_default: false,
+)
+
+test(
+  'rawmsession-config-defaults',
+  rawmsession_config_test,
+  args: [join_paths(meson.project_source_root(), 'config', 'rawmsession.conf')],
+)
+
 cc = meson.get_compiler('c')
 
 config_reference_test = executable(
