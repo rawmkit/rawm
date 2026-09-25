@@ -176,4 +176,17 @@ fi
 wait_active "$b_win"
 
 
-echo "rawmctl window tests: ok"
+case $("$rawmctl" keyboard get) in
+  0|1|2|3) ;;
+  *) fail "keyboard get returned an invalid group" ;;
+esac
+"$rawmctl" keyboard set 0
+[ "$("$rawmctl" keyboard get)" = 0 ] ||
+  fail "keyboard group zero was not admitted"
+if "$rawmctl" keyboard set 4 >"$tmp/group.out" 2>"$tmp/group.err"; then
+  fail "out-of-range keyboard group succeeded"
+fi
+grep -q 'range 0..3' "$tmp/group.err" ||
+  fail "invalid keyboard group did not explain the range"
+
+echo "rawmctl tests: ok"

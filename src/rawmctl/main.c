@@ -16,6 +16,8 @@ usage(FILE *stream)
           "usage: rawmctl window list\n"
           "       rawmctl window activate WINDOW\n"
           "       rawmctl window select\n"
+          "       rawmctl keyboard get\n"
+          "       rawmctl keyboard set GROUP\n"
           "       rawmctl -v\n");
 }
 
@@ -65,6 +67,15 @@ main(int argc, char **argv)
       result = rawmctl_window_activate(display, argv[3]);
     else if (argc == 3 && !strcmp(argv[2], "select"))
       result = rawmctl_window_select(display);
+    else
+      usage(stderr);
+  }
+  else if (!strcmp(argv[1], "keyboard"))
+  {
+    if (argc == 3 && !strcmp(argv[2], "get"))
+      result = rawmctl_keyboard_get(display);
+    else if (argc == 4 && !strcmp(argv[2], "set"))
+      result = rawmctl_keyboard_set(display, argv[3]);
     else
       usage(stderr);
   }

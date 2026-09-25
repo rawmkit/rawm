@@ -3,6 +3,7 @@ rawmctl = executable(
   [
     'main.c',
     'window.c',
+    'keyboard.c',
   ],
   c_args: ['-DVERSION="@0@"'.format(meson.project_version())],
   dependencies: x11_dep,
