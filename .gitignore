@@ -11,3 +11,8 @@
 
 # dist tarballs
 *.tar.gz
+
+# legacy in-tree rawmstat artefacts
+/rawmstat
+/rawmstat.1
+/rawmstat.conf.5

@@ -9,3 +9,5 @@ rawm = executable(
   dependencies: rawm_deps,
   install: true,
 )
+
+subdir('rawmstat')

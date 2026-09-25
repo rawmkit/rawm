@@ -1,3 +1,18 @@
+Unreleased
+==========
+
+Repository architecture
+-----------------------
+
+* The complete rawmstat history is imported without squashing and its current
+  sources are built from the rawm repository while rawmstat remains a separate
+  process.
+* Meson now builds, installs, and tests rawmstat alongside rawm. The
+  rawm/rawmstat integration test always uses the in-tree executables, making
+  producer/consumer compatibility a repository-local release invariant.
+* rawmstat keeps its ISC licensing and provenance explicitly alongside rawm's
+  MIT/X sources.
+
 rawm 6.1.1 — 2026-09-25
 =========================
 

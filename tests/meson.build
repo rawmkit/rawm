@@ -498,3 +498,5 @@ else
     args: ['missing test dependencies: @0@'.format(', '.join(signals_missing))],
   )
 endif
+
+subdir('rawmstat')

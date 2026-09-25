@@ -1,9 +1,11 @@
 OVERVIEW
 ========
 
-`rawm` is a compact dynamic tiling window manager for X11, derived from
-suckless `dwm` 6.0 and developed as an independent runtime-configurable window
-manager.
+`rawm` is a compact X11 desktop control-plane repository centered on a
+dynamic tiling window manager derived from suckless `dwm` 6.0. It builds the
+`rawm` window manager and the separate `rawmstat` status producer from one
+source authority while keeping their process and runtime-policy boundaries
+explicit.
 
 The code keeps the small, direct Xlib model of its ancestor while moving
 desktop policy out of compile-time headers and into validated runtime
@@ -25,10 +27,14 @@ configuration. Major facilities include:
     cycling, and command-backed tag renaming;
   * optional XEmbed systray, Xinerama, per-window keyboard layout, and focused
     window title support;
-  * a Meson build and behavioral X11 test suite using isolated Xvfb fixtures.
+  * the independently running `rawmstat` producer for the rawm-v2 status
+    protocol;
+  * one Meson build and behavioral test suite covering both sides of that
+    producer/consumer contract with isolated Xvfb fixtures.
 
 `rawm` depends on `libX11`, `libXft`, `fontconfig`, and `libconfig`.
-Xinerama support is optional.
+`rawmstat` depends on `libX11` and `libconfig`. Xinerama support is optional
+for the window manager.
 
 The original `dwm` 6.0 sources remain the historical base:
 
@@ -147,8 +153,9 @@ host system:
     DESTDIR="$PWD/stage" meson install -C build
     find stage -type f -print | sort
 
-The staged tree must contain the `rawm` binary, `rawm(1)`, `rawm.conf(5)`, and
-`/etc/rawm/rawm.conf`. `rawm -C -c config/rawm.conf` is also covered by the
+The staged tree must contain the `rawm` and `rawmstat` binaries, their manual
+pages, `rawm.conf(5)`, `rawmstat.conf(5)`, and both configuration files under
+`/etc/rawm`. `rawm -C -c config/rawm.conf` is also covered by the
 test suite, including parity between the installed configuration and compiled
 defaults.
 
@@ -163,5 +170,7 @@ clean.
 LICENSE
 =======
 
-`rawm` is licensed through MIT/X Consortium License.
-See LICENSE file for copyright and license details.
+The rawm window-manager sources are licensed under the MIT/X Consortium
+license in `LICENSE`. The imported rawmstat component remains under the ISC
+license in `LICENSES/ISC.txt`; `LICENSES/README.md` maps the current component
+paths to their notices.

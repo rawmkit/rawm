@@ -2,6 +2,7 @@
 set -eu
 
 rawmstat=${1:-./rawmstat}
+default_config=${2:-rawmstat.conf}
 tmp=${TMPDIR:-/tmp}/rawmstat-config-test.$$
 trap 'kill ${pid:-} 2>/dev/null || true; rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp"
@@ -38,7 +39,7 @@ wait_for_output()
   done
 }
 
-expect_ok rawmstat.conf
+expect_ok "$default_config"
 
 cat >"$tmp/valid.conf" <<'EOC'
 status = {
@@ -157,7 +158,7 @@ EOC
 if XDG_CONFIG_HOME="$tmp/xdg" "$rawmstat" -C >/dev/null 2>"$tmp/stderr"; then
   fail "normal configuration lookup ignored invalid user configuration"
 fi
-XDG_CONFIG_HOME="$tmp/xdg" "$rawmstat" -C -c rawmstat.conf >/dev/null 2>"$tmp/stderr" || {
+XDG_CONFIG_HOME="$tmp/xdg" "$rawmstat" -C -c "$default_config" >/dev/null 2>"$tmp/stderr" || {
   cat "$tmp/stderr" >&2
   fail "explicit configuration was not isolated from user configuration"
 }
