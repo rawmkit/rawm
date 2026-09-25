@@ -1,3 +1,20 @@
+rawm 6.4.0 — 2026-09-25
+=========================
+
+Desktop integration
+-------------------
+
+* `rawlock` is now a stock argv-level desktop capability, invoked by the
+  built-in `Control+Mod1+Delete` binding (normally Control+Alt+Delete). rawm
+  launches the separately maintained locker but does not participate in
+  authentication or supervise its lifetime.
+* The default-command and binding tests pin the rawlock command and lock chord
+  alongside the rawmenu/rawmctl desktop composition.
+* The rawm manuals and repository architecture now document the complete
+  screen-lock authority boundary and the built-in `Mod4+w` window selector.
+* The declared Meson minimum is 1.6.0, matching the maintained test graph's
+  use of built executable objects as test arguments.
+
 rawm 6.3.0 — 2026-09-25
 =========================
 
