@@ -79,6 +79,7 @@ compare_config(const RawmConfig *a, const RawmConfig *b)
 
   SAME(show_systray);
   SAME(systray_spacing);
+  SAME(systray_icon_size);
 
   SAME(status_enabled);
   SAME(status_protocol);

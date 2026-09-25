@@ -509,6 +509,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->osd_min_width = 0;
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
+  cfg->systray_icon_size = 0;
   cfg->status_enabled = true;
   cfg->status_protocol = RAWM_STATUS_PROTOCOL_V2;
   cfg->status_separator = xstrdup(" | ");
@@ -809,7 +810,7 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
     "section_spacing", "cell_margin", "indicator_size", "tags"
   };
   static const char *const bar_tags_allowed[] = { "visibility" };
-  static const char *const tray_allowed[] = { "show", "spacing" };
+  static const char *const tray_allowed[] = { "show", "spacing", "icon_size" };
   static const char *const color_allowed[] = { "normal", "selected", "urgent", "error", "floating" };
   config_setting_t *group;
   int h;
@@ -921,9 +922,11 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 
   group = config_setting_get_member(ui, "systray");
   if (group) {
-    if (validate_members(err, group, tray_allowed, 2) < 0 ||
+    if (validate_members(err, group, tray_allowed, 3) < 0 ||
         read_bool(err, group, "show", &cfg->show_systray) < 0 ||
-        read_uint_range(err, group, "spacing", 0, 64, &cfg->systray_spacing) < 0)
+        read_uint_range(err, group, "spacing", 0, 64, &cfg->systray_spacing) < 0 ||
+        read_uint_range(err, group, "icon_size", 0, 512,
+                        &cfg->systray_icon_size) < 0)
       return -1;
   }
 
@@ -1907,6 +1910,8 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%s", cfg->show_systray ? "true" : "false");
   else if (!strcmp(path, "ui.systray.spacing"))
     snprintf(buf, buflen, "%u", cfg->systray_spacing);
+  else if (!strcmp(path, "ui.systray.icon_size"))
+    snprintf(buf, buflen, "%u", cfg->systray_icon_size);
   else if (!strcmp(path, "status.enabled"))
     snprintf(buf, buflen, "%s", cfg->status_enabled ? "true" : "false");
   else if (!strcmp(path, "status.protocol"))

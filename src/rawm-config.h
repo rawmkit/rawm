@@ -185,6 +185,7 @@ typedef struct {
   unsigned int osd_min_width;
   bool show_systray;
   unsigned int systray_spacing;
+  unsigned int systray_icon_size;
 
   bool status_enabled;
   RawmStatusProtocol status_protocol;
