@@ -2,7 +2,7 @@ project(
   'rawm',
   'c',
   version: '6.3.0',
-  meson_version: '>=1.4.0',
+  meson_version: '>=1.6.0',
   default_options: [
     'c_std=c99',
     'warning_level=3',
