@@ -1,3 +1,23 @@
+rawm 6.5.0 — 2026-09-26
+=========================
+
+Clipboard history integration
+-----------------------------
+
+* `rawclip menu` is now a stock argv-level desktop capability bound to
+  `Mod4+v`. rawm owns the global key grab and process launch; rawclip retains
+  clipboard capture, exclusion, retention, replay, and menu policy.
+* The installed configuration and compiled defaults carry the same
+  `clipboard_history` command and binding, with parity tests pinning the
+  contract.
+* An Xvfb/XTest integration test exercises the real `Mod4+v` key-grab and
+  direct-exec path and asserts that rawclip receives exactly the `menu`
+  argument.
+* The key injection helper now supports ordered key chords while preserving
+  existing single-key tests.
+* Documentation records rawclip as an independent repository/runtime authority
+  and corrects the declared Meson build requirement to 1.6.0.
+
 rawm 6.4.0 — 2026-09-25
 =========================
 
