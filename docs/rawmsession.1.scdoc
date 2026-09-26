@@ -29,6 +29,12 @@ failure. The stock sidecars are *rawmstat*(1) and *picom*(1). A sidecar that rep
 exits is disabled after five restart attempts within ten seconds, preventing a
 broken executable or configuration from becoming an unbounded fork loop. The
 session and its primary continue running after such a sidecar is disabled.
+When a sidecar exits, rawmsession kills any processes remaining in that
+sidecar's process group before starting its replacement. A sidecar must stay
+in the foreground; a wrapper which backgrounds work is still a failed
+sidecar, and children in its process group are not retained across restarts.
+Programs which detach into another process group are outside this supervision
+boundary and must not be configured as sidecars.
 
 rawmsession is not a general autostart facility. Programs listed as sidecars
 must be infrastructure whose desired state is continuously running. User

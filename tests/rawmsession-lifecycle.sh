@@ -10,8 +10,10 @@ esac
 tmp=${TMPDIR:-/tmp}/rawmsession-lifecycle-test.$$
 mkdir -p "$tmp"
 session_pid=
+descendant_pid=
 cleanup()
 {
+  [ -z "$descendant_pid" ] || kill -KILL "$descendant_pid" 2>/dev/null || true
   [ -z "$session_pid" ] || kill -KILL "$session_pid" 2>/dev/null || true
   rm -rf "$tmp"
 }
@@ -181,6 +183,45 @@ session_pid=
 [ "$rc" -eq 143 ] || fail "SIGTERM session status was $rc instead of 143"
 wait_for 100 test -f "$tmp/primary.term" || fail "SIGTERM did not reach primary"
 wait_for 100 test -f "$tmp/sidecar.term" || fail "SIGTERM did not reach sidecar"
+
+# An exiting sidecar must not leave a descendant behind when it is restarted.
+# Its leader remains waitable until rawmsession has killed the process group.
+rm -f "$tmp/finish"
+printf '0\n' >"$tmp/descendant.starts"
+cat >"$tmp/descendant-sidecar" <<EOF2
+#!/bin/sh
+n=\$(cat '$tmp/descendant.starts')
+n=\$((n + 1))
+printf '%s\n' "\$n" >'$tmp/descendant.starts'
+if [ "\$n" -eq 1 ]; then
+  printf x >'$tmp/descendant.heartbeat'
+  (while :; do printf x >>'$tmp/descendant.heartbeat'; sleep 0.02; done) &
+  printf '%s\n' \$! >'$tmp/descendant.pid'
+  exit 0
+fi
+trap 'exit 0' TERM INT HUP
+while [ ! -f '$tmp/finish' ]; do sleep 0.02; done
+EOF2
+chmod +x "$tmp/descendant-sidecar"
+cat >"$tmp/descendant.conf" <<EOF2
+primary = ("$tmp/primary-wait");
+sidecars = ({ name = "descendant"; command = ("$tmp/descendant-sidecar"); });
+EOF2
+"$rawmsession" -c "$tmp/descendant.conf" >/dev/null 2>"$tmp/stderr" &
+session_pid=$!
+wait_for 100 test -s "$tmp/descendant.pid" || fail "sidecar descendant did not start"
+descendant_pid=$(cat "$tmp/descendant.pid")
+wait_for 150 sh -c '[ "$(cat '"$tmp/descendant.starts"' 2>/dev/null || echo 0)" -ge 2 ]' ||
+  fail "sidecar descendant fixture did not restart"
+sleep 0.1
+before=$(wc -c <"$tmp/descendant.heartbeat")
+sleep 0.2
+after=$(wc -c <"$tmp/descendant.heartbeat")
+[ "$before" -eq "$after" ] || fail "exited sidecar left a running descendant"
+: >"$tmp/finish"
+wait "$session_pid" || fail "descendant test session failed"
+session_pid=
+descendant_pid=
 
 # SIGHUP restarts the complete infrastructure set in place while preserving
 # rawmsession's PID. This is distinct from sending SIGHUP directly to rawm,

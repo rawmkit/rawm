@@ -283,6 +283,8 @@ find_sidecar(ManagedSidecar *sidecars, size_t count, pid_t pid)
   return NULL;
 }
 
+static void signal_child_group(pid_t pid, int signum);
+
 static void
 reap_children(pid_t *primary_pid, bool *primary_done, int *primary_status,
               ManagedSidecar *sidecars, size_t count, bool stopping)
@@ -292,9 +294,26 @@ reap_children(pid_t *primary_pid, bool *primary_done, int *primary_status,
   uint64_t now = monotonic_msec();
 
   for (;;) {
-    pid = waitpid(-1, &status, WNOHANG);
-    if (pid <= 0)
+    siginfo_t info = { 0 };
+
+    if (waitid(P_ALL, 0, &info, WEXITED | WNOHANG | WNOWAIT) < 0) {
+      if (errno == EINTR)
+        continue;
       break;
+    }
+    pid = info.si_pid;
+    if (pid == 0)
+      break;
+
+    /* Keep the exited leader unreaped until its whole sidecar group is gone.
+     * Otherwise its PID could be reused before the group is signaled. */
+    if (find_sidecar(sidecars, count, pid))
+      signal_child_group(pid, SIGKILL);
+    if (waitpid(pid, &status, 0) < 0) {
+      if (errno == EINTR)
+        continue;
+      break;
+    }
     if (pid == *primary_pid) {
       *primary_pid = 0;
       *primary_done = true;
