@@ -162,10 +162,24 @@ binding semantics.
 SESSION LIFECYCLE
 =================
 
-For a rawm-owned X session, make `rawmsession` the final foreground command in
-`.xinitrc` or the equivalent session launcher:
+For `startx`, make `rawmsession` the final foreground command in `.xinitrc`:
 
+    export XDG_CURRENT_DESKTOP=rawm
     exec rawmsession
+
+The installed `rawm.desktop` offers the same session to display managers that
+read X11 session entries from the configured datadir's `xsessions` directory.
+With `--prefix=/usr` and the default datadir this is
+`/usr/share/xsessions/rawm.desktop`. A `/usr/local` install puts the entry in
+`/usr/local/share/xsessions`; check whether the chosen display manager searches
+that directory. The entry launches `rawmsession` directly and declares
+`DesktopNames=rawm;` for the login manager to set `XDG_CURRENT_DESKTOP`. It
+does not install or configure a display manager.
+
+Traditional `xdm` uses an `Xsession` script, typically invoking the user's
+`.xsession`, rather than selecting an entry from `xsessions`. Place the same
+two commands in `.xsession` when using that route. The X server, X authority
+and any session bus remain the responsibility of the chosen login path.
 
 The installed `/etc/rawm/rawmsession.conf` starts `rawm` as the primary and
 supervises `rawmstat` and `picom` as long-lived sidecars. The primary defines

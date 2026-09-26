@@ -104,11 +104,25 @@ is an invoked authentication boundary rather than a session daemon.
 
 # SESSION STARTUP
 
-For an *xinit*(1) session, make rawmsession the final foreground process:
+For an *xinit*(1) session, make rawmsession the final foreground process in
+_.xinitrc_:
 
 ```
+export XDG_CURRENT_DESKTOP=rawm
 exec rawmsession
 ```
+
+The installed X11 session entry _rawm.desktop_ runs rawmsession directly in
+display managers that read the configured datadir's _xsessions_ directory.
+With a _/usr_ prefix and the default datadir the path is
+_/usr/share/xsessions/rawm.desktop_. Its *DesktopNames=rawm;* declares the
+desktop identity for *XDG_CURRENT_DESKTOP*. Other prefixes may install it in
+a directory that the display manager does not search.
+
+For *xdm*(1), whose Xsession script normally executes the user's _.xsession_,
+put the same export and exec in that file. The selected login path supplies the
+X display and authentication environment; rawmsession manages the desktop
+processes after it starts.
 
 Do not separately background the stock rawmstat or Picom sidecars in the same
 startup file; doing so creates duplicate lifecycle authorities.
