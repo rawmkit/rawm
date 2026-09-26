@@ -144,6 +144,7 @@ rawmctl_test = find_program('rawmctl.sh')
 focus_index_test = find_program('focus-index.sh')
 window_view_test = find_program('window-view.sh')
 actions_test = find_program('actions.sh')
+clipboard_binding_test = find_program('clipboard-binding.sh')
 if xinerama_dep.found()
   multimon_test = find_program('multimon.sh')
 endif
@@ -457,6 +458,21 @@ if x11_missing.length() == 0
 else
   test(
     'actions',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
+  )
+endif
+
+if x11_missing.length() == 0
+  test(
+    'clipboard-binding',
+    clipboard_binding_test,
+    args: [rawm, send_key],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'clipboard-binding',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
   )
