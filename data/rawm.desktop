@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=rawm
+Comment=rawm X11 desktop session
+Exec=rawmsession
+TryExec=rawmsession
+DesktopNames=rawm;

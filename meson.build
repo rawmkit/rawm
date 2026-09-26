@@ -67,3 +67,8 @@ subdir('docs')
 
 subdir('config')
 subdir('tests')
+
+install_data(
+  'data/rawm.desktop',
+  install_dir: join_paths(get_option('datadir'), 'xsessions'),
+)
