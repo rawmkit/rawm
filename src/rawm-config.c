@@ -470,6 +470,7 @@ rawm_config_init(RawmConfig *cfg)
     "rawmctl", "window", "select"
   };
   static const char *const lock[] = { "rawlock" };
+  static const char *const clipboard_history[] = { "rawclip", "menu" };
   static const char *scheme_defaults[RAWM_COLOR_SCHEMES][3] = {
     { "#cccccc", "#000000", "#cccccc" },
     { "#0066ff", "#ffffff", "#0066ff" },
@@ -545,6 +546,8 @@ rawm_config_init(RawmConfig *cfg)
   append_command(cfg, "window_select", window_select,
                  sizeof(window_select) / sizeof(window_select[0]));
   append_command(cfg, "lock", lock, 1);
+  append_command(cfg, "clipboard_history", clipboard_history,
+                 sizeof(clipboard_history) / sizeof(clipboard_history[0]));
 
   append_key(cfg, mod, "r", RAWM_ACTION_SPAWN);
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("launcher");
@@ -555,6 +558,8 @@ rawm_config_init(RawmConfig *cfg)
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("tag_rename");
   append_key(cfg, mod, "w", RAWM_ACTION_SPAWN);
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("window_select");
+  append_key(cfg, mod, "v", RAWM_ACTION_SPAWN);
+  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("clipboard_history");
   append_key(cfg, RAWM_MOD_CONTROL | RAWM_MOD_1, "Delete", RAWM_ACTION_SPAWN);
   cfg->keys[cfg->key_count - 1].binding.command = xstrdup("lock");
   append_key(cfg, mod, "j", RAWM_ACTION_FOCUS_STACK);

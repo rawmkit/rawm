@@ -64,6 +64,7 @@ check_desktop_defaults(const RawmConfig *cfg)
     "rawmctl", "window", "select"
   };
   static const char *const lock[] = { "rawlock" };
+  static const char *const clipboard_history[] = { "rawclip", "menu" };
 
   expect_command(cfg, "launcher", launcher,
                  sizeof(launcher) / sizeof(launcher[0]));
@@ -72,8 +73,11 @@ check_desktop_defaults(const RawmConfig *cfg)
   expect_command(cfg, "window_select", window_select,
                  sizeof(window_select) / sizeof(window_select[0]));
   expect_command(cfg, "lock", lock, sizeof(lock) / sizeof(lock[0]));
+  expect_command(cfg, "clipboard_history", clipboard_history,
+                 sizeof(clipboard_history) / sizeof(clipboard_history[0]));
   expect_spawn_key(cfg, RAWM_MOD_4, "r", "launcher");
   expect_spawn_key(cfg, RAWM_MOD_4, "w", "window_select");
+  expect_spawn_key(cfg, RAWM_MOD_4, "v", "clipboard_history");
   expect_spawn_key(cfg, RAWM_MOD_CONTROL | RAWM_MOD_1,
                    "Delete", "lock");
 }
