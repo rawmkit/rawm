@@ -276,6 +276,11 @@ replaces them.
 *Meta-w*
 	Select a managed window using the configured *window_select* command.
 
+*Meta-v*
+	Open clipboard history using the configured *clipboard_history* command.
+	The stock policy runs *rawclip menu*. rawm owns the global key binding but
+	does not own clipboard-history capture, exclusion, or retention policy.
+
 *Control-Alt-Delete*
 	Invoke the configured *lock* command. In the stock policy this runs
 	*rawlock*(1); rawm does not supervise the locker or participate in

@@ -630,6 +630,7 @@ commands = {
   tag_rename = ("rawmenu", "-M", "input", "-p", "tag");
   window_select = ("rawmctl", "window", "select");
   lock = ("rawlock");
+  clipboard_history = ("rawclip", "menu");
   shell_example = ("/bin/sh", "-c", "printf '%s\\n' hello");
 };
 ```
@@ -645,10 +646,13 @@ happens after all layers have been merged.
 
 The built-in and installed stock policy uses *rawmenu-run* for the launcher,
 *rawmenu*(1) input mode for tag renaming, *rawmctl window select* for the
-window selector, and *rawlock*(1) for screen locking. The stock lock binding is
-*Control+Mod1+Delete* (normally Control+Alt+Delete). These commands remain
-ordinary replaceable configuration; rawm does not own their presentation,
-authentication, or process lifecycle.
+window selector, *rawclip menu* for clipboard-history selection, and
+*rawlock*(1) for screen locking. The stock clipboard-history binding is
+*Mod4+v* and the stock lock binding is *Control+Mod1+Delete* (normally
+Control+Alt+Delete). These commands remain ordinary replaceable configuration;
+rawm owns their configured key grabs and process launch but does not own
+rawclip history policy, rawmenu presentation, rawlock authentication, or the
+external programs' process lifecycle.
 
 # INPUT
 

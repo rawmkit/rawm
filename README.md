@@ -32,6 +32,8 @@ configuration. Major facilities include:
     protocol;
   * `rawmctl` for direct EWMH window inspection/activation, rawmenu-backed
     window selection, and XKB keyboard-group control;
+  * stock `Mod4+v` clipboard-history invocation through separately packaged
+    `rawclip`, while rawm retains global-key authority;
   * `rawmsession` for one-primary session lifetime, supervised rawmstat/Picom
     sidecars, bounded crash recovery, and orderly session shutdown;
   * one Meson build and behavioral test suite covering both sides of that
@@ -40,9 +42,10 @@ configuration. Major facilities include:
 `rawm` depends on `libX11`, `libXft`, `fontconfig`, and `libconfig`.
 `rawmstat` depends on `libX11` and `libconfig`; `rawmctl` depends on `libX11`;
 `rawmsession` depends on `libconfig`. The `rawmctl window select` command
-additionally composes at run time with the
-separately packaged `rawmenu`. Xinerama support is optional for the window
-manager.
+additionally composes at run time with the separately packaged `rawmenu`; the
+stock clipboard-history command similarly composes with separately packaged
+`rawclip`. Neither is a link-time dependency of rawm. Xinerama support is
+optional for the window manager.
 
 The original `dwm` 6.0 sources remain the historical base:
 
@@ -61,7 +64,7 @@ REQUIREMENTS
 Build time
 ----------
   * C99 compiler
-  * Meson >= 1.4.0
+  * Meson >= 1.6.0
   * `libX11`
   * `libXft`
   * `fontconfig`
@@ -123,10 +126,12 @@ the configured face.
 
 The stock desktop command policy composes with separately packaged tools:
 `Mod4+r` runs `rawmenu-run`, tag renaming uses `rawmenu` input mode, `Mod4+w`
-runs `rawmctl window select`, and `Control+Mod1+Delete` invokes `rawlock`. These
-are argv-level defaults, not hard-coded presentation or authentication logic;
-user configuration may replace any command. rawm only launches rawlock and does
-not participate in authentication or supervise the locker's lifetime.
+runs `rawmctl window select`, `Mod4+v` runs `rawclip menu`, and
+`Control+Mod1+Delete` invokes `rawlock`. These are argv-level defaults, not
+hard-coded presentation, clipboard-history, or authentication logic; user
+configuration may replace any command. rawm owns the global key grabs and
+launches the configured programs, but does not absorb rawclip history policy or
+rawlock authentication/lifecycle authority.
 
 Tiled layouts support runtime-configured inner and outer gaps through
 `layout.gaps`; smart gaps may suppress the outer margin when only one tiled
@@ -169,9 +174,11 @@ fast failures disable only that sidecar rather than killing or fork-bombing the
 session.
 
 `rawmsession` is deliberately not an application autostart mechanism. Remove a
-sidecar when another authority owns that process. `rawmenu` is invoked on
-demand, Pinentry remains owned by gpg-agent, and rawlock remains an invoked
-authentication boundary. See `rawmsession(1)` and `rawmsession.conf(5)`.
+sidecar when another authority owns that process. `rawmenu` and the `rawclip`
+menu frontend are invoked on demand, Pinentry remains owned by gpg-agent, and
+rawlock remains an invoked authentication boundary. The separately started
+`rawclipd` service retains clipboard-history lifecycle authority. See
+`rawmsession(1)` and `rawmsession.conf(5)`.
 
 RELEASE VERIFICATION
 ====================

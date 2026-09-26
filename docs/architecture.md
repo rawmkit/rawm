@@ -64,6 +64,12 @@ independent release usefulness, and a Pinentry/secret-entry protocol and
 security lifecycle that should not become part of the window-manager release
 authority.
 
+`rawclip` remains a separate repository. Clipboard capture, exclusion, history
+retention, selection ownership, and rawmenu-backed history presentation form a
+separate runtime authority. rawm may invoke `rawclip menu` through an ordinary
+configured argv binding and owns the global key grab, but rawclip must not grab
+global keys or move clipboard-history policy into the window manager.
+
 `rawlock` remains a separate repository. Screen locking and authentication form
 a privileged security boundary with materially different failure, review, and
 release requirements from the non-privileged desktop control plane. rawm may
