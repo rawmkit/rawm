@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <libconfig.h>
 #include <limits.h>
+#include <net/if.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -405,6 +406,16 @@ rawmstat_config_validate(const RawmstatConfig *cfg, FILE *err)
     if (source->provider == RAWMSTAT_PROVIDER_CLOCK &&
         (!source->format || !source->format[0])) {
       fprintf(err, "rawmstat: configuration error: clock source '%s' has empty format\n",
+              source->id);
+      return -1;
+    }
+    if (source->provider == RAWMSTAT_PROVIDER_NETWORK &&
+        (!source->interface || !source->interface[0] ||
+         strlen(source->interface) >= IF_NAMESIZE ||
+         strchr(source->interface, '/') || !strcmp(source->interface, ".") ||
+         !strcmp(source->interface, ".."))) {
+      fprintf(err,
+              "rawmstat: configuration error: network source '%s' has invalid interface\n",
               source->id);
       return -1;
     }

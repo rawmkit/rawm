@@ -4,6 +4,8 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <net/if.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
@@ -44,6 +46,28 @@ sys_root(void)
 }
 
 static int
+join_parts(char *buffer, size_t size, const char *a, const char *b,
+           const char *c, const char *d)
+{
+  const char *parts[] = {a, b, c, d};
+  size_t offset = 0;
+
+  for (size_t i = 0; i < sizeof(parts) / sizeof(parts[0]); ++i) {
+    size_t length;
+
+    if (!parts[i])
+      continue;
+    length = strlen(parts[i]);
+    if (length >= size - offset)
+      return -1;
+    memcpy(buffer + offset, parts[i], length);
+    offset += length;
+  }
+  buffer[offset] = '\0';
+  return 0;
+}
+
+static int
 set_sample(char **text, RawmStatusState *state, const char *value,
            RawmStatusState semantic)
 {
@@ -80,7 +104,8 @@ read_cpu(uint64_t *total, uint64_t *idle)
   uint64_t values[10] = {0};
   size_t count = 0;
 
-  snprintf(path, sizeof(path), "%s/stat", proc_root());
+  if (join_parts(path, sizeof(path), proc_root(), "/stat", NULL, NULL) < 0)
+    return -1;
   fp = fopen(path, "r");
   if (!fp)
     return -1;
@@ -155,7 +180,8 @@ sample_memory(const RawmstatSourceConfig *config, char **text,
   unsigned int used;
   RawmStatusState semantic = RAWM_STATUS_NORMAL;
 
-  snprintf(path, sizeof(path), "%s/meminfo", proc_root());
+  if (join_parts(path, sizeof(path), proc_root(), "/meminfo", NULL, NULL) < 0)
+    return -1;
   fp = fopen(path, "r");
   if (!fp)
     return -1;
@@ -192,23 +218,32 @@ sample_filesystem(const RawmstatSourceConfig *config, char **text,
                   RawmStatusState *state)
 {
   struct statvfs fs;
-  unsigned long long bytes;
-  double gib;
+  long double gib;
+  unsigned long long display;
   char buffer[64];
   RawmStatusState semantic = RAWM_STATUS_NORMAL;
+  int written;
 
   if (statvfs(config->path, &fs) < 0)
     return -1;
-  bytes = (unsigned long long)fs.f_bavail * (unsigned long long)fs.f_frsize;
-  gib = (double)bytes / (1024.0 * 1024.0 * 1024.0);
-  if (gib <= (double)config->critical)
+  gib = (long double)fs.f_bavail * (long double)fs.f_frsize /
+        (1024.0L * 1024.0L * 1024.0L);
+  if (gib > (long double)ULLONG_MAX)
+    return -1;
+  if (gib <= (long double)config->critical)
     semantic = RAWM_STATUS_CRITICAL;
-  else if (gib <= (double)config->warning)
+  else if (gib <= (long double)config->warning)
     semantic = RAWM_STATUS_WARNING;
-  if (gib < 10.0)
-    snprintf(buffer, sizeof(buffer), "disk %.1fG", gib);
-  else
-    snprintf(buffer, sizeof(buffer), "disk %.0fG", gib);
+  if (gib < 10.0L) {
+    display = (unsigned long long)(gib * 10.0L + 0.5L);
+    written = snprintf(buffer, sizeof(buffer), "disk %llu.%lluG",
+                       display / 10u, display % 10u);
+  } else {
+    display = (unsigned long long)(gib + 0.5L);
+    written = snprintf(buffer, sizeof(buffer), "disk %lluG", display);
+  }
+  if (written < 0 || (size_t)written >= sizeof(buffer))
+    return -1;
   return set_sample(text, state, buffer, semantic);
 }
 
@@ -241,7 +276,8 @@ find_default_interface(char *buffer, size_t size)
   char path[4096], line[4096], iface[256], destination[32], flags[32];
   FILE *fp;
 
-  snprintf(path, sizeof(path), "%s/net/route", proc_root());
+  if (join_parts(path, sizeof(path), proc_root(), "/net/route", NULL, NULL) < 0)
+    return -1;
   fp = fopen(path, "r");
   if (!fp)
     return -1;
@@ -260,7 +296,10 @@ find_default_interface(char *buffer, size_t size)
     if (errno || !end || *end)
       continue;
     if (!strcmp(destination, "00000000") && (parsed_flags & 0x1u)) {
-      snprintf(buffer, size, "%s", iface);
+      if (join_parts(buffer, size, iface, NULL, NULL, NULL) < 0) {
+        fclose(fp);
+        return -1;
+      }
       fclose(fp);
       return 0;
     }
@@ -269,35 +308,57 @@ find_default_interface(char *buffer, size_t size)
   return -1;
 }
 
-static void
+static int
 format_rate(char *buffer, size_t size, uint64_t rate)
 {
-  if (rate >= 1048576u)
-    snprintf(buffer, size, "%.1fM", (double)rate / 1048576.0);
-  else if (rate >= 1024u)
-    snprintf(buffer, size, "%.0fK", (double)rate / 1024.0);
-  else
-    snprintf(buffer, size, "%lluB", (unsigned long long)rate);
+  unsigned long long value = (unsigned long long)rate;
+  int written;
+
+  if (rate >= 1048576u) {
+    unsigned long long whole = value / 1048576u;
+    unsigned long long tenth = (value % 1048576u) * 10u / 1048576u;
+
+    written = snprintf(buffer, size, "%llu.%lluM", whole, tenth);
+  } else if (rate >= 1024u) {
+    written = snprintf(buffer, size, "%lluK", value / 1024u);
+  } else {
+    written = snprintf(buffer, size, "%lluB", value);
+  }
+  return written >= 0 && (size_t)written < size ? 0 : -1;
+}
+
+static uint64_t
+rate_per_second(uint64_t delta, uint64_t elapsed_ms)
+{
+  long double rate;
+
+  rate = (long double)delta * 1000.0L / (long double)elapsed_ms;
+  if (rate >= (long double)UINT64_MAX)
+    return UINT64_MAX;
+  return (uint64_t)rate;
 }
 
 static int
 sample_network(RawmstatSource *source, uint64_t now_ms, char **text,
                RawmStatusState *state)
 {
-  char iface[256], rx_path[4096], tx_path[4096], rx_text[32], tx_text[32];
+  char iface[IF_NAMESIZE], rx_path[4096], tx_path[4096];
+  char rx_text[32], tx_text[32];
   char buffer[128];
   uint64_t rx, tx, dt, rx_rate, tx_rate;
 
   if (!strcmp(source->config->interface, "default")) {
     if (find_default_interface(iface, sizeof(iface)) < 0)
       return -1;
-  } else {
-    snprintf(iface, sizeof(iface), "%s", source->config->interface);
+  } else if (join_parts(iface, sizeof(iface), source->config->interface, NULL,
+                        NULL, NULL) < 0) {
+    return -1;
   }
-  snprintf(rx_path, sizeof(rx_path), "%s/class/net/%s/statistics/rx_bytes",
-           sys_root(), iface);
-  snprintf(tx_path, sizeof(tx_path), "%s/class/net/%s/statistics/tx_bytes",
-           sys_root(), iface);
+  if (join_parts(rx_path, sizeof(rx_path), sys_root(), "/class/net/", iface,
+                 "/statistics/rx_bytes") < 0 ||
+      join_parts(tx_path, sizeof(tx_path), sys_root(), "/class/net/", iface,
+                 "/statistics/tx_bytes") < 0)
+    return -1;
   if (read_uint64_file(rx_path, &rx) < 0 || read_uint64_file(tx_path, &tx) < 0)
     return -1;
 
@@ -310,18 +371,20 @@ sample_network(RawmstatSource *source, uint64_t now_ms, char **text,
     source->network_tx = tx;
     source->network_time_ms = now_ms;
     source->network_baseline = true;
-    snprintf(buffer, sizeof(buffer), "net %s", iface);
+    if (join_parts(buffer, sizeof(buffer), "net ", iface, NULL, NULL) < 0)
+      return -1;
     return set_sample(text, state, buffer, RAWM_STATUS_NORMAL);
   }
 
   dt = now_ms - source->network_time_ms;
-  rx_rate = (rx - source->network_rx) * 1000u / dt;
-  tx_rate = (tx - source->network_tx) * 1000u / dt;
+  rx_rate = rate_per_second(rx - source->network_rx, dt);
+  tx_rate = rate_per_second(tx - source->network_tx, dt);
   source->network_rx = rx;
   source->network_tx = tx;
   source->network_time_ms = now_ms;
-  format_rate(rx_text, sizeof(rx_text), rx_rate);
-  format_rate(tx_text, sizeof(tx_text), tx_rate);
+  if (format_rate(rx_text, sizeof(rx_text), rx_rate) < 0 ||
+      format_rate(tx_text, sizeof(tx_text), tx_rate) < 0)
+    return -1;
   snprintf(buffer, sizeof(buffer), "net ↓%s ↑%s", rx_text, tx_text);
   return set_sample(text, state, buffer, RAWM_STATUS_NORMAL);
 }
@@ -335,7 +398,9 @@ sample_battery(const RawmstatSourceConfig *config, char **text,
   struct dirent *entry;
   uint64_t capacity;
 
-  snprintf(base, sizeof(base), "%s/class/power_supply", sys_root());
+  if (join_parts(base, sizeof(base), sys_root(), "/class/power_supply", NULL,
+                 NULL) < 0)
+    return -1;
   dir = opendir(base);
   if (!dir)
     return -1;
@@ -346,10 +411,13 @@ sample_battery(const RawmstatSourceConfig *config, char **text,
 
     if (strncmp(entry->d_name, "BAT", 3))
       continue;
-    snprintf(path, sizeof(path), "%s/%s/capacity", base, entry->d_name);
+    if (join_parts(path, sizeof(path), base, "/", entry->d_name,
+                   "/capacity") < 0)
+      continue;
     if (read_uint64_file(path, &capacity) < 0 || capacity > 100)
       continue;
-    snprintf(path, sizeof(path), "%s/%s/status", base, entry->d_name);
+    if (join_parts(path, sizeof(path), base, "/", entry->d_name, "/status") < 0)
+      continue;
     fp = fopen(path, "r");
     if (fp) {
       if (!fgets(status, sizeof(status), fp))

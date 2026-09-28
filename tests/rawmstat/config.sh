@@ -91,4 +91,16 @@ EOC
 expect_fail "$tmp/command-native.conf"
 grep -q "command is valid only for exec" "$tmp/stderr" || fail "native command rejection missing"
 
+cat >"$tmp/network-interface-long.conf" <<'EOC'
+sources = { network = { provider = "network"; interface = "interface-name-is-too-long"; }; };
+EOC
+expect_fail "$tmp/network-interface-long.conf"
+grep -q "invalid interface" "$tmp/stderr" || fail "overlong network interface was not rejected"
+
+cat >"$tmp/network-interface-path.conf" <<'EOC'
+sources = { network = { provider = "network"; interface = ".."; }; };
+EOC
+expect_fail "$tmp/network-interface-path.conf"
+grep -q "invalid interface" "$tmp/stderr" || fail "path-like network interface was not rejected"
+
 echo "rawmstat config tests: ok"
