@@ -2,9 +2,8 @@
 set -eu
 
 rawmstat=${1:-./rawmstat}
-signal_number=${2:-./tests/signal-number}
-bar_checksum=${3:-./tests/bar-checksum}
-rawm=${4:-}
+bar_checksum=${2:-./tests/bar-checksum}
+rawm=${3:-}
 tmp=${TMPDIR:-/tmp}/rawmstat-integration-test.$$
 mkdir -p "$tmp"
 wm=
@@ -47,13 +46,9 @@ wait_for()
 
 [ -n "$rawm" ] || skip "RAWM is not set"
 [ -x "$rawm" ] || skip "$rawm is not executable"
-[ -x "$signal_number" ] || skip "$signal_number not built"
 [ -x "$bar_checksum" ] || skip "$bar_checksum not built"
 command -v Xvfb >/dev/null 2>&1 || skip "Xvfb not found"
 command -v xprop >/dev/null 2>&1 || skip "xprop not found"
-if ! update_signal=$($signal_number 1); then
-  skip "realtime signals unavailable"
-fi
 
 cat >"$tmp/rawm.conf" <<'EOC'
 ui = {
@@ -65,24 +60,21 @@ status = { enabled = true; };
 input = { keys = (); buttons = (); };
 EOC
 
-printf '%s' one >"$tmp/value"
+printf '%s\n' one >"$tmp/value"
+cat >"$tmp/probe" <<'EOS'
+#!/bin/sh
+cat "$1"
+EOS
+chmod +x "$tmp/probe"
 cat >"$tmp/rawmstat.conf" <<EOF2
-status = { };
-blocks = (
-  {
-    name = "hung";
-    command = ("/bin/sh", "-c", "sleep 30");
-    interval = 0;
-    timeout_ms = 150;
-  },
-  {
-    name = "probe";
-    command = ("cat", "$tmp/value");
-    interval = 0;
-    signal = 1;
-    timeout_ms = 1000;
-  }
-);
+sources = {
+  probe = {
+    provider = "exec";
+    command = ("$tmp/probe", "$tmp/value");
+    period_ms = 100;
+    timeout_ms = 500;
+  };
+};
 EOF2
 
 display_file=$tmp/display
@@ -106,7 +98,7 @@ producer=$!
 property_is()
 {
   expected=$1
-  xprop -notype -root _RAWM_STATUS_V2 2>/dev/null | grep -Fq "\"$expected\""
+  xprop -notype -root _RAWM_STATUS_V3 2>/dev/null | grep -Fq "\"$expected\""
 }
 checksum_changed()
 {
@@ -115,15 +107,13 @@ checksum_changed()
   [ "$current" != "$old" ]
 }
 
-wait_for 100 property_is 'probe\tnormal\tone\n' || fail "rawmstat did not publish initial status while another block was hung"
-wait_for 100 checksum_changed "$baseline" || fail "rawm did not render rawmstat's initial status"
+wait_for 100 property_is 'probe\tnormal\tone\n' || fail "rawmstat did not publish initial rawm-v3 status"
+wait_for 100 checksum_changed "$baseline" || fail "rawm did not render rawmstat status"
 one_hash=$($bar_checksum)
 
-printf 'critical\ttwo' >"$tmp/value"
-kill -"$update_signal" "$producer"
-wait_for 100 property_is 'probe\tcritical\ttwo\n' || fail "semantic signal update did not reach _RAWM_STATUS_V2"
+printf 'critical\ttwo\n' >"$tmp/value"
+wait_for 100 property_is 'probe\tcritical\ttwo\n' || fail "semantic update did not reach _RAWM_STATUS_V3"
 wait_for 100 checksum_changed "$one_hash" || fail "rawm bar did not redraw after rawmstat update"
-wait_for 100 grep -q "block 'hung' timed out" "$tmp/rawmstat.log" || fail "hung integration block did not time out"
 
 kill -TERM "$producer"
 wait "$producer" || fail "rawmstat did not terminate cleanly"
