@@ -181,7 +181,9 @@ read_uint(FILE *err, const config_setting_t *group, const char *name,
   if (config_setting_type(setting) != CONFIG_TYPE_INT &&
       config_setting_type(setting) != CONFIG_TYPE_INT64)
     return cfg_error(err, setting, "%s must be an integer", name);
-  value = config_setting_get_int64(setting);
+  value = config_setting_type(setting) == CONFIG_TYPE_INT
+            ? (long long)config_setting_get_int(setting)
+            : config_setting_get_int64(setting);
   if (value < (long long)min || value > (long long)max)
     return cfg_error(err, setting, "%s is out of range", name);
   *out = (unsigned int)value;
@@ -323,7 +325,7 @@ parse_sources(FILE *err, RawmstatConfig *cfg, const config_setting_t *group)
   if (!group || config_setting_type(group) != CONFIG_TYPE_GROUP)
     return cfg_error(err, group, "sources must be a group%s", "");
   n = config_setting_length(group);
-  sources = xcalloc((size_t)n, sizeof(*sources));
+  sources = n > 0 ? xcalloc((size_t)n, sizeof(*sources)) : NULL;
   for (i = 0; i < n; ++i) {
     config_setting_t *entry = config_setting_get_elem(group, (unsigned int)i);
     const char *name = config_setting_name(entry);
