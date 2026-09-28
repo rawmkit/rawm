@@ -483,6 +483,11 @@ rawmstat_config_load(RawmstatConfig *cfg, const char *explicit_path, FILE *err)
   if (explicit_path)
     return load_file(cfg, explicit_path, err);
 
+  snprintf(system_path, sizeof(system_path), "%s/rawm/rawmstat.conf",
+           SYSCONFDIR);
+  if (stat(system_path, &st) == 0 && load_file(cfg, system_path, err) < 0)
+    return -1;
+
   user_path = user_config_path();
   if (user_path && stat(user_path, &st) == 0) {
     rc = load_file(cfg, user_path, err);
@@ -490,10 +495,5 @@ rawmstat_config_load(RawmstatConfig *cfg, const char *explicit_path, FILE *err)
     return rc;
   }
   free(user_path);
-
-  snprintf(system_path, sizeof(system_path), "%s/rawm/rawmstat.conf",
-           SYSCONFDIR);
-  if (stat(system_path, &st) == 0)
-    return load_file(cfg, system_path, err);
   return rawmstat_config_validate(cfg, err);
 }
