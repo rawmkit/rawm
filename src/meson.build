@@ -4,6 +4,7 @@ rawm_config_source = files('rawm-config.c', 'status/config.c')
 rawm = executable(
   'rawm',
   'rawm.c',
+  'status/alsa.c',
   'status/source.c',
   'status/worker.c',
   rawm_config_source,

@@ -656,6 +656,7 @@ HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" \
 cat >"$tmp/status-sources.conf" <<'EOC'
 status = {
   sources = {
+    volume = { provider = "alsa"; device = "default"; control = "Master"; period_ms = 5000; };
     battery = { provider = "battery"; period_ms = 15000; warning = 20; critical = 10; };
     cpu = { provider = "cpu"; period_ms = 2000; warning = 80; critical = 95; };
     memory = { provider = "memory"; period_ms = 5000; warning = 85; critical = 95; };
@@ -748,5 +749,26 @@ status = { sources = { network = { provider = "network"; interface = ".."; }; };
 EOC
 expect_fail "$tmp/status-source-network-interface-path.conf"
 grep -q "invalid interface" "$tmp/stderr" || fail "path-like network interface was not rejected"
+
+cat >"$tmp/status-source-alsa-empty.conf" <<'EOC'
+status = { sources = { volume = { provider = "alsa"; device = ""; control = "Master"; }; }; };
+EOC
+expect_fail "$tmp/status-source-alsa-empty.conf"
+grep -q "requires non-empty device and control" "$tmp/stderr" ||
+  fail "empty ALSA device was accepted"
+
+cat >"$tmp/status-source-alsa-field.conf" <<'EOC'
+status = { sources = { volume = { provider = "alsa"; command = ("amixer"); }; }; };
+EOC
+expect_fail "$tmp/status-source-alsa-field.conf"
+grep -q "command is valid only for exec" "$tmp/stderr" ||
+  fail "ALSA provider accepted exec command policy"
+
+cat >"$tmp/status-source-clock-device.conf" <<'EOC'
+status = { sources = { clock = { device = "default"; }; }; };
+EOC
+expect_fail "$tmp/status-source-clock-device.conf"
+grep -q "device is valid only for alsa" "$tmp/stderr" ||
+  fail "non-ALSA provider accepted ALSA device policy"
 
 echo "config tests: ok"

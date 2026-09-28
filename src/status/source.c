@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 #include "source.h"
+#include "alsa.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -442,6 +443,22 @@ sample_battery(const RawmStatusSourceConfig *config, char **text,
   return -1;
 }
 
+static int
+sample_alsa(RawmStatusSource *source, char **text, RawmStatusState *state,
+            FILE *err)
+{
+  char buffer[64];
+  RawmStatusAlsa *alsa = source->provider_data;
+  int rc;
+
+  rc = rawm_status_alsa_sample(&alsa, source->config, buffer, sizeof(buffer),
+                               state, err);
+  source->provider_data = alsa;
+  if (rc < 0)
+    return -1;
+  return set_sample(text, state, buffer, *state);
+}
+
 static uint64_t
 monotonic_ms(void)
 {
@@ -600,6 +617,11 @@ rawm_status_source_destroy(RawmStatusSource *source)
 {
   free(source->text);
   free(source->network_interface);
+  if (source->config && source->config->provider == RAWM_STATUS_PROVIDER_ALSA) {
+    RawmStatusAlsa *alsa = source->provider_data;
+
+    rawm_status_alsa_destroy(&alsa);
+  }
   memset(source, 0, sizeof(*source));
 }
 
@@ -612,6 +634,9 @@ rawm_status_source_refresh(RawmStatusSource *source, uint64_t now_ms,
   int rc = -1;
 
   switch (source->config->provider) {
+  case RAWM_STATUS_PROVIDER_ALSA:
+    rc = sample_alsa(source, &text, &state, err);
+    break;
   case RAWM_STATUS_PROVIDER_BATTERY:
     rc = sample_battery(source->config, &text, &state);
     break;
@@ -635,7 +660,10 @@ rawm_status_source_refresh(RawmStatusSource *source, uint64_t now_ms,
     break;
   }
 
-  source->next_due_ms = now_ms + source->config->period_ms;
+  if (source->config->provider == RAWM_STATUS_PROVIDER_ALSA && rc == 0)
+    source->next_due_ms = UINT64_MAX;
+  else
+    source->next_due_ms = now_ms + source->config->period_ms;
   if (rc == 0) {
     free(source->text);
     source->text = text;
@@ -657,4 +685,41 @@ rawm_status_source_refresh(RawmStatusSource *source, uint64_t now_ms,
   if (!source->has_value)
     fprintf(err, "rawm: status worker: source '%s' refresh failed\n", source->config->id);
   return 0;
+}
+
+size_t
+rawm_status_source_pollfd_count(RawmStatusSource *source)
+{
+  if (!source || source->config->provider != RAWM_STATUS_PROVIDER_ALSA)
+    return 0;
+  return rawm_status_alsa_pollfd_count(source->provider_data);
+}
+
+int
+rawm_status_source_pollfds(RawmStatusSource *source, struct pollfd *pfds,
+                            size_t count)
+{
+  if (!source || source->config->provider != RAWM_STATUS_PROVIDER_ALSA)
+    return count ? -1 : 0;
+  return rawm_status_alsa_pollfds(source->provider_data, pfds, count);
+}
+
+int
+rawm_status_source_handle_events(RawmStatusSource *source,
+                                 struct pollfd *pfds, size_t count,
+                                 uint64_t now_ms,
+                                 const volatile sig_atomic_t *terminate,
+                                 FILE *err)
+{
+  RawmStatusAlsa *alsa;
+  int rc;
+
+  if (!source || source->config->provider != RAWM_STATUS_PROVIDER_ALSA)
+    return 0;
+  alsa = source->provider_data;
+  rc = rawm_status_alsa_handle_events(&alsa, pfds, count, err);
+  source->provider_data = alsa;
+  if (rc == 0)
+    return 0;
+  return rawm_status_source_refresh(source, now_ms, terminate, err);
 }

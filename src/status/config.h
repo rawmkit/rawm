@@ -11,6 +11,7 @@
 #define RAWM_STATUS_MAX_PERIOD_MS 3600000u
 
 typedef enum {
+  RAWM_STATUS_PROVIDER_ALSA,
   RAWM_STATUS_PROVIDER_BATTERY,
   RAWM_STATUS_PROVIDER_CLOCK,
   RAWM_STATUS_PROVIDER_CPU,
@@ -27,6 +28,8 @@ typedef struct {
   unsigned int period_ms;
   unsigned int warning;
   unsigned int critical;
+  char *device;
+  char *control;
   char *format;
   char *path;
   char *interface;

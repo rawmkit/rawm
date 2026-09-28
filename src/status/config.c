@@ -48,6 +48,8 @@ free_source(RawmStatusSourceConfig *source)
   if (!source)
     return;
   free(source->id);
+  free(source->device);
+  free(source->control);
   free(source->format);
   free(source->path);
   free(source->interface);
@@ -87,6 +89,7 @@ const char *
 rawm_status_provider_name(RawmStatusProvider provider)
 {
   switch (provider) {
+  case RAWM_STATUS_PROVIDER_ALSA: return "alsa";
   case RAWM_STATUS_PROVIDER_BATTERY: return "battery";
   case RAWM_STATUS_PROVIDER_CLOCK: return "clock";
   case RAWM_STATUS_PROVIDER_CPU: return "cpu";
@@ -103,7 +106,7 @@ parse_provider(const char *name, RawmStatusProvider *provider)
 {
   int i;
 
-  for (i = RAWM_STATUS_PROVIDER_BATTERY;
+  for (i = RAWM_STATUS_PROVIDER_ALSA;
        i <= RAWM_STATUS_PROVIDER_NETWORK; ++i) {
     RawmStatusProvider candidate = (RawmStatusProvider)i;
     const char *candidate_name = rawm_status_provider_name(candidate);
@@ -249,6 +252,10 @@ replace_command(FILE *err, const config_setting_t *group,
 static void
 clear_provider_fields(RawmStatusSourceConfig *source)
 {
+  free(source->device);
+  source->device = NULL;
+  free(source->control);
+  source->control = NULL;
   free(source->format);
   source->format = NULL;
   free(source->path);
@@ -273,6 +280,11 @@ set_provider_defaults(RawmStatusSourceConfig *source,
   source->timeout_ms = RAWM_STATUS_DEFAULT_EXEC_TIMEOUT_MS;
 
   switch (provider) {
+  case RAWM_STATUS_PROVIDER_ALSA:
+    source->period_ms = 5000;
+    source->device = xstrdup("default");
+    source->control = xstrdup("Master");
+    break;
   case RAWM_STATUS_PROVIDER_BATTERY:
     source->period_ms = 15000;
     source->warning = 20;
@@ -341,8 +353,8 @@ parse_source(FILE *err, RawmStatusSourceConfig *source,
              const config_setting_t *group, bool existing)
 {
   static const char *const allowed[] = {
-    "enabled", "provider", "period_ms", "warning", "critical", "format",
-    "path", "interface", "command", "timeout_ms"
+    "enabled", "provider", "period_ms", "warning", "critical", "device",
+    "control", "format", "path", "interface", "command", "timeout_ms"
   };
   config_setting_t *setting;
   const char *provider_name;
@@ -365,6 +377,14 @@ parse_source(FILE *err, RawmStatusSourceConfig *source,
     return cfg_error(err, group, "new source requires a provider%s", "");
   }
 
+  if (source->provider != RAWM_STATUS_PROVIDER_ALSA &&
+      config_setting_get_member(group, "device"))
+    return cfg_error(err, config_setting_get_member(group, "device"),
+                     "device is valid only for alsa provider%s", "");
+  if (source->provider != RAWM_STATUS_PROVIDER_ALSA &&
+      config_setting_get_member(group, "control"))
+    return cfg_error(err, config_setting_get_member(group, "control"),
+                     "control is valid only for alsa provider%s", "");
   if (source->provider != RAWM_STATUS_PROVIDER_CLOCK &&
       config_setting_get_member(group, "format"))
     return cfg_error(err, config_setting_get_member(group, "format"),
@@ -404,6 +424,8 @@ parse_source(FILE *err, RawmStatusSourceConfig *source,
       read_uint(err, group, "critical", 0, UINT_MAX, &source->critical) < 0 ||
       read_uint(err, group, "timeout_ms", 1, 600000,
                 &source->timeout_ms) < 0 ||
+      replace_optional_string(err, group, "device", &source->device) < 0 ||
+      replace_optional_string(err, group, "control", &source->control) < 0 ||
       replace_optional_string(err, group, "format", &source->format) < 0 ||
       replace_optional_string(err, group, "path", &source->path) < 0 ||
       replace_optional_string(err, group, "interface", &source->interface) < 0 ||
@@ -457,6 +479,14 @@ rawm_status_config_validate(const RawmStatusConfig *cfg, FILE *err)
     if (!rawm_status_provider_name(source->provider)) {
       fprintf(err,
               "rawm: configuration error: status source '%s' has invalid provider\n",
+              source->id);
+      return -1;
+    }
+    if (source->provider == RAWM_STATUS_PROVIDER_ALSA &&
+        (!source->device || !source->device[0] ||
+         !source->control || !source->control[0])) {
+      fprintf(err,
+              "rawm: configuration error: alsa status source '%s' requires non-empty device and control\n",
               source->id);
       return -1;
     }

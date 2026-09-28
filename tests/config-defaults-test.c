@@ -160,6 +160,8 @@ compare_config(const RawmConfig *a, const RawmConfig *b)
         as->critical != bs->critical || as->timeout_ms != bs->timeout_ms ||
         as->argc != bs->argc)
       fail("status source scalar policy differs");
+    expect_string("status source device differs", as->device, bs->device);
+    expect_string("status source control differs", as->control, bs->control);
     expect_string("status source format differs", as->format, bs->format);
     expect_string("status source path differs", as->path, bs->path);
     expect_string("status source interface differs", as->interface, bs->interface);
