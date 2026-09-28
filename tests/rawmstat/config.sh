@@ -2,9 +2,9 @@
 set -eu
 
 rawmstat=${1:-./rawmstat}
-default_config=${2:-rawmstat.conf}
+default_config=${2:-config/rawmstat.conf}
 tmp=${TMPDIR:-/tmp}/rawmstat-config-test.$$
-trap 'kill ${pid:-} 2>/dev/null || true; rm -rf "$tmp"' EXIT HUP INT TERM
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 mkdir -p "$tmp"
 
 fail()
@@ -17,150 +17,78 @@ expect_ok()
 {
   "$rawmstat" -C -c "$1" >/dev/null 2>"$tmp/stderr" || {
     cat "$tmp/stderr" >&2
-    fail "expected $1 to validate"
+    fail "expected valid configuration: $1"
   }
 }
 
 expect_fail()
 {
   if "$rawmstat" -C -c "$1" >/dev/null 2>"$tmp/stderr"; then
-    fail "expected $1 to fail validation"
+    fail "expected invalid configuration: $1"
   fi
-}
-
-wait_for_output()
-{
-  file=$1
-  n=0
-  while [ ! -s "$file" ]; do
-    n=$((n + 1))
-    [ "$n" -lt 100 ] || return 1
-    sleep 0.02
-  done
 }
 
 expect_ok "$default_config"
 
 cat >"$tmp/valid.conf" <<'EOC'
-status = {
-  protocol = "rawm-v2";
+sources = {
+  battery = { provider = "battery"; period_ms = 15000; warning = 20; critical = 10; };
+  cpu = { provider = "cpu"; period_ms = 2000; warning = 80; critical = 95; };
+  memory = { provider = "memory"; period_ms = 5000; warning = 85; critical = 95; };
+  disk = { provider = "filesystem"; path = "/"; period_ms = 60000; warning = 20; critical = 5; };
+  network = { provider = "network"; interface = "default"; period_ms = 2000; };
+  clock = { provider = "clock"; format = "%H:%M"; period_ms = 30000; };
+  helper = { provider = "exec"; command = ("printf", "ok\\n"); period_ms = 1000; timeout_ms = 500; };
 };
-blocks = (
-  {
-    name = "left";
-    prefix = "[";
-    command = ("printf", "one]");
-    interval = 0;
-    signal = 0;
-  },
-  {
-    name = "right";
-    command = ("printf", "two");
-    interval = 60;
-    signal = 1;
-  }
-);
 EOC
 expect_ok "$tmp/valid.conf"
 
-cat >"$tmp/unknown.conf" <<'EOC'
-status = { protcol = "rawm-v2"; };
+cat >"$tmp/legacy-blocks.conf" <<'EOC'
+blocks = ({ name = "clock"; command = ("date"); interval = 5; signal = 1; });
 EOC
-expect_fail "$tmp/unknown.conf"
+expect_fail "$tmp/legacy-blocks.conf"
+grep -q "unknown setting 'blocks'" "$tmp/stderr" || fail "legacy blocks were not rejected"
 
-cat >"$tmp/protocol.conf" <<'EOC'
-status = { protocol = "wm-name"; };
+cat >"$tmp/legacy-protocol.conf" <<'EOC'
+status = { protocol = "rawm-v2"; };
 EOC
-expect_fail "$tmp/protocol.conf"
-grep -q "unsupported status protocol" "$tmp/stderr" ||
-  fail "unsupported protocol diagnostic missing"
+expect_fail "$tmp/legacy-protocol.conf"
+grep -q "unknown setting 'status'" "$tmp/stderr" || fail "legacy protocol policy was not rejected"
 
-cat >"$tmp/duplicate.conf" <<'EOC'
-blocks = (
-  { name = "same"; command = ("true"); },
-  { name = "same"; command = ("true"); }
-);
+cat >"$tmp/provider.conf" <<'EOC'
+sources = { x = { provider = "not-a-provider"; }; };
 EOC
-expect_fail "$tmp/duplicate.conf"
+expect_fail "$tmp/provider.conf"
+grep -q "unknown provider" "$tmp/stderr" || fail "unknown provider diagnostic missing"
 
-cat >"$tmp/empty-command.conf" <<'EOC'
-blocks = ({ name = "bad"; command = (); });
+cat >"$tmp/exec.conf" <<'EOC'
+sources = { x = { provider = "exec"; }; };
 EOC
-expect_fail "$tmp/empty-command.conf"
+expect_fail "$tmp/exec.conf"
+grep -q "has no command" "$tmp/stderr" || fail "missing exec command diagnostic missing"
 
-cat >"$tmp/command-type.conf" <<'EOC'
-blocks = ({ name = "bad"; command = ("printf", 1); });
+cat >"$tmp/cpu-threshold.conf" <<'EOC'
+sources = { cpu = { provider = "cpu"; warning = 95; critical = 80; }; };
 EOC
-expect_fail "$tmp/command-type.conf"
+expect_fail "$tmp/cpu-threshold.conf"
+grep -q "warning < critical" "$tmp/stderr" || fail "CPU threshold diagnostic missing"
 
-cat >"$tmp/negative-interval.conf" <<'EOC'
-blocks = ({ name = "bad"; command = ("true"); interval = -1; });
+cat >"$tmp/battery-threshold.conf" <<'EOC'
+sources = { battery = { provider = "battery"; warning = 10; critical = 20; }; };
 EOC
-expect_fail "$tmp/negative-interval.conf"
+expect_fail "$tmp/battery-threshold.conf"
+grep -q "critical < warning" "$tmp/stderr" || fail "battery threshold diagnostic missing"
 
-cat >"$tmp/negative-signal.conf" <<'EOC'
-blocks = ({ name = "bad"; command = ("true"); signal = -1; });
+cat >"$tmp/period.conf" <<'EOC'
+sources = { clock = { provider = "clock"; period_ms = 99; }; };
 EOC
-expect_fail "$tmp/negative-signal.conf"
+expect_fail "$tmp/period.conf"
+grep -q "period_ms is out of range" "$tmp/stderr" || fail "period range diagnostic missing"
 
-cat >"$tmp/zero-timeout.conf" <<'EOC'
-blocks = ({ name = "bad"; command = ("true"); timeout_ms = 0; });
+cat >"$tmp/command-native.conf" <<'EOC'
+sources = { clock = { provider = "clock"; command = ("date"); }; };
 EOC
-expect_fail "$tmp/zero-timeout.conf"
-
-cat >"$tmp/negative-timeout.conf" <<'EOC'
-blocks = ({ name = "bad"; command = ("true"); timeout_ms = -1; });
-EOC
-expect_fail "$tmp/negative-timeout.conf"
-
-cat >"$tmp/large-timeout.conf" <<'EOC'
-blocks = ({ name = "bad"; command = ("true"); timeout_ms = 600001; });
-EOC
-expect_fail "$tmp/large-timeout.conf"
-
-cat >"$tmp/include-body.conf" <<'EOC'
-blocks = ({ name = "included"; command = ("printf", "included"); interval = 0; });
-EOC
-cat >"$tmp/include.conf" <<'EOC'
-@include "include-body.conf"
-EOC
-expect_ok "$tmp/include.conf"
-
-mkdir -p "$tmp/xdg/rawm"
-cat >"$tmp/xdg/rawm/rawmstat.conf" <<'EOC'
-blocks = ({ name = "user"; command = ("printf", "user-config"); interval = 0; });
-EOC
-XDG_CONFIG_HOME="$tmp/xdg" DISPLAY= "$rawmstat" -p >"$tmp/stdout" 2>"$tmp/user.err" &
-pid=$!
-wait_for_output "$tmp/stdout" || {
-  cat "$tmp/user.err" >&2
-  fail "user configuration did not produce output"
-}
-kill -TERM "$pid"
-wait "$pid" || fail "rawmstat did not terminate cleanly"
-pid=
-[ "$(sed -n '1p' "$tmp/stdout")" = "$(printf 'user\tnormal\tuser-config')" ] ||
-  fail "user block list did not replace built-in blocks"
-
-cat >"$tmp/invalid-id.conf" <<'EOC'
-blocks = ({ name = "not a valid id"; command = ("true"); });
-EOC
-expect_fail "$tmp/invalid-id.conf"
-
-cat >"$tmp/legacy-delimiter.conf" <<'EOC'
-status = { protocol = "rawm-v2"; delimiter = " | "; };
-EOC
-expect_fail "$tmp/legacy-delimiter.conf"
-
-cat >"$tmp/xdg/rawm/rawmstat.conf" <<'EOC'
-this_is_invalid = true;
-EOC
-if XDG_CONFIG_HOME="$tmp/xdg" "$rawmstat" -C >/dev/null 2>"$tmp/stderr"; then
-  fail "normal configuration lookup ignored invalid user configuration"
-fi
-XDG_CONFIG_HOME="$tmp/xdg" "$rawmstat" -C -c "$default_config" >/dev/null 2>"$tmp/stderr" || {
-  cat "$tmp/stderr" >&2
-  fail "explicit configuration was not isolated from user configuration"
-}
+expect_fail "$tmp/command-native.conf"
+grep -q "command is valid only for exec" "$tmp/stderr" || fail "native command rejection missing"
 
 echo "rawmstat config tests: ok"

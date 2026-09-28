@@ -1,9 +1,3 @@
-rawmstat_signal_number = executable(
-  'rawmstat-signal-number',
-  'signal-number.c',
-  build_by_default: false,
-)
-
 rawmstat_bar_checksum = executable(
   'rawmstat-bar-checksum',
   'bar-checksum.c',
@@ -32,23 +26,20 @@ test(
 test(
   'rawmstat-lifecycle',
   rawmstat_lifecycle_test,
-  args: [rawmstat, rawmstat_signal_number],
+  args: [rawmstat],
   workdir: meson.project_source_root(),
 )
 
-# The shell fixtures retain their own capability guards for direct invocation.
-# The combined repository always passes the in-tree rawm executable to the
-# integration test, so producer/consumer compatibility is no longer optional.
 test(
   'rawmstat-protocol',
   rawmstat_protocol_test,
-  args: [rawmstat, rawmstat_signal_number],
+  args: [rawmstat],
   workdir: meson.project_source_root(),
 )
 
 test(
   'rawm-rawmstat-integration',
   rawmstat_integration_test,
-  args: [rawmstat, rawmstat_signal_number, rawmstat_bar_checksum, rawm],
+  args: [rawmstat, rawmstat_bar_checksum, rawm],
   workdir: meson.project_source_root(),
 )
