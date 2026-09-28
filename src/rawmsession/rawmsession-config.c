@@ -87,15 +87,13 @@ void
 rawmsession_config_init(RawmSessionConfig *cfg)
 {
   static const char *const primary[] = { "rawm" };
-  static const char *const status[] = { "rawmstat" };
   static const char *const compositor[] = { "picom" };
 
   memset(cfg, 0, sizeof(*cfg));
   command_set(&cfg->primary, "primary", primary, 1);
-  cfg->sidecars = xcalloc(2, sizeof(*cfg->sidecars));
-  cfg->sidecar_count = 2;
-  command_set(&cfg->sidecars[0], "status", status, 1);
-  command_set(&cfg->sidecars[1], "compositor", compositor, 1);
+  cfg->sidecars = xcalloc(1, sizeof(*cfg->sidecars));
+  cfg->sidecar_count = 1;
+  command_set(&cfg->sidecars[0], "compositor", compositor, 1);
 }
 
 void

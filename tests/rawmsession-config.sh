@@ -23,7 +23,7 @@ expect_fail()
 cat >"$tmp/valid.conf" <<'EOC'
 primary = ("rawm", "-c", "/tmp/rawm.conf");
 sidecars = (
-  { name = "status-main"; command = ("rawmstat"); },
+  { name = "helper-main"; command = ("long-running-helper"); },
   { name = "picom.glx"; command = ("picom", "--backend", "glx"); }
 );
 EOC
@@ -61,7 +61,7 @@ EOC
 expect_fail "$tmp/unknown.conf"
 
 cat >"$tmp/unknown-sidecar.conf" <<'EOC'
-sidecars = ({ name = "status"; command = ("rawmstat"); restart = true; });
+sidecars = ({ name = "helper"; command = ("long-running-helper"); restart = true; });
 EOC
 expect_fail "$tmp/unknown-sidecar.conf"
 
