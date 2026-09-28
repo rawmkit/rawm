@@ -10,8 +10,8 @@ Current programs:
 
 * `rawm`: window-manager policy, client admission, geometry, focus, bar,
   compositor-facing state, and rawm-owned X11 properties.
-* `rawmstat`: asynchronous status production and publication through the
-  rawm-v2 contract.
+* `rawmstat`: native status acquisition and publication through the
+  rawm-v3 contract.
 * `rawmctl`: direct operational control and inspection of rawm/X11 state.
   Window list/activation use EWMH authority, window selection composes with
   `rawmenu` while retaining XID identity, and keyboard-group control uses XKB.
@@ -42,7 +42,7 @@ retain their own lifecycle authorities.
 A library is introduced only when two components need one semantic authority.
 It is not a destination for generic helpers merely because code can be shared.
 
-`lib/status` owns only the rawm-v2 transport contract:
+`lib/status` owns only the rawm-v3 transport contract:
 
 * state vocabulary;
 * segment identifier grammar and byte limits;
@@ -89,10 +89,10 @@ real second parent of the import commit, so historical commit identities remain
 reachable even though the current files were subsequently moved into the rawm
 layout.
 
-Moving source into one repository does not erase component licensing. rawm's
-window-manager sources remain MIT/X; imported rawmstat sources remain ISC; the
-shared status codec is distributed under the combined `MIT AND ISC` terms. See
-`LICENSES/README.md`.
+The current source tree is MIT/X licensed. The imported rawmstat history remains
+reachable as provenance and its historical revisions retain their original ISC
+notices, but the current status implementation and codec do not derive their
+license from that imported tree. See `LICENSES/README.md`.
 
 ## Change discipline
 

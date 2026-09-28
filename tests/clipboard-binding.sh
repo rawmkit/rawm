@@ -54,7 +54,7 @@ ui = {
   osd = { show = false; };
   systray = { show = false; };
 };
-status = { enabled = false; protocol = "rawm-v2"; };
+status = { enabled = false; };
 EOF_CONFIG
 
 PATH="$tmp/bin:$PATH" "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &

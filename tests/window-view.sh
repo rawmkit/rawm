@@ -53,7 +53,7 @@ ui = {
   osd = { show = false; };
   systray = { show = false; };
 };
-status = { enabled = false; protocol = "rawm-v2"; };
+status = { enabled = false; };
 tags = {
   default = (
     { name = "one"; layout = "tile"; },

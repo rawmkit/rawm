@@ -38,7 +38,6 @@ main(void)
     "           \"--outer=${layout.gaps.outer}\",\n"
     "           \"--smart=${layout.gaps.smart}\",\n"
     "           \"--status=${status.enabled}\",\n"
-    "           \"--protocol=${status.protocol}\",\n"
     "           \"--separator=${status.separator}\",\n"
     "           \"--center=${behavior.dialog_center}\",\n"
     "           \"--hints=${behavior.size_hints}\",\n"
@@ -65,7 +64,7 @@ main(void)
     "           \"${ui.colors.floating.border}\",\n"
     "           \"$${HOME}\");\n"
     "};\n"
-    "status = { enabled = true; protocol = \"rawm-v2\"; separator = \" :: \"; };\n"
+    "status = { enabled = true; separator = \" :: \"; };\n"
     "behavior = { dialog_center = \"parent\"; size_hints = \"always\"; floating_placement = \"client\"; cascade_step = 48; };\n"
     "ui = {\n"
     "  font = \"face-${ui.colors.selected.foreground}\";\n"
@@ -87,7 +86,7 @@ main(void)
     "layout = { gaps = { inner = 7; outer = 11; smart = true; }; };\n";
   static const char *const expected[] = {
     "probe", "-fn", "face-#111111", "--opacity=0.85", "--inner=7",
-    "--outer=11", "--smart=true", "--status=true", "--protocol=rawm-v2",
+    "--outer=11", "--smart=true", "--status=true",
     "--separator= :: ",
     "--center=parent", "--hints=always", "--placement=client",
     "--cascade=48", "--bar=top", "--bar-padding=6",

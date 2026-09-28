@@ -150,7 +150,7 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
   root = DefaultRootWindow(dpy);
-  status = XInternAtom(dpy, "_RAWM_STATUS_V2", False);
+  status = XInternAtom(dpy, "_RAWM_STATUS_V3", False);
   utf8 = XInternAtom(dpy, "UTF8_STRING", False);
 
   client = XCreateSimpleWindow(dpy, root, 40, 40, 320, 200, 0, 0, 0);
@@ -210,7 +210,7 @@ main(int argc, char **argv)
       (disabled && normal_hash != baseline)) {
     fputs(disabled
             ? "status-client: disabled status protocol changed the bar\n"
-            : "status-client: rawm-v2 status did not change the bar\n",
+            : "status-client: rawm-v3 status did not change the bar\n",
           stderr);
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
@@ -301,7 +301,7 @@ main(int argc, char **argv)
   set_status(dpy, root, status, utf8, boundary_text, sizeof(boundary_text));
   boundary = checksum_window(dpy, bar);
   if (boundary == baseline) {
-    fputs("status-client: rawm-v2 maximum-size status was rejected\n", stderr);
+    fputs("status-client: rawm-v3 maximum-size status was rejected\n", stderr);
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
   }
@@ -315,7 +315,7 @@ main(int argc, char **argv)
   set_status(dpy, root, status, utf8, oversized_text, sizeof(oversized_text));
   oversized = checksum_window(dpy, bar);
   if (oversized != baseline) {
-    fputs("status-client: oversized rawm-v2 status was accepted\n", stderr);
+    fputs("status-client: oversized rawm-v3 status was accepted\n", stderr);
     XCloseDisplay(dpy);
     return EXIT_FAILURE;
   }

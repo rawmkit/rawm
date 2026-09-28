@@ -49,7 +49,7 @@ ui = {
     indicator_size = 2;
   };
 };
-status = { enabled = true; protocol = "rawm-v2"; separator = " :: "; };
+status = { enabled = true; separator = " :: "; };
 behavior = { dialog_center = "parent"; };
 layout = {
   master_factor = 0.60;
@@ -273,7 +273,7 @@ input = {
 };
 EOC
 expect_fail "$tmp/status-button-id-invalid-value.conf"
-grep -q "valid rawm-v2 segment id" "$tmp/stderr" ||
+grep -q "valid rawm-v3 segment id" "$tmp/stderr" ||
   fail "invalid status_id diagnostic missing"
 
 cat >"$tmp/status-button-id-duplicate.conf" <<'EOC'
@@ -340,7 +340,7 @@ grep -q "min_width" "$tmp/stderr" ||
   fail "osd minimum width range diagnostic missing"
 
 cat >"$tmp/status-disabled.conf" <<'EOC'
-status = { enabled = false; protocol = "rawm-v2"; };
+status = { enabled = false; };
 EOC
 expect_ok "$tmp/status-disabled.conf"
 
@@ -367,14 +367,14 @@ EOC
 expect_fail "$tmp/tag-visibility-type.conf"
 
 cat >"$tmp/status-protocol.conf" <<'EOC'
-status = { enabled = true; protocol = "root-name"; };
+status = { enabled = true; protocol = "rawm-v2"; };
 EOC
 expect_fail "$tmp/status-protocol.conf"
-grep -q "unsupported status protocol" "$tmp/stderr" ||
-  fail "unsupported status protocol diagnostic missing"
+grep -q "unknown setting 'protocol'" "$tmp/stderr" ||
+  fail "retired status protocol setting was not rejected"
 
 cat >"$tmp/status-member.conf" <<'EOC'
-status = { enabled = true; protcol = "rawm-v2"; };
+status = { enabled = true; protcol = "rawm-v3"; };
 EOC
 expect_fail "$tmp/status-member.conf"
 

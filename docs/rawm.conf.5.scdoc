@@ -304,64 +304,36 @@ ui = {
 
 # STATUS
 
-The top-level *status* group defines the external status boundary consumed by
-rawm. It does not name or supervise a producer. A session may use
-*rawmstat*(1) or any other X11 client that implements the selected protocol.
+The top-level *status* group controls rawm's presentation-side status boundary.
+rawm does not name, start, signal, or supervise a producer.
 
 *enabled* = boolean
-	Whether rawm consumes and displays external status segments. When false,
-	the status area is empty and status-property changes are ignored. Default
-	true.
-
-*protocol* = "rawm-v2"
-	Status transport and payload contract. *"rawm-v2"* is the only supported
-	protocol and is the default. Unknown protocol names are fatal configuration
-	errors.
+	Whether rawm consumes and displays external status segments. Default true.
 
 *separator* = string
-	Printable UTF-8 rendered between adjacent status segments. The separator
-	is presentation policy owned by rawm, not by the producer. The built-in
-	default is *" | "*. An empty string is allowed. The value may contain at
-	most 256 bytes and may not contain ASCII control characters.
+	Printable UTF-8 rendered between adjacent status segments. The separator is
+	presentation policy owned by rawm. The built-in default is *" | "*.
 
-## rawm-v2
+## rawm-v3
 
-A producer writes the *\_RAWM\_STATUS\_V2* property of the X root window.
-The property type must be *UTF8_STRING* with format 8 and its payload may
-contain at most 4096 bytes. The payload is zero or more records in this exact
-textual form:
+A producer writes the *\_RAWM\_STATUS\_V3* property of the X root window as
+*UTF8_STRING*, format 8, with at most 4096 bytes. The property contains zero or
+more records:
 
 ```
 id<TAB>state<TAB>text<LF>
 ```
 
-The final record also ends in *LF*. The fields have these contracts:
+_id_ is a unique 1..64 character identifier from *A-Z*, *a-z*, *0-9*, period,
+underscore, or hyphen. _text_ is non-empty printable UTF-8. _state_ is exactly
+*normal*, *warning*, *critical*, or *stale*. Malformed records, duplicate IDs,
+wrong property type, invalid UTF-8, embedded NULs, missing final newlines, and
+oversized payloads invalidate the complete snapshot.
 
-- _id_ is 1..64 ASCII characters from *A-Z*, *a-z*, *0-9*, period, underscore,
-  or hyphen. Segment identifiers must be unique within one property value.
-- _state_ is exactly *normal*, *warning*, or *critical*.
-- _text_ is non-empty printable UTF-8. ASCII control characters, including
-  tab and newline, are not permitted in text.
-
-The property name carries the protocol version, so there is no in-band version
-header and no escaping language. Any malformed record, duplicate identifier,
-wrong property type, invalid UTF-8, embedded NUL, missing final newline, or
-oversized payload invalidates the complete property and rawm displays an empty
-status area.
-
-Segment state is semantic rather than presentational. rawm maps states to its
-existing palette:
-
-- *normal* -> *ui.colors.normal*
-- *warning* -> *ui.colors.urgent*
-- *critical* -> *ui.colors.error*
-
-The configured *status.separator* is rendered with *ui.colors.normal*. Segment
-identifiers are not displayed; they provide stable identity for protocol users
-and future interaction such as per-segment click routing.
-
-The root *WM_NAME* property is not used as a status channel. *rawm-v2* carries
-no color values, markup, process discovery, or producer lifecycle.
+rawm maps *normal* to the normal palette, *warning* and *stale* to the urgent
+palette, and *critical* to the error palette. The property name carries the
+protocol version; there is no configurable protocol selector or compatibility
+parser.
 
 # BEHAVIOR
 
@@ -712,7 +684,7 @@ or *"root"*. The *"title"* area requires a build with
 
 *button* is an integer from 1 through 9.
 
-For *click = "status"*, optional *status_id* targets one *rawm-v2* segment by
+For *click = "status"*, optional *status_id* targets one *rawm-v3* segment by
 its stable identifier. The identifier uses the same 1..64 character syntax as
 the status protocol. Hit testing uses the same segment widths, separator, and
 item spacing as rendering. A binding without *status_id* is a fallback for the

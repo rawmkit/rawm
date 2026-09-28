@@ -59,7 +59,7 @@ ui = {
     error = { border = "#800000"; foreground = "#ffffff"; background = "#800000"; };
   };
 };
-status = { enabled = false; protocol = "rawm-v2"; };
+status = { enabled = false; };
 behavior = { floating_placement = "client"; };
 tags = {
   default = (

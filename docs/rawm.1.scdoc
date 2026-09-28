@@ -146,11 +146,11 @@ The options are as follows:
 
 ## Status bar
 
-*rawm-v2 status*
-	When *status.enabled* is true and *status.protocol* is *"rawm-v2"*,
-	rawm reads semantic status segments from the *\_RAWM\_STATUS\_V2*
+*rawm-v3 status*
+	When *status.enabled* is true, rawm reads semantic status segments from the
+	*\_RAWM\_STATUS\_V3*
 	property on the X root window. Each segment carries a stable identifier,
-	text, and one of the states *normal*, *warning*, or *critical*. rawm maps
+	text, and one of the states *normal*, *warning*, *critical*, or *stale*. rawm maps
 	those states to its normal, urgent, and error color schemes and owns the
 	separator drawn between segments. Invalid or missing status data produces
 	an empty status area.

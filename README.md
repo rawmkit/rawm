@@ -19,7 +19,7 @@ configuration. Major facilities include:
   * explicit free-window geometry, size-hint, centering, fullscreen, attention,
     and cascading-placement policies;
   * semantic tag, layout, title, and status presentation in the built-in bar;
-  * the `_RAWM_STATUS_V2` semantic root-property protocol;
+  * the `_RAWM_STATUS_V3` semantic root-property protocol;
   * compositor-facing `_RAWM_FLOATING`, `_RAWM_SELECTED`, `_RAWM_LAYOUT`,
     `_RAWM_MONITOR`, and `_RAWM_SURFACE` state;
   * rawm-owned transient OSD feedback for layout, view, routing, fullscreen,
@@ -28,7 +28,7 @@ configuration. Major facilities include:
     cycling, and command-backed tag renaming;
   * optional XEmbed systray, Xinerama, per-window keyboard layout, and focused
     window title support;
-  * the independently running `rawmstat` producer for the rawm-v2 status
+  * the independently running `rawmstat` native source service for rawm-v3 status
     protocol;
   * `rawmctl` for direct EWMH window inspection/activation, rawmenu-backed
     window selection, and XKB keyboard-group control;
@@ -146,11 +146,11 @@ tags, while `"all"` keeps the complete configured tag row. Selected, urgent,
 and ordinary visible tags are distinguished by the existing color schemes, and
 rendering and mouse hit testing share the same visibility state.
 
-Status input is explicit policy too. `status.protocol = "rawm-v2"` consumes
-semantic `id/state/text` records from the `_RAWM_STATUS_V2` root property.
-`normal`, `warning`, and `critical` map to rawm's normal, urgent, and error
-palettes; separators and all presentation remain rawm policy. The legacy root
-`WM_NAME` channel and in-band color controls are not used.
+Status input is an explicit process boundary. When `status.enabled` is true, rawm
+consumes semantic `id/state/text` records from the `_RAWM_STATUS_V3` root
+property. `normal`, `warning`, `critical`, and `stale` are producer semantics;
+separators and all presentation remain rawm policy. The wire version is not a
+user setting, and the legacy root `WM_NAME` channel is not used.
 
 Use `rawm -C` to validate the effective configuration without opening the X
 display, or `rawm -C -c ./config/rawm.conf` to validate one explicit file over the

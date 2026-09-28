@@ -1625,7 +1625,7 @@ parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
       }
       value = config_setting_get_string(status_id);
       if (!rawm_status_id_valid((const unsigned char *)value, strlen(value))) {
-        cfg_error(err, status_id, "%s is not a valid rawm-v2 segment id",
+        cfg_error(err, status_id, "%s is not a valid rawm-v3 segment id",
                   "status_id");
         goto fail;
       }
