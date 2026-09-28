@@ -644,6 +644,8 @@ rawm_status_source_refresh(RawmStatusSource *source, uint64_t now_ms,
     return 1;
   }
   free(text);
+  if (terminate && *terminate)
+    return 0;
   if (rc == 1)
     return 0;
   if (source->has_value && source->state != RAWM_STATUS_STALE) {
