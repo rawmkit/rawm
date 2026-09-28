@@ -323,7 +323,10 @@ worker. There is no separate status daemon or configuration file.
 
 Source groups compose across the normal rawm configuration layers by identifier.
 An inherited source may therefore be changed without repeating its provider.
-Set *enabled = false* inside a source to disable it explicitly.
+A declaration also moves that source to its declaration position in the effective
+order. Consequently a complete user *sources* group controls bar order exactly as
+written even when some sources were inherited from the system layer. Set
+*enabled = false* inside a source to disable it explicitly.
 
 ```
 status = {

@@ -458,6 +458,14 @@ rawm_status_config_parse_sources(RawmStatusConfig *cfg,
       source = append_source(cfg, name);
     if (parse_source(err, source, entry, existing) < 0)
       return -1;
+    if (existing && source != &cfg->sources[cfg->source_count - 1]) {
+      RawmStatusSourceConfig moved = *source;
+      size_t index = (size_t)(source - cfg->sources);
+
+      memmove(&cfg->sources[index], &cfg->sources[index + 1],
+              (cfg->source_count - index - 1) * sizeof(*cfg->sources));
+      cfg->sources[cfg->source_count - 1] = moved;
+    }
   }
   return 0;
 }

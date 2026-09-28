@@ -64,7 +64,10 @@ main(void)
     "           \"${ui.colors.floating.border}\",\n"
     "           \"$${HOME}\");\n"
     "};\n"
-    "status = { enabled = true; separator = \" :: \"; };\n"
+    "status = { enabled = true; separator = \" :: \"; sources = {\n"
+    "  battery = { provider = \"battery\"; };\n"
+    "  clock = { format = \"%H:%M\"; };\n"
+    "}; };\n"
     "behavior = { dialog_center = \"parent\"; size_hints = \"always\"; floating_placement = \"client\"; cascade_step = 48; };\n"
     "ui = {\n"
     "  font = \"face-${ui.colors.selected.foreground}\";\n"
@@ -127,6 +130,10 @@ main(void)
     fail("color alias did not resolve");
   if (strcmp(cfg.colors[4][0], "#aabbcc"))
     fail("floating color did not inherit selected border");
+  if (cfg.status.source_count != 2 ||
+      strcmp(cfg.status.sources[0].id, "battery") ||
+      strcmp(cfg.status.sources[1].id, "clock"))
+    fail("status source declaration order was not preserved");
 
   cmd = rawm_config_find_command(&cfg, "probe");
   if (!cmd)
