@@ -25,7 +25,7 @@ Sidecars are different. They are declared to be long-lived session
 infrastructure and are therefore restarted after any unexpected exit, including
 status zero. Managed commands must remain in the foreground; daemonizing or
 backgrounding makes the parent exit and is therefore treated as a service
-failure. The stock sidecars are *rawmstat*(1) and *picom*(1). A sidecar that repeatedly
+failure. The stock sidecar is *picom*(1). A sidecar that repeatedly
 exits is disabled after five restart attempts within ten seconds, preventing a
 broken executable or configuration from becoming an unbounded fork loop. The
 session and its primary continue running after such a sidecar is disabled.
@@ -85,16 +85,14 @@ named in the configured argument vector.
 Each managed command is placed in its own process group. Session termination
 is directed at those groups so ordinary descendants that remain in the same
 group receive shutdown signals with their owner. Components that create their
-own child process groups remain responsible for those children; for example,
-*rawmstat*(1) terminates its active status-command groups during normal
-shutdown.
+own child process groups remain responsible for those children.
 
 The stock process relationship is:
 
 ```
 rawmsession
 |- rawm          primary
-|- rawmstat      supervised sidecar
+|  `- status worker   rawm-owned implementation process
 `- picom         supervised sidecar
 ```
 
@@ -124,7 +122,7 @@ put the same export and exec in that file. The selected login path supplies the
 X display and authentication environment; rawmsession manages the desktop
 processes after it starts.
 
-Do not separately background the stock rawmstat or Picom sidecars in the same
+Do not separately background the stock Picom sidecar in the same
 startup file; doing so creates duplicate lifecycle authorities.
 
 # EXIT STATUS
@@ -150,5 +148,5 @@ _$HOME/.config/rawm/rawmsession.conf_
 
 # SEE ALSO
 
-*rawmsession.conf*(5), *rawm*(1), *rawmstat*(1), *rawmctl*(1), *rawmenu*(1),
+*rawmsession.conf*(5), *rawm*(1), *rawmctl*(1), *rawmenu*(1),
 *picom*(1), *xinit*(1)

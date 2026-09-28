@@ -3,10 +3,10 @@ OVERVIEW
 
 `rawm` is a compact X11 desktop control-plane repository centered on a
 dynamic tiling window manager derived from suckless `dwm` 6.0. It builds the
-`rawm` window manager, the separate `rawmstat` status producer, the
-`rawmctl` operational CLI, and the `rawmsession` lifecycle supervisor from one
-source authority while keeping their process and runtime-policy boundaries
-explicit.
+`rawm` window manager, the `rawmctl` operational CLI, and the `rawmsession`
+lifecycle supervisor from one source authority while keeping process and
+runtime-policy boundaries explicit. Status collection is an internal rawm
+worker rather than a separately configured desktop service.
 
 The code keeps the small, direct Xlib model of its ancestor while moving
 desktop policy out of compile-time headers and into validated runtime
@@ -19,7 +19,8 @@ configuration. Major facilities include:
   * explicit free-window geometry, size-hint, centering, fullscreen, attention,
     and cascading-placement policies;
   * semantic tag, layout, title, and status presentation in the built-in bar;
-  * the `_RAWM_STATUS_V3` semantic root-property protocol;
+  * a fault-isolated status worker supervised privately by rawm over an
+    anonymous message socket;
   * compositor-facing `_RAWM_FLOATING`, `_RAWM_SELECTED`, `_RAWM_LAYOUT`,
     `_RAWM_MONITOR`, and `_RAWM_SURFACE` state;
   * rawm-owned transient OSD feedback for layout, view, routing, fullscreen,
@@ -28,20 +29,17 @@ configuration. Major facilities include:
     cycling, and command-backed tag renaming;
   * optional XEmbed systray, Xinerama, per-window keyboard layout, and focused
     window title support;
-  * the independently running `rawmstat` native source service for rawm-v3 status
-    protocol;
   * `rawmctl` for direct EWMH window inspection/activation, rawmenu-backed
     window selection, and XKB keyboard-group control;
   * stock `Mod4+v` clipboard-history invocation through separately packaged
     `rawclip`, while rawm retains global-key authority;
-  * `rawmsession` for one-primary session lifetime, supervised rawmstat/Picom
-    sidecars, bounded crash recovery, and orderly session shutdown;
-  * one Meson build and behavioral test suite covering both sides of that
-    producer/consumer contract with isolated Xvfb fixtures.
+  * `rawmsession` for one-primary session lifetime, supervised Picom lifecycle,
+    bounded crash recovery, and orderly session shutdown;
+  * one Meson build and behavioral test suite covering rawm, its private status
+    worker, and session integration with isolated Xvfb fixtures.
 
 `rawm` depends on `libX11`, `libXft`, `fontconfig`, and `libconfig`.
-`rawmstat` depends on `libX11` and `libconfig`; `rawmctl` depends on `libX11`;
-`rawmsession` depends on `libconfig`. The `rawmctl window select` command
+`rawmctl` depends on `libX11`; `rawmsession` depends on `libconfig`. The `rawmctl window select` command
 additionally composes at run time with the separately packaged `rawmenu`; the
 stock clipboard-history command similarly composes with separately packaged
 `rawclip`. Neither is a link-time dependency of rawm. Xinerama support is
@@ -146,11 +144,13 @@ tags, while `"all"` keeps the complete configured tag row. Selected, urgent,
 and ordinary visible tags are distinguished by the existing color schemes, and
 rendering and mouse hit testing share the same visibility state.
 
-Status input is an explicit process boundary. When `status.enabled` is true, rawm
-consumes semantic `id/state/text` records from the `_RAWM_STATUS_V3` root
-property. `normal`, `warning`, `critical`, and `stale` are producer semantics;
-separators and all presentation remain rawm policy. The wire version is not a
-user setting, and the legacy root `WM_NAME` channel is not used.
+When `status.enabled` is true, rawm starts a private status worker from the
+validated `status.sources` configuration. The worker collects semantic
+`id/state/text` snapshots and sends them to its parent through an anonymous
+`SOCK_SEQPACKET` socket. `normal`, `warning`, `critical`, and `stale` are source
+semantics; separators, colors, hit testing, and all other presentation remain
+rawm policy. The worker has no independent configuration file, public socket,
+PID file, X root property, or service lifecycle.
 
 Use `rawm -C` to validate the effective configuration without opening the X
 display, or `rawm -C -c ./config/rawm.conf` to validate one explicit file over the
@@ -182,10 +182,10 @@ two commands in `.xsession` when using that route. The X server, X authority
 and any session bus remain the responsibility of the chosen login path.
 
 The installed `/etc/rawm/rawmsession.conf` starts `rawm` as the primary and
-supervises `rawmstat` and `picom` as long-lived sidecars. The primary defines
-session lifetime. Sidecar crashes are restarted with a bounded rate; repeated
-fast failures disable only that sidecar rather than killing or fork-bombing the
-session.
+supervises `picom` as a long-lived sidecar. The primary defines session
+lifetime. Sidecar crashes are restarted with a bounded rate; repeated fast
+failures disable only that sidecar rather than killing or fork-bombing the
+session. rawm itself owns and supervises its private status worker.
 
 `rawmsession` is deliberately not an application autostart mechanism. Remove a
 sidecar when another authority owns that process. `rawmenu` and the `rawclip`
@@ -211,12 +211,12 @@ host system:
     DESTDIR="$PWD/stage" meson install -C build
     find stage -type f -print | sort
 
-The staged tree must contain the `rawm`, `rawmstat`, `rawmctl`, and
-`rawmsession` binaries, their manual pages, `rawm.conf(5)`, `rawmstat.conf(5)`,
-`rawmsession.conf(5)`, and all three configuration files under `/etc/rawm`.
-Configuration/default parity for rawm and rawmsession is covered by the
-test suite, including parity between the installed configuration and compiled
-defaults.
+The staged tree must contain the `rawm`, `rawmctl`, and `rawmsession` binaries,
+their manual pages, `rawm.conf(5)`, `rawmsession.conf(5)`, and both configuration
+files under `/etc/rawm`. It must not contain a `rawmstat` executable, manual, or
+configuration file. Configuration/default parity for rawm and rawmsession is
+covered by the test suite, including parity between installed configuration and
+compiled defaults.
 
 Meson can create a source archive from a clean git checkout with:
 

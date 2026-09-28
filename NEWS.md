@@ -1,3 +1,24 @@
+rawm 7.0.0 — unreleased
+======================
+
+Unified status ownership
+------------------------
+
+* Status collection is now an internal rawm subsystem. rawm is the sole
+  configuration and lifecycle authority; the standalone `rawmstat` executable,
+  configuration file, manuals, and rawmsession sidecar are retired.
+* Native status sources run in a fault-isolated child process supervised by
+  rawm and communicate through an anonymous `SOCK_SEQPACKET` socket. No status
+  X root property, public socket, PID file, or second configuration parser
+  remains.
+* Status source policy lives under `status.sources` in `rawm.conf`. Native CPU,
+  memory, filesystem, network, battery, and clock providers retain in-process
+  sampling state; `exec` remains an explicitly bounded extension provider.
+* Worker loss marks existing values stale without terminating the window
+  manager. rawm reaps and restarts the worker with bounded backoff.
+* `rawm --status-debug` runs the same collector path in the foreground for
+  configuration and source diagnostics without opening the X display.
+
 rawm 6.5.0 — 2026-09-26
 =========================
 

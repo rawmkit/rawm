@@ -6,9 +6,9 @@ The current rawm source tree is licensed under the MIT/X Consortium license in
 The repository preserves the pre-integration rawmstat Git history as an
 unsquashed second-parent history. Historical rawmstat revisions descend from
 an ISC-licensed dwmblocks fork and retain the notices that applied to those
-revisions. That historical provenance does not make the replacement status
-implementation in the current tree ISC-licensed.
+revisions.
 
-The current `src/rawmstat/`, `tests/rawmstat/`, `docs/rawmstat*.scdoc`,
-`config/rawmstat.conf`, and `lib/status/` implementations are MIT/X code owned
-by the rawm repository release boundary.
+The current status implementation lives under `src/status/` and `lib/status/`;
+those files carry the current tree's MIT/X licensing. There is no
+current `rawmstat` program, configuration file, manual page, or public status
+transport; references to rawmstat are historical provenance only.

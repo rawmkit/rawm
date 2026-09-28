@@ -9,28 +9,29 @@ force components into one process.
 Current programs:
 
 * `rawm`: window-manager policy, client admission, geometry, focus, bar,
-  compositor-facing state, and rawm-owned X11 properties.
-* `rawmstat`: native status acquisition and publication through the
-  rawm-v3 contract.
+  compositor-facing state, and the private status-worker lifecycle.
 * `rawmctl`: direct operational control and inspection of rawm/X11 state.
   Window list/activation use EWMH authority, window selection composes with
   `rawmenu` while retaining XID identity, and keyboard-group control uses XKB.
   These behaviors replace the useful portions of the historical `rawin` and
   `rawkb` utilities without importing their external-tool chains.
 * `rawmsession`: session-lifecycle authority. It starts rawm as the primary
-  process and supervises only long-lived desktop infrastructure such as
-  rawmstat and Picom. The primary defines session lifetime; sidecars may be
-  restarted under a bounded crash budget.
+  process and supervises independent long-lived desktop infrastructure such as
+  Picom. The primary defines session lifetime; sidecars may be restarted under
+  a bounded crash budget.
 
-`rawmstat` remains a separate process. Integrating its source and release
-authority does not make status command execution part of the window-manager
-process or failure domain.
+Status collection is process-isolated but not a separate product. rawm forks a
+private worker after validating `rawm.conf`; the worker owns acquisition state
+and communicates only with its parent through an anonymous packet socket.
+Provider failures therefore remain outside the X11 window-manager process while
+configuration and lifecycle authority remain inside rawm.
 
 Session supervision is likewise kept out of rawm. rawm owns window-manager
-state and already performs an in-place SIGHUP restart. Starting sidecars from
+state and already performs an in-place SIGHUP restart. Starting independent desktop sidecars from
 the WM would make that restart path duplicate-prone and would couple compositor
-or status failures to the X11 policy engine. rawmsession therefore owns the
-process tree one layer above rawm.
+failures to the X11 policy engine. rawmsession therefore owns those process
+trees one layer above rawm. The status worker is different: it is an internal
+fault-containment process whose lifetime is part of rawm itself.
 
 The session boundary is intentionally narrower than a generic service manager.
 Only continuously desired desktop infrastructure belongs in `sidecars`; user
@@ -42,17 +43,17 @@ retain their own lifecycle authorities.
 A library is introduced only when two components need one semantic authority.
 It is not a destination for generic helpers merely because code can be shared.
 
-`lib/status` owns only the rawm-v3 transport contract:
+`lib/status` owns only the private status snapshot semantics:
 
 * state vocabulary;
 * segment identifier grammar and byte limits;
 * printable UTF-8 validation;
-* wire encoding and decoding;
+* snapshot encoding and decoding;
 * the 4096-byte payload limit.
 
-It does not own X11 property access, rendering, status scheduling, subprocess
-execution, configuration policy, or presentation. The library is private,
-statically linked, non-installed, and has no public ABI commitment.
+It does not own X11, rendering, scheduling, subprocess execution, configuration
+policy, or presentation. The library is private, statically linked,
+non-installed, and has no public ABI commitment.
 
 Do not create catch-all libraries such as `librawmutil` or `librawmx11` without
 a similarly specific authority boundary.
@@ -89,10 +90,10 @@ real second parent of the import commit, so historical commit identities remain
 reachable even though the current files were subsequently moved into the rawm
 layout.
 
-The current source tree is MIT/X licensed. The imported rawmstat history remains
-reachable as provenance and its historical revisions retain their original ISC
-notices, but the current status implementation and codec do not derive their
-license from that imported tree. See `LICENSES/README.md`.
+The current source tree carries the MIT/X license. The imported rawmstat history
+remains reachable as provenance and its historical revisions retain their
+original ISC notices. Current status files carry the current tree's MIT/X
+licensing; see `LICENSES/README.md` for the provenance boundary.
 
 ## Change discipline
 

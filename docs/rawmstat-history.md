@@ -1,22 +1,14 @@
 # rawmstat history and provenance
 
-rawmstat is the status acquisition sidecar shipped with rawm. The current
-implementation uses named native sources, in-process sampling state, and the
-`_RAWM_STATUS_V3` snapshot contract. It is implemented and licensed as part of
-the current rawm source tree.
+The standalone rawmstat project is historical provenance, not a current rawm
+program or runtime authority.
 
-The repository also preserves the complete history of the earlier standalone
-rawmstat project as the second parent of the import commit. That historical
-project began as a fork of torrinfail's ISC-licensed dwmblocks at commit
-`a933ce0` (2022-01-06) and later evolved asynchronous command blocks and the
-rawm-v2 protocol before being integrated into rawm.
+Its complete pre-integration Git history was merged without squashing as the
+second parent of the original import commit. Historical revisions therefore
+remain reachable with their original commit identities and ISC notices.
 
-The native source implementation intentionally replaces that lineage in the
-current tree. The historical commits remain reachable for provenance and keep
-the license notices that applied to their revisions; they are not a current
-implementation or compatibility authority.
-
-Historical upstream references:
-
-1. https://github.com/torrinfail/dwmblocks
-2. https://github.com/torrinfail/dwmblocks/archive/a933ce0/dwmblocks-a933ce0.zip
+Current rawm status code is an MIT/X implementation under `src/status/` and
+`lib/status/`. Status configuration lives in `rawm.conf`; rawm forks and
+supervises a private collector worker and transports snapshots over an anonymous
+socket pair. No current source file, executable, manual page, configuration
+file, or X11 status protocol depends on the historical rawmstat implementation.

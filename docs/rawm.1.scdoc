@@ -98,7 +98,7 @@ tags.
 
 Each screen contains a small status bar which displays all used tags,
 the layout, the title (when built with *-Dwindow_title=true*) of the focused
-window, and status text received through the rawm-v3 status snapshot
+window, and semantic status segments collected by its private status worker
 on the focused screen.
 
 The bar is a semantic rail. Viewed tags use the selected authority color as
@@ -139,6 +139,10 @@ The options are as follows:
 	Validate the effective configuration and exit without opening the X
 	display.
 
+*--status-debug*
+	Run the configured status collector in the foreground and print each changed
+	private snapshot to standard output. This diagnostic mode does not open X.
+
 *-v*, *--version*
 	Print version and exit.
 
@@ -146,19 +150,20 @@ The options are as follows:
 
 ## Status bar
 
-*rawm-v3 status*
-	When *status.enabled* is true, rawm reads semantic status segments from the
-	*\_RAWM\_STATUS\_V3*
-	property on the X root window. Each segment carries a stable identifier,
-	text, and one of the states *normal*, *warning*, *critical*, or *stale*. rawm maps
-	those states to its normal, urgent, and error color schemes and owns the
-	separator drawn between segments. Invalid or missing status data produces
-	an empty status area.
+When *status.enabled* is true, rawm starts a private collector worker from the
+validated *status.sources* configuration. The worker owns sampling state while
+rawm owns rendering, colors, separators, hit testing, and status-specific mouse
+bindings.
 
-	The root *WM_NAME* property is not used for status. The protocol contains
-	no color values or presentation markup. *rawmstat*(1) is the companion
-	producer, but any X11 client may publish the property. See *rawm.conf*(5)
-	for the complete wire contract.
+The worker is an implementation process, not a separately installed service.
+It communicates with rawm over an anonymous packet socket. Unexpected worker
+death marks current segments stale and schedules a bounded restart without
+terminating the window manager.
+
+Each segment carries a stable identifier, text, and one of *normal*, *warning*,
+*critical*, or *stale*. The root *WM_NAME* property is not used for status, and
+rawm exports no status property for external producers. See *rawm.conf*(5) for
+source configuration.
 
 ## Compositor integration
 

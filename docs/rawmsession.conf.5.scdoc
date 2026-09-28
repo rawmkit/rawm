@@ -10,8 +10,8 @@ rawmsession.conf - rawm desktop-session lifecycle configuration
 process and the complete set of long-lived sidecars whose lifecycle belongs to
 the rawm desktop session.
 
-The built-in defaults start *rawm*(1) as the primary, with *rawmstat*(1) and
-*picom*(1) as supervised sidecars. In normal mode configuration is layered in
+The built-in defaults start *rawm*(1) as the primary, with *picom*(1) as the
+supervised sidecar. In normal mode configuration is layered in
 this order:
 
 . built-in defaults
@@ -56,7 +56,6 @@ valid and means rawmsession supervises no sidecars.
 
 ```
 sidecars = (
-  { name = "status";     command = ("rawmstat"); },
   { name = "compositor"; command = ("picom"); }
 );
 ```
@@ -92,7 +91,6 @@ The stock file contains only session infrastructure:
 ```
 primary = ("rawm");
 sidecars = (
-  { name = "status";     command = ("rawmstat"); },
   { name = "compositor"; command = ("picom"); }
 );
 ```
@@ -102,17 +100,16 @@ would declare that rawmsession should restart them whenever they exit.
 Likewise, Pinentry belongs to gpg-agent, and authentication tools such as
 rawlock are invoked when needed rather than supervised continuously.
 
-If a compositor or status producer is intentionally owned by another service
-manager, remove that sidecar from this list rather than running two supervisors
-for the same process.
+If a compositor is intentionally owned by another service manager, remove that
+sidecar from this list rather than running two supervisors for the same process.
+Status collection is internal to rawm and is not a rawmsession sidecar.
 
 # EXAMPLES
 
-Run Picom with an explicit profile while retaining the stock status producer:
+Run Picom with an explicit profile:
 
 ```
 sidecars = (
-  { name = "status"; command = ("rawmstat"); },
   {
     name = "compositor";
     command = ("picom", "--config", "/home/alice/.config/picom/picom.conf");
@@ -128,4 +125,4 @@ sidecars = ();
 
 # SEE ALSO
 
-*rawmsession*(1), *rawm*(1), *rawmstat*(1), *picom*(1)
+*rawmsession*(1), *rawm*(1), *picom*(1)
