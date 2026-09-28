@@ -28,6 +28,7 @@ typedef struct {
   unsigned int period_ms;
   unsigned int warning;
   unsigned int critical;
+  unsigned int step;
   char *device;
   char *control;
   char *format;

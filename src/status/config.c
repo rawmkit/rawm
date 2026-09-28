@@ -277,11 +277,13 @@ set_provider_defaults(RawmStatusSourceConfig *source,
   source->period_ms = 5000;
   source->warning = 0;
   source->critical = 0;
+  source->step = 0;
   source->timeout_ms = RAWM_STATUS_DEFAULT_EXEC_TIMEOUT_MS;
 
   switch (provider) {
   case RAWM_STATUS_PROVIDER_ALSA:
     source->period_ms = 5000;
+    source->step = 1;
     source->device = xstrdup("default");
     source->control = xstrdup("Master");
     break;
@@ -353,8 +355,9 @@ parse_source(FILE *err, RawmStatusSourceConfig *source,
              const config_setting_t *group, bool existing)
 {
   static const char *const allowed[] = {
-    "enabled", "provider", "period_ms", "warning", "critical", "device",
-    "control", "format", "path", "interface", "command", "timeout_ms"
+    "enabled", "provider", "period_ms", "warning", "critical", "step",
+    "device", "control", "format", "path", "interface", "command",
+    "timeout_ms"
   };
   config_setting_t *setting;
   const char *provider_name;
@@ -377,6 +380,10 @@ parse_source(FILE *err, RawmStatusSourceConfig *source,
     return cfg_error(err, group, "new source requires a provider%s", "");
   }
 
+  if (source->provider != RAWM_STATUS_PROVIDER_ALSA &&
+      config_setting_get_member(group, "step"))
+    return cfg_error(err, config_setting_get_member(group, "step"),
+                     "step is valid only for alsa provider%s", "");
   if (source->provider != RAWM_STATUS_PROVIDER_ALSA &&
       config_setting_get_member(group, "device"))
     return cfg_error(err, config_setting_get_member(group, "device"),
@@ -422,6 +429,7 @@ parse_source(FILE *err, RawmStatusSourceConfig *source,
                 &source->period_ms) < 0 ||
       read_uint(err, group, "warning", 0, UINT_MAX, &source->warning) < 0 ||
       read_uint(err, group, "critical", 0, UINT_MAX, &source->critical) < 0 ||
+      read_uint(err, group, "step", 1, 100, &source->step) < 0 ||
       read_uint(err, group, "timeout_ms", 1, 600000,
                 &source->timeout_ms) < 0 ||
       replace_optional_string(err, group, "device", &source->device) < 0 ||

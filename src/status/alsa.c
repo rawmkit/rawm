@@ -73,6 +73,26 @@ fail:
   return -1;
 }
 
+static snd_mixer_elem_t *
+find_playback_element(RawmStatusAlsa *state,
+                      const RawmStatusSourceConfig *config, FILE *err)
+{
+  snd_mixer_elem_t *element;
+  snd_mixer_selem_id_t *id;
+
+  snd_mixer_selem_id_alloca(&id);
+  snd_mixer_selem_id_set_index(id, 0);
+  snd_mixer_selem_id_set_name(id, config->control);
+  element = snd_mixer_find_selem(state->mixer, id);
+  if (!element || !snd_mixer_selem_has_playback_volume(element)) {
+    fprintf(err,
+            "rawm: status worker: ALSA control '%s' on '%s' has no playback volume\n",
+            config->control, config->device);
+    return NULL;
+  }
+  return element;
+}
+
 int
 rawm_status_alsa_sample(RawmStatusAlsa **state,
                         const RawmStatusSourceConfig *config,
@@ -80,7 +100,6 @@ rawm_status_alsa_sample(RawmStatusAlsa **state,
                         RawmStatusState *semantic, FILE *err)
 {
   snd_mixer_elem_t *element;
-  snd_mixer_selem_id_t *id;
   long minimum, maximum;
   long double normalized = 0.0L;
   unsigned int channel_count = 0;
@@ -91,16 +110,9 @@ rawm_status_alsa_sample(RawmStatusAlsa **state,
 
   if (open_mixer(state, config, err) < 0)
     return -1;
-  snd_mixer_selem_id_alloca(&id);
-  snd_mixer_selem_id_set_index(id, 0);
-  snd_mixer_selem_id_set_name(id, config->control);
-  element = snd_mixer_find_selem((*state)->mixer, id);
-  if (!element || !snd_mixer_selem_has_playback_volume(element)) {
-    fprintf(err,
-            "rawm: status worker: ALSA control '%s' on '%s' has no playback volume\n",
-            config->control, config->device);
+  element = find_playback_element(*state, config, err);
+  if (!element)
     return -1;
-  }
   if (snd_mixer_selem_get_playback_volume_range(element,
                                                  &minimum, &maximum) < 0 ||
       maximum <= minimum) {
@@ -155,6 +167,112 @@ rawm_status_alsa_sample(RawmStatusAlsa **state,
     *semantic = RAWM_STATUS_NORMAL;
   }
   return written >= 0 && (size_t)written < size ? 0 : -1;
+}
+
+int
+rawm_status_alsa_control(RawmStatusAlsa **state,
+                         const RawmStatusSourceConfig *config,
+                         RawmStatusControl control, FILE *err)
+{
+  snd_mixer_elem_t *element;
+  long minimum, maximum;
+
+  if (open_mixer(state, config, err) < 0)
+    return -1;
+  element = find_playback_element(*state, config, err);
+  if (!element)
+    return -1;
+
+  if (control == RAWM_STATUS_CONTROL_VOLUME_MUTE) {
+    bool any_on = false;
+    bool found = false;
+
+    if (!snd_mixer_selem_has_playback_switch(element)) {
+      fprintf(err,
+              "rawm: status worker: ALSA control '%s' on '%s' has no playback switch\n",
+              config->control, config->device);
+      return -1;
+    }
+    for (int i = SND_MIXER_SCHN_FRONT_LEFT; i <= SND_MIXER_SCHN_LAST; ++i) {
+      snd_mixer_selem_channel_id_t channel = (snd_mixer_selem_channel_id_t)i;
+      int on;
+
+      if (!snd_mixer_selem_has_playback_channel(element, channel))
+        continue;
+      found = true;
+      if (snd_mixer_selem_get_playback_switch(element, channel, &on) < 0) {
+        rawm_status_alsa_destroy(state);
+        return -1;
+      }
+      if (on)
+        any_on = true;
+    }
+    if (!found)
+      return -1;
+    for (int i = SND_MIXER_SCHN_FRONT_LEFT; i <= SND_MIXER_SCHN_LAST; ++i) {
+      snd_mixer_selem_channel_id_t channel = (snd_mixer_selem_channel_id_t)i;
+
+      if (!snd_mixer_selem_has_playback_channel(element, channel))
+        continue;
+      if (snd_mixer_selem_set_playback_switch(element, channel,
+                                               any_on ? 0 : 1) < 0) {
+        rawm_status_alsa_destroy(state);
+        return -1;
+      }
+    }
+    return 0;
+  }
+
+  if (control != RAWM_STATUS_CONTROL_VOLUME_UP &&
+      control != RAWM_STATUS_CONTROL_VOLUME_DOWN)
+    return -1;
+  if (snd_mixer_selem_get_playback_volume_range(element, &minimum, &maximum) < 0 ||
+      maximum <= minimum) {
+    rawm_status_alsa_destroy(state);
+    return -1;
+  }
+
+  {
+    long double scaled = ((long double)maximum - (long double)minimum) *
+                         (long double)config->step / 100.0L;
+    long delta;
+    bool found = false;
+
+    if (scaled < 1.0L)
+      delta = 1;
+    else if (scaled >= (long double)LONG_MAX)
+      delta = LONG_MAX;
+    else
+      delta = (long)(scaled + 0.5L);
+    for (int i = SND_MIXER_SCHN_FRONT_LEFT; i <= SND_MIXER_SCHN_LAST; ++i) {
+      snd_mixer_selem_channel_id_t channel = (snd_mixer_selem_channel_id_t)i;
+      long double target;
+      long value;
+
+      if (!snd_mixer_selem_has_playback_channel(element, channel))
+        continue;
+      found = true;
+      if (snd_mixer_selem_get_playback_volume(element, channel, &value) < 0) {
+        rawm_status_alsa_destroy(state);
+        return -1;
+      }
+      target = (long double)value +
+               (control == RAWM_STATUS_CONTROL_VOLUME_UP
+                  ? (long double)delta : -(long double)delta);
+      if (target > (long double)maximum)
+        target = (long double)maximum;
+      if (target < (long double)minimum)
+        target = (long double)minimum;
+      if (snd_mixer_selem_set_playback_volume(element, channel,
+                                               (long)target) < 0) {
+        rawm_status_alsa_destroy(state);
+        return -1;
+      }
+    }
+    if (!found)
+      return -1;
+  }
+  return 0;
 }
 
 size_t

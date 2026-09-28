@@ -687,6 +687,30 @@ rawm_status_source_refresh(RawmStatusSource *source, uint64_t now_ms,
   return 0;
 }
 
+int
+rawm_status_source_control(RawmStatusSource *source,
+                           RawmStatusControl control, uint64_t now_ms,
+                           const volatile sig_atomic_t *terminate, FILE *err)
+{
+  RawmStatusAlsa *alsa;
+  int changed = 0;
+
+  if (!source || source->config->provider != RAWM_STATUS_PROVIDER_ALSA)
+    return -1;
+  alsa = source->provider_data;
+  if (rawm_status_alsa_control(&alsa, source->config, control, err) < 0) {
+    source->provider_data = alsa;
+    source->next_due_ms = now_ms + source->config->period_ms;
+    if (source->has_value && source->state != RAWM_STATUS_STALE) {
+      source->state = RAWM_STATUS_STALE;
+      changed = 1;
+    }
+    return changed;
+  }
+  source->provider_data = alsa;
+  return rawm_status_source_refresh(source, now_ms, terminate, err);
+}
+
 size_t
 rawm_status_source_pollfd_count(RawmStatusSource *source)
 {

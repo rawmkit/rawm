@@ -644,6 +644,9 @@ static void           tile(Monitor *);
 static void           togglebar(const Arg *arg);
 static void           togglefloating(const Arg *arg);
 static void           togglefullscr(const Arg *arg);
+static void           volumeup(const Arg *arg);
+static void           volumedown(const Arg *arg);
+static void           volumemute(const Arg *arg);
 static void           toggletag(const Arg *arg);
 static void           toggleview(const Arg *arg);
 static void           unfocus(Client *c, bool setfocus);
@@ -798,6 +801,9 @@ action_function(RawmAction action))(const Arg *)
     case RAWM_ACTION_TOGGLE_TAG:        return toggletag;
     case RAWM_ACTION_WINDOW_VIEW:       return winview;
     case RAWM_ACTION_TOGGLE_FULLSCREEN: return togglefullscr;
+    case RAWM_ACTION_VOLUME_UP:         return volumeup;
+    case RAWM_ACTION_VOLUME_DOWN:       return volumedown;
+    case RAWM_ACTION_VOLUME_MUTE:       return volumemute;
     case RAWM_ACTION_FOCUS_MONITOR:     return focusmon;
     case RAWM_ACTION_TAG_MONITOR:       return tagmon;
     case RAWM_ACTION_QUIT:              return quit;
@@ -3482,6 +3488,30 @@ readstatusworker(void)
     drawbar(selmon);
   if (result < 0)
     statusworkerlost();
+}
+
+static void
+volumeup(const Arg *arg)
+{
+  (void)arg;
+  (void)rawm_status_worker_control(&statusworker,
+                                   RAWM_STATUS_CONTROL_VOLUME_UP, stderr);
+}
+
+static void
+volumedown(const Arg *arg)
+{
+  (void)arg;
+  (void)rawm_status_worker_control(&statusworker,
+                                   RAWM_STATUS_CONTROL_VOLUME_DOWN, stderr);
+}
+
+static void
+volumemute(const Arg *arg)
+{
+  (void)arg;
+  (void)rawm_status_worker_control(&statusworker,
+                                   RAWM_STATUS_CONTROL_VOLUME_MUTE, stderr);
 }
 
 static int

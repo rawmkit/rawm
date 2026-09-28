@@ -15,6 +15,7 @@ alsa_headers_dep = alsa_dep.partial_dependency(
 status_alsa_test = executable(
   'status-alsa-test',
   'status-alsa-test.c',
+  'status-alsa-fake.c',
   '../../src/status/alsa.c',
   include_directories: rawm_src_include,
   dependencies: [alsa_headers_dep, rawm_status_dep],
@@ -22,3 +23,17 @@ status_alsa_test = executable(
 )
 
 test('status-alsa', status_alsa_test)
+
+status_worker_control_test = executable(
+  'status-worker-control-test',
+  'status-worker-control-test.c',
+  'status-alsa-fake.c',
+  '../../src/status/worker.c',
+  '../../src/status/source.c',
+  '../../src/status/alsa.c',
+  include_directories: rawm_src_include,
+  dependencies: [alsa_headers_dep, rawm_status_dep],
+  build_by_default: false,
+)
+
+test('status-worker-control', status_worker_control_test)

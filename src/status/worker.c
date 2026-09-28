@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #define RAWM_STATUS_IPC_SNAPSHOT 'S'
+#define RAWM_STATUS_IPC_CONTROL 'C'
 #define RAWM_STATUS_IPC_MAX (RAWM_STATUS_SNAPSHOT_MAX + 1u)
 
 static volatile sig_atomic_t terminate_requested;
@@ -178,6 +179,56 @@ typedef struct {
 } RawmStatusPollSlice;
 
 static int
+handle_control(RawmStatusSource *sources, size_t source_count, int fd,
+               bool *publish, FILE *err)
+{
+  unsigned char frame[2];
+  RawmStatusSource *target = NULL;
+  uint64_t now;
+  ssize_t n;
+  size_t i;
+
+  n = recv(fd, frame, sizeof(frame), MSG_DONTWAIT | MSG_TRUNC);
+  if (n < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+      return 0;
+    fprintf(err, "rawm: status worker: receive control: %s\n",
+            strerror(errno));
+    return -1;
+  }
+  if (n == 0)
+    return 1;
+  if (n != 2 || frame[0] != RAWM_STATUS_IPC_CONTROL ||
+      frame[1] < RAWM_STATUS_CONTROL_VOLUME_UP ||
+      frame[1] > RAWM_STATUS_CONTROL_VOLUME_MUTE) {
+    fputs("rawm: status worker: invalid control frame\n", err);
+    return -1;
+  }
+
+  for (i = 0; i < source_count; ++i) {
+    if (!sources[i].config->enabled ||
+        sources[i].config->provider != RAWM_STATUS_PROVIDER_ALSA)
+      continue;
+    if (target) {
+      fputs("rawm: status worker: ambiguous ALSA control source\n", err);
+      return -1;
+    }
+    target = &sources[i];
+  }
+  if (!target) {
+    fputs("rawm: status worker: no ALSA control source\n", err);
+    return -1;
+  }
+  now = monotonic_ms();
+  if (!now)
+    return -1;
+  if (rawm_status_source_control(target, (RawmStatusControl)frame[1], now,
+                                 &terminate_requested, err) > 0)
+    *publish = true;
+  return 0;
+}
+
+static int
 wait_for_events(RawmStatusSource *sources, size_t source_count, int fd,
                 FILE *out, int timeout, bool *publish, FILE *err)
 {
@@ -261,13 +312,12 @@ wait_for_events(RawmStatusSource *sources, size_t source_count, int fd,
       return 1;
     }
     if (pfds[0].revents & POLLIN) {
-      char byte;
-      ssize_t n = recv(fd, &byte, 1, MSG_DONTWAIT);
+      int control_result = handle_control(sources, source_count, fd, publish, err);
 
-      if (n == 0) {
+      if (control_result != 0) {
         free(pfds);
         free(slices);
-        return 1;
+        return control_result;
       }
     }
   }
@@ -492,6 +542,29 @@ rawm_status_worker_receive(RawmStatusWorker *worker, RawmStatusData *status,
   rawm_status_data_destroy(status);
   *status = parsed;
   return 1;
+}
+
+int
+rawm_status_worker_control(RawmStatusWorker *worker,
+                           RawmStatusControl control, FILE *err)
+{
+  unsigned char frame[2] = { RAWM_STATUS_IPC_CONTROL, (unsigned char)control };
+  ssize_t n;
+
+  if (worker->fd < 0 || worker->pid <= 0)
+    return -1;
+  if (control < RAWM_STATUS_CONTROL_VOLUME_UP ||
+      control > RAWM_STATUS_CONTROL_VOLUME_MUTE)
+    return -1;
+  do {
+    n = send(worker->fd, frame, sizeof(frame), MSG_NOSIGNAL | MSG_DONTWAIT);
+  } while (n < 0 && errno == EINTR);
+  if (n < 0) {
+    if (errno != EPIPE && errno != ECONNRESET)
+      fprintf(err, "rawm: status worker control: %s\n", strerror(errno));
+    return -1;
+  }
+  return n == (ssize_t)sizeof(frame) ? 0 : -1;
 }
 
 int

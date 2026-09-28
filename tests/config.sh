@@ -674,6 +674,62 @@ status = { sources = { clock = { enabled = false; }; }; };
 EOC
 expect_ok "$tmp/status-source-disable.conf"
 
+cat >"$tmp/status-source-alsa-step.conf" <<'EOC'
+status = { sources = { volume = { provider = "alsa"; step = 5; }; }; };
+input = { keys = (
+  { key = "XF86AudioRaiseVolume"; action = "volume_up"; },
+  { key = "XF86AudioLowerVolume"; action = "volume_down"; },
+  { key = "XF86AudioMute"; action = "volume_mute"; }
+); };
+EOC
+expect_ok "$tmp/status-source-alsa-step.conf"
+
+cat >"$tmp/status-source-step-native.conf" <<'EOC'
+status = { sources = { cpu = { provider = "cpu"; step = 5; }; }; };
+EOC
+expect_fail "$tmp/status-source-step-native.conf"
+grep -q "step is valid only for alsa" "$tmp/stderr" ||
+  fail "non-ALSA status step was accepted"
+
+cat >"$tmp/status-source-step-range.conf" <<'EOC'
+status = { sources = { volume = { provider = "alsa"; step = 0; }; }; };
+EOC
+expect_fail "$tmp/status-source-step-range.conf"
+grep -q "step is out of range" "$tmp/stderr" ||
+  fail "invalid ALSA status step was accepted"
+
+cat >"$tmp/volume-action-no-alsa.conf" <<'EOC'
+input = { keys = (
+  { key = "XF86AudioMute"; action = "volume_mute"; }
+); };
+EOC
+expect_fail "$tmp/volume-action-no-alsa.conf"
+grep -q "requires status.enabled and exactly one enabled ALSA status source" "$tmp/stderr" ||
+  fail "native volume action without ALSA source was accepted"
+
+cat >"$tmp/volume-action-status-disabled.conf" <<'EOC'
+status = { enabled = false; sources = { volume = { provider = "alsa"; }; }; };
+input = { keys = (
+  { key = "XF86AudioMute"; action = "volume_mute"; }
+); };
+EOC
+expect_fail "$tmp/volume-action-status-disabled.conf"
+grep -q "requires status.enabled and exactly one enabled ALSA status source" "$tmp/stderr" ||
+  fail "native volume action with disabled status subsystem was accepted"
+
+cat >"$tmp/volume-action-ambiguous.conf" <<'EOC'
+status = { sources = {
+  volume = { provider = "alsa"; };
+  headset = { provider = "alsa"; device = "hw:1"; control = "Master"; };
+}; };
+input = { keys = (
+  { key = "XF86AudioMute"; action = "volume_mute"; }
+); };
+EOC
+expect_fail "$tmp/volume-action-ambiguous.conf"
+grep -q "requires status.enabled and exactly one enabled ALSA status source" "$tmp/stderr" ||
+  fail "ambiguous native volume action was accepted"
+
 cat >"$tmp/status-source-new-no-provider.conf" <<'EOC'
 status = { sources = { probe = { period_ms = 1000; }; }; };
 EOC

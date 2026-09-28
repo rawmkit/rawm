@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: MIT */
+#ifndef RAWM_STATUS_CONTROL_H
+#define RAWM_STATUS_CONTROL_H
+
+typedef enum {
+  RAWM_STATUS_CONTROL_VOLUME_UP = 1,
+  RAWM_STATUS_CONTROL_VOLUME_DOWN,
+  RAWM_STATUS_CONTROL_VOLUME_MUTE
+} RawmStatusControl;
+
+#endif

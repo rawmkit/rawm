@@ -157,8 +157,8 @@ compare_config(const RawmConfig *a, const RawmConfig *b)
     expect_string("status source id differs", as->id, bs->id);
     if (as->enabled != bs->enabled || as->provider != bs->provider ||
         as->period_ms != bs->period_ms || as->warning != bs->warning ||
-        as->critical != bs->critical || as->timeout_ms != bs->timeout_ms ||
-        as->argc != bs->argc)
+        as->critical != bs->critical || as->step != bs->step ||
+        as->timeout_ms != bs->timeout_ms || as->argc != bs->argc)
       fail("status source scalar policy differs");
     expect_string("status source device differs", as->device, bs->device);
     expect_string("status source control differs", as->control, bs->control);

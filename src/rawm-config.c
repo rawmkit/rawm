@@ -1428,6 +1428,9 @@ parse_action_name(const char *name, RawmAction *action)
     { "toggle_floating", RAWM_ACTION_TOGGLE_FLOATING }, { "tag", RAWM_ACTION_TAG },
     { "toggle_tag", RAWM_ACTION_TOGGLE_TAG }, { "window_view", RAWM_ACTION_WINDOW_VIEW },
     { "toggle_fullscreen", RAWM_ACTION_TOGGLE_FULLSCREEN },
+    { "volume_up", RAWM_ACTION_VOLUME_UP },
+    { "volume_down", RAWM_ACTION_VOLUME_DOWN },
+    { "volume_mute", RAWM_ACTION_VOLUME_MUTE },
     { "focus_monitor", RAWM_ACTION_FOCUS_MONITOR }, { "tag_monitor", RAWM_ACTION_TAG_MONITOR },
     { "quit", RAWM_ACTION_QUIT }, { "move", RAWM_ACTION_MOVE }, { "resize", RAWM_ACTION_RESIZE }
   };
@@ -2162,6 +2165,19 @@ binding_has_extra(const RawmBinding *b, bool command, bool layout,
          (!restart && b->restart);
 }
 
+static size_t
+enabled_alsa_source_count(const RawmConfig *cfg)
+{
+  size_t count = 0;
+  size_t i;
+
+  for (i = 0; i < cfg->status.source_count; ++i)
+    if (cfg->status.sources[i].enabled &&
+        cfg->status.sources[i].provider == RAWM_STATUS_PROVIDER_ALSA)
+      ++count;
+  return count;
+}
+
 static int
 validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
                  RawmClick click, FILE *err)
@@ -2276,6 +2292,17 @@ validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
     if (!b->has_number || (b->number != -1 && b->number != 1)) {
       fputs("rawm: configuration error: cycle_layout requires 'number' -1 or 1\n",
             err);
+      return -1;
+    }
+    break;
+  case RAWM_ACTION_VOLUME_UP:
+  case RAWM_ACTION_VOLUME_DOWN:
+  case RAWM_ACTION_VOLUME_MUTE:
+    if (binding_has_extra(b, false, false, false, false, false, false))
+      goto extra;
+    if (!cfg->status_enabled || enabled_alsa_source_count(cfg) != 1) {
+      fputs("rawm: configuration error: native volume action requires "
+            "status.enabled and exactly one enabled ALSA status source\n", err);
       return -1;
     }
     break;
