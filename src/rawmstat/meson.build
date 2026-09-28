@@ -1,4 +1,4 @@
-rawmstat_version = '0.1'
+rawmstat_version = '1.0.0'
 rawmstat_c_args = [
   '-DVERSION="@0@"'.format(rawmstat_version),
   '-DSYSCONFDIR="@0@"'.format(runtime_sysconfdir),
@@ -9,6 +9,7 @@ rawmstat = executable(
   [
     'rawmstat.c',
     'rawmstat-config.c',
+    'rawmstat-source.c',
   ],
   c_args: rawmstat_c_args,
   dependencies: [x11_dep, libconfig_dep, rawm_status_dep],
