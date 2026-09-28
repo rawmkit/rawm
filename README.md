@@ -229,7 +229,7 @@ clean.
 LICENSE
 =======
 
-The rawm window-manager sources are licensed under the MIT/X Consortium
-license in `LICENSE`. The imported rawmstat component remains under the ISC
-license in `LICENSES/ISC.txt`; `LICENSES/README.md` maps the current component
-paths to their notices.
+The current rawm source tree is licensed under the MIT/X Consortium license in
+`LICENSE`. The preserved pre-integration rawmstat history retains the notices
+that applied to its historical revisions; see `LICENSES/README.md` for the
+provenance boundary.
