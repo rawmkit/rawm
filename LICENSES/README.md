@@ -1,18 +1,14 @@
-# Licensing map
+# Licensing and provenance
 
-The repository contains code with two permissive licenses whose original
-notices remain authoritative.
+The current rawm source tree is licensed under the MIT/X Consortium license in
+`../LICENSE`, except where an individual file states otherwise.
 
-* The rawm window-manager sources, `rawmctl`, `rawmsession`, and repository
-  integration code are licensed under the MIT/X Consortium license in
-  `../LICENSE`.
-* The imported rawmstat component remains licensed under the ISC license in
-  `ISC.txt`. This covers `src/rawmstat/`, `tests/rawmstat/`,
-  `docs/rawmstat.1.scdoc`, `docs/rawmstat.conf.5.scdoc`, and
-  `config/rawmstat.conf`, except where a file states otherwise.
-* `lib/status/` consolidates status-protocol code originating on both sides of
-  that boundary and is distributed under the combined `MIT AND ISC` terms.
+The repository preserves the pre-integration rawmstat Git history as an
+unsquashed second-parent history. Historical rawmstat revisions descend from
+an ISC-licensed dwmblocks fork and retain the notices that applied to those
+revisions. That historical provenance does not make the replacement status
+implementation in the current tree ISC-licensed.
 
-The rawmstat Git history is preserved as an unsquashed second-parent history in
-the repository. Moving its current tree into the rawm house layout does not
-change its copyright or license.
+The current `src/rawmstat/`, `tests/rawmstat/`, `docs/rawmstat*.scdoc`,
+`config/rawmstat.conf`, and `lib/status/` implementations are MIT/X code owned
+by the rawm repository release boundary.

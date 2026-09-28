@@ -1,26 +1,22 @@
 # rawmstat history and provenance
 
-`rawmstat` is the rawm status producer. It executes configured commands,
-composes their first output lines, and publishes semantic segments through
-rawm's `_RAWM_STATUS_V2` root-window property. The executable remains a
-separate process even though it is built and released from the rawm source
-repository.
+rawmstat is the status acquisition sidecar shipped with rawm. The current
+implementation uses named native sources, in-process sampling state, and the
+`_RAWM_STATUS_V3` snapshot contract. It is implemented and licensed as part of
+the current rawm source tree.
 
-The component began as a fork of torrinfail's `dwmblocks` at commit `a933ce0`
-(2022-01-06). Before integration into the rawm repository it had diverged to
-runtime libconfig policy, direct argv command execution, asynchronous monotonic
-`poll(2)` scheduling, self-pipe signal handling, per-block timeouts, and the
-rawm-v2 semantic status protocol.
+The repository also preserves the complete history of the earlier standalone
+rawmstat project as the second parent of the import commit. That historical
+project began as a fork of torrinfail's ISC-licensed dwmblocks at commit
+`a933ce0` (2022-01-06) and later evolved asynchronous command blocks and the
+rawm-v2 protocol before being integrated into rawm.
 
-The pre-integration rawmstat Git history is retained without squashing as a
-second-parent history of the import commit. Historical commit identities are
-therefore still present in this repository even though the current files were
-subsequently moved under the rawm directory layout.
+The native source implementation intentionally replaces that lineage in the
+current tree. The historical commits remain reachable for provenance and keep
+the license notices that applied to their revisions; they are not a current
+implementation or compatibility authority.
 
-Original upstream:
+Historical upstream references:
 
 1. https://github.com/torrinfail/dwmblocks
 2. https://github.com/torrinfail/dwmblocks/archive/a933ce0/dwmblocks-a933ce0.zip
-
-The imported component remains under the ISC license; see
-`LICENSES/ISC.txt` and `LICENSES/README.md`.
