@@ -2,228 +2,132 @@ RAWMSTAT.CONF(5)
 
 # NAME
 
-rawmstat.conf - rawmstat runtime configuration
+rawmstat.conf - rawm native status source configuration
 
 # DESCRIPTION
 
-*rawmstat*(1) uses libconfig syntax.  Configuration describes the status protocol and the blocks that produce semantic
-status segments. Presentation policy such as separators and colors belongs to
-*rawm*(1).
+*rawmstat*(1) uses libconfig syntax. The top-level *sources* group describes
+ordered named measurements. Presentation policy such as separators, colors,
+hit testing, and click bindings belongs to *rawm*(1).
 
-The built-in configuration contains one clock block and is usable without a
-configuration file.  In normal mode configuration is layered in this order:
+The built-in configuration contains one clock source. In normal mode rawmstat
+uses the user file when present, otherwise the system file, otherwise built-in
+defaults. With *rawmstat -c path*, _path_ is selected explicitly. Use
+*rawmstat -C* to validate configuration without opening X.
 
-. built-in defaults
-. _${SYSCONFDIR}/rawm/rawmstat.conf_ (normally _/etc/rawm/rawmstat.conf_)
-. _$XDG_CONFIG_HOME/rawm/rawmstat.conf_, when *XDG_CONFIG_HOME* is absolute;
-  otherwise _$HOME/.config/rawm/rawmstat.conf_
+The wire protocol is intentionally not configurable. rawm and rawmstat are
+released together; incompatible protocol changes use a new root property and
+codec rather than compatibility policy in this file.
 
-Later scalar settings override earlier values.  When a *blocks* list is
-present it replaces the complete block list from previous layers.
+# SOURCES
 
-With *rawmstat -c path*, the system and user files are skipped: built-in
-defaults are followed by exactly _path_.  A missing explicitly selected file
-is an error.  Missing normal system or user files are not errors.
-
-Unknown settings, wrong types, duplicate block names, unsupported protocols,
-invalid signal offsets, and invalid UTF-8 configuration strings are fatal
-configuration errors.  Use *rawmstat -C* to validate the effective
-configuration without opening X or executing commands.
-
-Libconfig *@include* directives are supported.  Relative include paths are
-resolved relative to the directory of the configuration file being loaded.
-
-# STATUS
-
-The top-level *status* group selects the output protocol.
-
-*protocol* = "rawm-v2"
-	Output protocol. *"rawm-v2"* is the only supported value and the built-in
-	default.
-
-Example:
+*sources* is a group. Each member name is the stable segment identifier and
+must contain 1..64 characters from *A-Z*, *a-z*, *0-9*, period, underscore, or
+hyphen. Group order is snapshot order.
 
 ```
-status = {
-  protocol = "rawm-v2";
+sources = {
+  cpu = {
+    provider = "cpu";
+    period_ms = 2000;
+    warning = 80;
+    critical = 95;
+  };
+
+  clock = {
+    provider = "clock";
+    period_ms = 30000;
+    format = "%a %b %d %H:%M";
+  };
 };
 ```
 
-## rawm-v2
+Every source requires *provider*. *period_ms* is its monotonic refresh period,
+in milliseconds, from 100 through 3600000.
 
-rawmstat publishes the *\_RAWM\_STATUS\_V2* property of the X root window
-with type *UTF8_STRING* and format 8. The complete property may contain at most
-4096 bytes. It consists of ordered records:
+## battery
 
-```
-id<TAB>state<TAB>text<LF>
-```
+Reads the first usable *BAT\** power-supply entry from Linux sysfs.
 
-The block *name* becomes _id_. _state_ is *normal*, *warning*, or *critical*.
-_text_ is the committed block text after optional semantic-state parsing and
-configured prefix application. Empty blocks are omitted. Every emitted record,
-including the last, ends in newline.
+*warning* and *critical* are percentage thresholds. Defaults are 20 and 10 and
+must satisfy *critical < warning*. Charging and full batteries remain normal.
 
-rawmstat does not choose colors or separators. *rawm*(1) maps semantic state to
-its own palette and inserts its configured separator when rendering.
+## clock
 
-# BLOCKS
+Formats local wall-clock time with *strftime*(3). *format* is required after
+configuration defaults are applied and defaults to *%a %b %d %H:%M*.
 
-The top-level *blocks* setting is a list of groups. Blocks retain list order in
-the rawm-v2 payload. Empty block results are omitted.
+## cpu
 
-```
-blocks = (
-  {
-    name = "clock";
-    prefix = "";
-    command = ("date", "+%a %b %d %H:%M");
-    interval = 5;
-    signal = 0;
-    timeout_ms = 2000;
-  }
-);
-```
+Reads aggregate Linux CPU counters from _/proc/stat_ and computes utilization
+from consecutive in-memory samples. The first sample establishes a baseline
+and is not published.
 
-Each block accepts these settings:
+*warning* and *critical* are utilization percentages. Defaults are 80 and 95
+and must satisfy *warning < critical*.
 
-*name* = string
-	Required unique segment identifier. It is transmitted as the rawm-v2 _id_
-	field and must contain 1..64 characters from *A-Z*, *a-z*, *0-9*, period,
-	underscore, or hyphen. Duplicate names are errors.
+## memory
 
-*prefix* = string
-	Optional printable UTF-8 prepended to the committed segment text after any
-	semantic state prefix is consumed. Default is the empty string. ASCII control
-	characters are not permitted.
+Reads *MemTotal* and *MemAvailable* from _/proc/meminfo_. *warning* and
+*critical* are used-memory percentages, defaulting to 85 and 95.
+
+## filesystem
+
+Uses *statvfs*(3) for *path*, which defaults to _/_. *warning* and *critical*
+are available-space thresholds in GiB, defaulting to 20 and 5 and requiring
+*critical < warning*.
+
+## network
+
+Reads Linux interface byte counters from sysfs and keeps the previous counters
+and monotonic timestamp in memory. *interface* defaults to *"default"*, which
+selects the interface carrying the IPv4 default route. A literal interface name
+may be configured instead.
+
+The first sample after startup, route change, counter rollback, or interface
+change publishes the interface name without a rate. Later samples publish RX
+and TX byte rates.
+
+## exec
+
+Runs a direct argument vector for measurements without a native provider.
 
 *command* = (string, ...)
-	Required non-empty argument vector.  Element zero names the executable;
-	the remaining elements are passed as its arguments.  rawmstat calls
-	*execvp*(3) directly.  Shell parsing, expansion, redirection, pipelines,
-	and globbing do not occur unless a shell is explicitly named in the vector.
-
-*interval* = integer
-	Periodic update interval in seconds.  Must be >= 0.  Zero disables periodic
-	updates; the block is still executed once at startup and may be refreshed by
-	its configured signal.  Scheduling uses a monotonic clock.
-
-*signal* = integer
-	Realtime-signal offset.  Must be >= 0 and available on the host.  Zero
-	disables signal-triggered updates.  A value _N_ maps to *SIGRTMIN+N*.
-	Multiple blocks may intentionally use the same non-zero offset and will all
-	be refreshed by that signal.
+	Required non-empty argv vector. Shell syntax is not interpreted unless a
+	shell is explicitly named.
 
 *timeout_ms* = integer
-	Maximum lifetime of one command invocation in milliseconds.  The value must
-	be in the range 1..600000.  The built-in default is 2000.  A timed-out
-	command and every process that it created in the same process group are
-	terminated; the block retains its last successful value.
+	Maximum command lifetime, 1..600000 ms. Default 2000.
 
-# COMMAND OUTPUT
+Only exit status 0 commits a sample. Only the first output line is used. Plain
+text is *normal*. A leading *normal<TAB>*, *warning<TAB>*, or
+*critical<TAB>* selects semantic state and is removed. Empty, malformed, or
+non-printable output fails the refresh. *stale* is reserved for rawmstat's own
+freshness state and is rejected as command-supplied semantics.
 
-rawmstat starts blocks asynchronously and captures their standard output
-without blocking unrelated blocks, timers, update signals, or shutdown. Only
-one invocation of a block may run at a time. If another timer or update signal
-arrives while that block is running, rawmstat records one pending refresh; any
-additional requests coalesce into that same pending refresh.
+# FAILURE SEMANTICS
 
-Only the first output line is used; subsequent output is discarded. A trailing
-carriage return is removed. Successful plain output is a *normal* sample. A
-block may select semantic state by beginning its first line with exactly one of:
+A failed refresh with no prior value produces no segment. If a source already
+has a valid value, rawmstat keeps that text and changes its state to *stale*.
+The next successful sample replaces both text and state.
 
-```
-normal<TAB>text
-warning<TAB>text
-critical<TAB>text
-```
+The complete *_RAWM_STATUS_V3* snapshot must fit within 4096 bytes. rawmstat
+reports an oversized snapshot and keeps the previously published property
+rather than truncating it.
 
-When one of those prefixes is recognized, it is removed before *prefix* is
-prepended. The resulting text must be non-empty printable UTF-8 and may not
-contain ASCII control characters. A successful empty first line, or a semantic
-state prefix followed by empty text, clears the block.
+# TEST FIXTURE ROOTS
 
-A tab that is not part of a recognized leading state prefix makes the sample
-invalid. This keeps the rawm-v2 wire grammar unambiguous without introducing an
-escaping language.
-
-A sample is committed only when the command exits normally with status 0 and
-its captured text satisfies the protocol constraints. A non-zero exit, signal
-termination, invalid output, read error, or timeout leaves both the previous
-text and previous semantic state unchanged.
-
-Each invocation runs in a rawmstat-owned process group. When the invocation
-finishes, times out, or rawmstat shuts down, descendants in that group are not
-allowed to escape as background jobs. Standard error is not captured and
-remains attached to rawmstat's standard error.
-
-The complete sequence of rawm-v2 records must not exceed 4096 bytes. If it
-does, rawmstat reports an error rather than publishing a truncated message.
-
-# EXAMPLES
-
-A clock and load-average status:
-
-```
-status = {
-  protocol = "rawm-v2";
-};
-
-blocks = (
-  {
-    name = "load";
-    prefix = "load ";
-    command = ("cut", "-d", " ", "-f", "1-3", "/proc/loadavg");
-    interval = 5;
-  },
-  {
-    name = "clock";
-    command = ("date", "+%H:%M");
-    interval = 30;
-  }
-);
-```
-
-A helper can report severity without knowing rawm's colors:
-
-```
-blocks = (
-  {
-    name = "cpu";
-    command = ("/usr/local/bin/rawmstat-cpu");
-    interval = 2;
-  }
-);
-```
-
-For example, that helper may print *warning<TAB>cpu:63%* or
-*critical<TAB>cpu:94%*. rawmstat transmits the semantic state; rawm decides how
-warning and critical states look.
-
-A command that deliberately requires shell syntax:
-
-```
-blocks = (
-  {
-    name = "home";
-    command = ("/bin/sh", "-c", "printf '%s' \"$HOME\"");
-    interval = 0;
-    signal = 1;
-  }
-);
-```
-
-Refresh that block with the platform's numeric value for *SIGRTMIN+1*, for
-example from C via *kill*(2) or from a shell that supports realtime signal
-names/numbers.
+For integration tests, native Linux providers honor *RAWMSTAT_PROC_ROOT* and
+*RAWMSTAT_SYS_ROOT* in place of _/proc_ and _/sys_. These variables are test
+interfaces, not desktop configuration policy.
 
 # FILES
 
 _/etc/rawm/rawmstat.conf_
-	System configuration with the default build-time *SYSCONFDIR*.
+	System configuration.
 
 _$XDG_CONFIG_HOME/rawm/rawmstat.conf_
-	Preferred user configuration when *XDG_CONFIG_HOME* is absolute.
+	Preferred user configuration when present.
 
 _$HOME/.config/rawm/rawmstat.conf_
 	Fallback user configuration.
