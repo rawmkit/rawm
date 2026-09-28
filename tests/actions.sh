@@ -62,7 +62,7 @@ ui = {
   osd = { show = false; };
   systray = { show = false; };
 };
-status = { enabled = false; protocol = "rawm-v2"; };
+status = { enabled = false; };
 layout = {
   master_factor = 0.50;
   master_count = 1;

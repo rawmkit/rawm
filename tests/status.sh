@@ -55,7 +55,7 @@ ui = {
     error = { border = "#000000"; foreground = "#ff0000"; background = "#000000"; };
   };
 };
-status = { enabled = $enabled; protocol = "rawm-v2"; separator = " | "; };
+status = { enabled = $enabled; separator = " | "; };
 input = { keys = (); buttons = (); };
 EOC
   "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
@@ -89,7 +89,7 @@ ui = {
     error = { border = "#000000"; foreground = "#ff0000"; background = "#000000"; };
   };
 };
-status = { enabled = true; protocol = "rawm-v2"; separator = " | "; };
+status = { enabled = true; separator = " | "; };
 input = {
   keys = ();
   buttons = (

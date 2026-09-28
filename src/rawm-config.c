@@ -339,22 +339,6 @@ parse_attention_mode(const char *name, RawmAttentionMode *mode)
   return -1;
 }
 
-static const char *
-status_protocol_name(RawmStatusProtocol protocol)
-{
-  return protocol == RAWM_STATUS_PROTOCOL_V2 ? "rawm-v2" : NULL;
-}
-
-static int
-parse_status_protocol(const char *name, RawmStatusProtocol *protocol)
-{
-  if (!strcmp(name, "rawm-v2")) {
-    *protocol = RAWM_STATUS_PROTOCOL_V2;
-    return 0;
-  }
-  return -1;
-}
-
 static int
 parse_center_mode(const char *name, RawmCenterMode *mode)
 {
@@ -512,7 +496,6 @@ rawm_config_init(RawmConfig *cfg)
   cfg->systray_spacing = 2;
   cfg->systray_icon_size = 0;
   cfg->status_enabled = true;
-  cfg->status_protocol = RAWM_STATUS_PROTOCOL_V2;
   cfg->status_separator = xstrdup(" | ");
   cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->size_hints = RAWM_SIZE_HINTS_FLOATING;
@@ -958,24 +941,14 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 static int
 parse_status(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
-  static const char *const allowed[] = { "enabled", "protocol", "separator" };
+  static const char *const allowed[] = { "enabled", "separator" };
   config_setting_t *setting;
-  const char *value;
 
   if (config_setting_type(group) != CONFIG_TYPE_GROUP)
     return cfg_error(err, group, "status must be a group", "");
-  if (validate_members(err, group, allowed, 3) < 0 ||
+  if (validate_members(err, group, allowed, 2) < 0 ||
       read_bool(err, group, "enabled", &cfg->status_enabled) < 0)
     return -1;
-
-  setting = config_setting_get_member(group, "protocol");
-  if (setting) {
-    if (config_setting_type(setting) != CONFIG_TYPE_STRING)
-      return cfg_error(err, setting, "status.protocol must be a string", "");
-    value = config_setting_get_string(setting);
-    if (parse_status_protocol(value, &cfg->status_protocol) < 0)
-      return cfg_error(err, setting, "unsupported status protocol '%s'", value);
-  }
 
   setting = config_setting_get_member(group, "separator");
   if (setting) {
@@ -1903,8 +1876,6 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%u", cfg->systray_icon_size);
   else if (!strcmp(path, "status.enabled"))
     snprintf(buf, buflen, "%s", cfg->status_enabled ? "true" : "false");
-  else if (!strcmp(path, "status.protocol"))
-    snprintf(buf, buflen, "%s", status_protocol_name(cfg->status_protocol));
   else if (!strcmp(path, "status.separator")) {
     *value = cfg->status_separator;
     return 0;
@@ -2332,10 +2303,6 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
 
   if (!cfg->font || !*cfg->font) {
     fputs("rawm: configuration error: ui.font must not be empty\n", err);
-    return -1;
-  }
-  if (!status_protocol_name(cfg->status_protocol)) {
-    fputs("rawm: configuration error: invalid status protocol\n", err);
     return -1;
   }
   if (!size_hints_mode_name(cfg->size_hints)) {

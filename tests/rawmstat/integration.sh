@@ -61,13 +61,13 @@ ui = {
   bar = { show = true; position = "bottom"; height = 24; };
   systray = { show = false; };
 };
-status = { enabled = true; protocol = "rawm-v2"; };
+status = { enabled = true; };
 input = { keys = (); buttons = (); };
 EOC
 
 printf '%s' one >"$tmp/value"
 cat >"$tmp/rawmstat.conf" <<EOF2
-status = { protocol = "rawm-v2"; };
+status = { };
 blocks = (
   {
     name = "hung";

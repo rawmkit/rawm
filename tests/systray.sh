@@ -55,7 +55,7 @@ ui = {
     icon_size = 16;
   };
 };
-status = { enabled = false; protocol = "rawm-v2"; };
+status = { enabled = false; };
 input = { keys = (); buttons = (); };
 EOC
 

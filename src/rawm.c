@@ -293,7 +293,7 @@ typedef struct {
   unsigned int click;           /**< The click area (enum Clk...). */
   unsigned int mask;            /**< Modifier mask (e.g., MODKEY). */
   unsigned int button;          /**< Mouse button (e.g., Button1). */
-  const char *status_id;        /**< Optional rawm-v2 segment selector. */
+  const char *status_id;        /**< Optional rawm-v3 segment selector. */
   void (*func)(const Arg *arg); /**< Function to execute. */
   Arg arg;                      /**< Argument for the function. */
 } Button;
@@ -301,7 +301,7 @@ typedef struct {
 typedef struct {
   unsigned int click;           /**< Resolved click area. */
   Arg arg;                      /**< Dynamic click argument, e.g. tag mask. */
-  const char *status_id;        /**< rawm-v2 segment under the pointer. */
+  const char *status_id;        /**< rawm-v3 segment under the pointer. */
 } BarHit;
 
 /* Forward declarations. */
@@ -3395,7 +3395,7 @@ getstatusprop(RawmStatusData *status)
   unsigned char *value = NULL;
   RawmStatusResult result;
   bool ok = false;
-  long request_units = (long)((RAWM_STATUS_V2_MAX + 3u) / 4u + 1u);
+  long request_units = (long)((RAWM_STATUS_V3_MAX + 3u) / 4u + 1u);
 
   if (!status)
     return false;
@@ -3407,12 +3407,12 @@ getstatusprop(RawmStatusData *status)
       || actual_type != utf8atom
       || actual_format != 8
       || bytes_after != 0
-      || nitems > RAWM_STATUS_V2_MAX
+      || nitems > RAWM_STATUS_V3_MAX
       || (nitems && memchr(value, '\0', nitems))
       )
     goto out;
 
-  result = rawm_status_v2_parse(value, (size_t)nitems, status);
+  result = rawm_status_v3_parse(value, (size_t)nitems, status);
   if (result == RAWM_STATUS_NO_MEMORY)
     die("fatal: could not allocate status data\n");
   ok = result == RAWM_STATUS_OK;
@@ -3432,6 +3432,8 @@ statusscheme(RawmStatusState state)
     return 2;
   case RAWM_STATUS_CRITICAL:
     return 3;
+  case RAWM_STATUS_STALE:
+    return 2;
   case RAWM_STATUS_NORMAL:
   default:
     return 0;
@@ -5378,7 +5380,7 @@ setup(void)
   netatom[NetWMWindowTypeDialog]    = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",   false);
   utf8atom                           = XInternAtom(dpy, "UTF8_STRING",                   false);
   dockatom                           = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK",      false);
-  statusatom                         = XInternAtom(dpy, "_RAWM_STATUS_V2",               false);
+  statusatom                         = XInternAtom(dpy, "_RAWM_STATUS_V3",               false);
   surfaceatom                        = XInternAtom(dpy, "_RAWM_SURFACE",                 false);
   rawmatom[RawmAtomFloating]         = XInternAtom(dpy, "_RAWM_FLOATING",                false);
   rawmatom[RawmAtomSelected]         = XInternAtom(dpy, "_RAWM_SELECTED",                false);

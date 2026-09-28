@@ -145,7 +145,6 @@ compare_config(const RawmConfig *a, const RawmConfig *b)
   SAME(systray_icon_size);
 
   SAME(status_enabled);
-  SAME(status_protocol);
   expect_string("status separator differs",
                 a->status_separator, b->status_separator);
 

@@ -24,7 +24,8 @@ main(void)
 {
   static const unsigned char valid[] =
     "clock\tnormal\t12:34\n"
-    "battery\twarning\t12%\n";
+    "battery\twarning\t12%\n"
+    "network\tstale\tnet ?\n";
   static const unsigned char duplicate[] =
     "clock\tnormal\tone\nclock\tcritical\ttwo\n";
   static const unsigned char bad_state[] = "clock\tbroken\ttext\n";
@@ -34,74 +35,76 @@ main(void)
     'x', '\t', 'n', 'o', 'r', 'm', 'a', 'l', '\t', 0xc0, 0x80, '\n'
   };
   RawmStatusData parsed = {0};
-  RawmStatusView segments[2] = {
+  RawmStatusView segments[3] = {
     { .id = "clock", .text = "12:34", .state = RAWM_STATUS_NORMAL },
     { .id = "battery", .text = "12%", .state = RAWM_STATUS_WARNING },
+    { .id = "network", .text = "net ?", .state = RAWM_STATUS_STALE },
   };
   char *encoded = NULL;
   char *large_text;
   size_t length = 0;
   unsigned char *boundary;
   size_t prefix_len = strlen("x\tnormal\t");
-  size_t text_len = RAWM_STATUS_V2_MAX - prefix_len - 1;
+  size_t text_len = RAWM_STATUS_V3_MAX - prefix_len - 1;
 
-  expect_result(rawm_status_v2_parse(valid, sizeof(valid) - 1, &parsed),
+  expect_result(rawm_status_v3_parse(valid, sizeof(valid) - 1, &parsed),
                 RAWM_STATUS_OK, "valid payload rejected");
-  if (parsed.count != 2 || strcmp(parsed.segments[0].id, "clock") ||
+  if (parsed.count != 3 || strcmp(parsed.segments[0].id, "clock") ||
       parsed.segments[0].state != RAWM_STATUS_NORMAL ||
-      strcmp(parsed.segments[1].text, "12%"))
+      strcmp(parsed.segments[1].text, "12%") ||
+      parsed.segments[2].state != RAWM_STATUS_STALE)
     fail("valid payload decoded incorrectly");
   rawm_status_data_destroy(&parsed);
 
-  expect_result(rawm_status_v2_encode(segments, 2, &encoded, &length),
+  expect_result(rawm_status_v3_encode(segments, 3, &encoded, &length),
                 RAWM_STATUS_OK, "valid segments did not encode");
   if (length != sizeof(valid) - 1 || memcmp(encoded, valid, length))
     fail("encoded payload differs from canonical wire form");
   free(encoded);
 
-  expect_result(rawm_status_v2_parse(NULL, 0, &parsed), RAWM_STATUS_OK,
+  expect_result(rawm_status_v3_parse(NULL, 0, &parsed), RAWM_STATUS_OK,
                 "empty payload rejected");
   if (parsed.count)
     fail("empty payload produced segments");
 
-  expect_result(rawm_status_v2_parse(duplicate, sizeof(duplicate) - 1, &parsed),
+  expect_result(rawm_status_v3_parse(duplicate, sizeof(duplicate) - 1, &parsed),
                 RAWM_STATUS_INVALID, "duplicate id accepted");
-  expect_result(rawm_status_v2_parse(bad_state, sizeof(bad_state) - 1, &parsed),
+  expect_result(rawm_status_v3_parse(bad_state, sizeof(bad_state) - 1, &parsed),
                 RAWM_STATUS_INVALID, "unknown state accepted");
-  expect_result(rawm_status_v2_parse(bad_id, sizeof(bad_id) - 1, &parsed),
+  expect_result(rawm_status_v3_parse(bad_id, sizeof(bad_id) - 1, &parsed),
                 RAWM_STATUS_INVALID, "invalid id accepted");
-  expect_result(rawm_status_v2_parse(bad_text, sizeof(bad_text) - 1, &parsed),
+  expect_result(rawm_status_v3_parse(bad_text, sizeof(bad_text) - 1, &parsed),
                 RAWM_STATUS_INVALID, "control text accepted");
-  expect_result(rawm_status_v2_parse(bad_utf8, sizeof(bad_utf8), &parsed),
+  expect_result(rawm_status_v3_parse(bad_utf8, sizeof(bad_utf8), &parsed),
                 RAWM_STATUS_INVALID, "invalid UTF-8 accepted");
 
   segments[1].id = "clock";
-  expect_result(rawm_status_v2_encode(segments, 2, &encoded, &length),
+  expect_result(rawm_status_v3_encode(segments, 3, &encoded, &length),
                 RAWM_STATUS_INVALID, "duplicate encoded id accepted");
   segments[1].id = "battery";
 
-  large_text = malloc(RAWM_STATUS_V2_MAX + 1);
+  large_text = malloc(RAWM_STATUS_V3_MAX + 1);
   if (!large_text)
     fail("allocation failed");
-  memset(large_text, 'x', RAWM_STATUS_V2_MAX);
-  large_text[RAWM_STATUS_V2_MAX] = '\0';
+  memset(large_text, 'x', RAWM_STATUS_V3_MAX);
+  large_text[RAWM_STATUS_V3_MAX] = '\0';
   segments[0].text = large_text;
-  expect_result(rawm_status_v2_encode(segments, 1, &encoded, &length),
+  expect_result(rawm_status_v3_encode(segments, 1, &encoded, &length),
                 RAWM_STATUS_TOO_LARGE, "oversized encoded text accepted");
   free(large_text);
   segments[0].text = "12:34";
 
-  boundary = malloc(RAWM_STATUS_V2_MAX + 1);
+  boundary = malloc(RAWM_STATUS_V3_MAX + 1);
   if (!boundary)
     fail("allocation failed");
   memcpy(boundary, "x\tnormal\t", prefix_len);
   memset(boundary + prefix_len, 'a', text_len);
-  boundary[RAWM_STATUS_V2_MAX - 1] = '\n';
-  boundary[RAWM_STATUS_V2_MAX] = '\0';
-  expect_result(rawm_status_v2_parse(boundary, RAWM_STATUS_V2_MAX, &parsed),
+  boundary[RAWM_STATUS_V3_MAX - 1] = '\n';
+  boundary[RAWM_STATUS_V3_MAX] = '\0';
+  expect_result(rawm_status_v3_parse(boundary, RAWM_STATUS_V3_MAX, &parsed),
                 RAWM_STATUS_OK, "maximum-size payload rejected");
   rawm_status_data_destroy(&parsed);
-  expect_result(rawm_status_v2_parse(boundary, RAWM_STATUS_V2_MAX + 1, &parsed),
+  expect_result(rawm_status_v3_parse(boundary, RAWM_STATUS_V3_MAX + 1, &parsed),
                 RAWM_STATUS_TOO_LARGE, "oversized payload accepted");
   free(boundary);
 

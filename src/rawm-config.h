@@ -39,10 +39,6 @@ typedef enum {
 } RawmTagVisibility;
 
 typedef enum {
-  RAWM_STATUS_PROTOCOL_V2
-} RawmStatusProtocol;
-
-typedef enum {
   RAWM_LAYOUT_TILE,
   RAWM_LAYOUT_FLOATING,
   RAWM_LAYOUT_MONOCLE,
@@ -188,7 +184,6 @@ typedef struct {
   unsigned int systray_icon_size;
 
   bool status_enabled;
-  RawmStatusProtocol status_protocol;
   char *status_separator;
 
   RawmCenterMode dialog_center;
