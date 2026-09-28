@@ -106,7 +106,7 @@ The reference namespace contains these scalar paths:
   *ui.osd.duration_ms*, *ui.osd.padding*, *ui.osd.offset*,
   *ui.osd.min_width*
 - *ui.systray.show*, *ui.systray.spacing*, *ui.systray.icon_size*
-- *status.enabled*, *status.protocol*, *status.separator*
+- *status.enabled*, *status.separator*
 - *ui.colors.<scheme>.<component>*, where _scheme_ is *normal*, *selected*,
   *urgent*, *error*, or *floating*, and _component_ is *border*,
   *foreground*, or *background*
@@ -118,7 +118,7 @@ The reference namespace contains these scalar paths:
 
 String targets are expanded recursively. Numeric scalars are rendered in
 base-10 form, booleans as *true* or *false*, *ui.bar.position* as *top* or
-*bottom*, and *status.protocol* as its protocol name. *status.separator* resolves to its final string value. Groups, lists, rules, tags, commands, and individual command
+*bottom*. *status.separator* resolves to its final string value. Groups, lists, rules, tags, commands, and individual command
 arguments are not reference targets.
 
 An unknown path, malformed reference, or reference cycle is a fatal
