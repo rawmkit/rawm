@@ -49,6 +49,7 @@
 
 #include "rawm-config.h"
 #include "status.h"
+#include "status/worker.h"
 
 /* Xinerama support for multiple monitors. */
 #ifdef XINERAMA
@@ -293,7 +294,7 @@ typedef struct {
   unsigned int click;           /**< The click area (enum Clk...). */
   unsigned int mask;            /**< Modifier mask (e.g., MODKEY). */
   unsigned int button;          /**< Mouse button (e.g., Button1). */
-  const char *status_id;        /**< Optional rawm-v3 segment selector. */
+  const char *status_id;        /**< Optional status segment selector. */
   void (*func)(const Arg *arg); /**< Function to execute. */
   Arg arg;                      /**< Argument for the function. */
 } Button;
@@ -301,7 +302,7 @@ typedef struct {
 typedef struct {
   unsigned int click;           /**< Resolved click area. */
   Arg arg;                      /**< Dynamic click argument, e.g. tag mask. */
-  const char *status_id;        /**< rawm-v3 segment under the pointer. */
+  const char *status_id;        /**< Status segment under the pointer. */
 } BarHit;
 
 /* Forward declarations. */
@@ -546,7 +547,11 @@ static XftColor       getcolor(const char *colstr);
 static bool           getrootptr(int *x, int *y);
 static long           getstate(Window w);
 static void           freestatus(RawmStatusData *status);
-static bool           getstatusprop(RawmStatusData *status);
+static void           markstatusstale(void);
+static void           readstatusworker(void);
+static void           statusworkerlost(void);
+static void           statusworkerstart(void);
+static int            statusworkerpolltimeout(void);
 static int            statusscheme(RawmStatusState state);
 static const char    *statusidat(int x, int start, int right);
 static int            statuswidth(void);
@@ -650,7 +655,6 @@ static void           updatebars(void);
 static void           updateclientlist(void);
 static void           updatenumlockmask(void);
 static void           updatesizehints(Client *c);
-static void           updatestatus(void);
 static void           updatewindowtype(Client *c);
 static void           updatetitle(Client *c);
 static void           updatewmhints(Client *c);
@@ -677,7 +681,11 @@ static unsigned long systrayorientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 
 static const char     broken[] = "broken";
 static RawmStatusData statusdata = {0};
-static Atom           dockatom, statusatom, surfaceatom, utf8atom;
+static RawmStatusWorker statusworker = { .fd = -1, .pid = -1 };
+static uint64_t statusworker_started_at;
+static uint64_t statusworker_restart_at;
+static unsigned int statusworker_restart_delay_ms = 1000u;
+static Atom           dockatom, surfaceatom, utf8atom;
 static int            screen;
 static int            sw, sh; /* X display screen geometry width, height */
 static int            bh, blw = 0; /* bar geometry */
@@ -1725,6 +1733,7 @@ cleanup(void)
   Layout   foo = { "", NULL };
   Monitor *m;
 
+  rawm_status_worker_stop(&statusworker, stderr);
   view(&a);
   selmon->lt[selmon->sellt] = &foo;
 
@@ -3386,41 +3395,93 @@ freestatus(RawmStatusData *status)
   rawm_status_data_destroy(status);
 }
 
-static bool
-getstatusprop(RawmStatusData *status)
+static void
+markstatusstale(void)
 {
-  Atom actual_type;
-  int actual_format;
-  unsigned long nitems, bytes_after;
-  unsigned char *value = NULL;
-  RawmStatusResult result;
-  bool ok = false;
-  long request_units = (long)((RAWM_STATUS_V3_MAX + 3u) / 4u + 1u);
+  size_t i;
+  bool changed = false;
 
-  if (!status)
-    return false;
-  memset(status, 0, sizeof(*status));
+  for (i = 0; i < statusdata.count; ++i) {
+    if (statusdata.segments[i].state != RAWM_STATUS_STALE) {
+      statusdata.segments[i].state = RAWM_STATUS_STALE;
+      changed = true;
+    }
+  }
+  if (changed && selmon)
+    drawbar(selmon);
+}
 
-  if (   XGetWindowProperty(dpy, root, statusatom, 0, request_units, False,
-                            AnyPropertyType, &actual_type, &actual_format,
-                            &nitems, &bytes_after, &value) != Success
-      || actual_type != utf8atom
-      || actual_format != 8
-      || bytes_after != 0
-      || nitems > RAWM_STATUS_V3_MAX
-      || (nitems && memchr(value, '\0', nitems))
-      )
-    goto out;
+static void
+statusworkerschedulerestart(void)
+{
+  uint64_t now;
 
-  result = rawm_status_v3_parse(value, (size_t)nitems, status);
-  if (result == RAWM_STATUS_NO_MEMORY)
-    die("fatal: could not allocate status data\n");
-  ok = result == RAWM_STATUS_OK;
+  if (!config.status_enabled || !running)
+    return;
+  now = monotonicms();
+  statusworker_restart_at = now + statusworker_restart_delay_ms;
+  if (statusworker_restart_delay_ms < 30000u) {
+    statusworker_restart_delay_ms *= 2u;
+    if (statusworker_restart_delay_ms > 30000u)
+      statusworker_restart_delay_ms = 30000u;
+  }
+}
 
-out:
-  if (value)
-    XFree(value);
-  return ok;
+static void
+statusworkerlost(void)
+{
+  if (statusworker.fd >= 0) {
+    close(statusworker.fd);
+    statusworker.fd = -1;
+  }
+  if (statusworker.pid > 0)
+    (void)kill(statusworker.pid, SIGTERM);
+  markstatusstale();
+}
+
+static void
+statusworkerstart(void)
+{
+  if (!config.status_enabled || statusworker.pid > 0 || statusworker.fd >= 0)
+    return;
+  if (rawm_status_worker_start(&statusworker, &config.status, stderr) < 0) {
+    statusworkerschedulerestart();
+    return;
+  }
+  statusworker_started_at = monotonicms();
+  statusworker_restart_at = 0;
+}
+
+static int
+statusworkerpolltimeout(void)
+{
+  uint64_t now, remaining;
+
+  if (!config.status_enabled || statusworker.pid > 0 || !statusworker_restart_at)
+    return -1;
+  now = monotonicms();
+  if (now >= statusworker_restart_at)
+    return 0;
+  remaining = statusworker_restart_at - now;
+  return remaining > (uint64_t)INT_MAX ? INT_MAX : (int)remaining;
+}
+
+static void
+readstatusworker(void)
+{
+  bool changed = false;
+  int result;
+
+  do {
+    result = rawm_status_worker_receive(&statusworker, &statusdata, stderr);
+    if (result > 0)
+      changed = true;
+  } while (result > 0);
+
+  if (changed && selmon)
+    drawbar(selmon);
+  if (result < 0)
+    statusworkerlost();
 }
 
 static int
@@ -4588,12 +4649,7 @@ propertynotify(XEvent *e)
   }
 #endif /* SYSTRAY */
 
-  if (   config.status_enabled
-      && ev->window == root
-      && ev->atom == statusatom
-      )
-    updatestatus();
-  else if (ev->state == PropertyDelete)
+  if (ev->state == PropertyDelete)
     return; /* ignore */
   else if ((c = wintoclient(ev->window)))
   {
@@ -5004,16 +5060,13 @@ static void
 run(void)
 {
   XEvent ev;
-  struct pollfd fds[2];
-
-  fds[0].fd = ConnectionNumber(dpy);
-  fds[0].events = POLLIN;
-  fds[1].fd = signalpipe[0];
-  fds[1].events = POLLIN;
+  struct pollfd fds[3];
 
   XSync(dpy, false);
   while (running)
   {
+    int timeout, status_timeout, poll_result;
+
     while (running && XPending(dpy))
     {
       XNextEvent(dpy, &ev);
@@ -5024,25 +5077,42 @@ run(void)
       break;
 
     osdexpire();
+    if (config.status_enabled && statusworker.pid <= 0 &&
+        statusworker.fd < 0 && statusworker_restart_at &&
+        monotonicms() >= statusworker_restart_at)
+      statusworkerstart();
 
+    memset(fds, 0, sizeof(fds));
+    fds[0].fd = ConnectionNumber(dpy);
+    fds[0].events = POLLIN;
+    fds[1].fd = signalpipe[0];
+    fds[1].events = POLLIN;
+    fds[2].fd = statusworker.fd;
+    fds[2].events = POLLIN | POLLHUP;
+
+    timeout = osdpolltimeout();
+    status_timeout = statusworkerpolltimeout();
+    if (timeout < 0 || (status_timeout >= 0 && status_timeout < timeout))
+      timeout = status_timeout;
+
+    poll_result = poll(fds, 3, timeout);
+    if (poll_result < 0)
     {
-      int poll_result = poll(fds, 2, osdpolltimeout());
-
-      if (poll_result < 0)
-      {
-        if (errno == EINTR)
-          continue;
-        die("fatal: poll failed: %s\n", strerror(errno));
-      }
-      if (poll_result == 0)
-      {
-        osdexpire();
+      if (errno == EINTR)
         continue;
-      }
+      die("fatal: poll failed: %s\n", strerror(errno));
+    }
+    if (poll_result == 0)
+    {
+      osdexpire();
+      continue;
     }
 
     if (fds[1].revents & POLLIN)
       drainsignalpipe();
+    if (statusworker.fd >= 0 &&
+        (fds[2].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)))
+      readstatusworker();
   }
 }
 
@@ -5380,7 +5450,6 @@ setup(void)
   netatom[NetWMWindowTypeDialog]    = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",   false);
   utf8atom                           = XInternAtom(dpy, "UTF8_STRING",                   false);
   dockatom                           = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK",      false);
-  statusatom                         = XInternAtom(dpy, "_RAWM_STATUS_V3",               false);
   surfaceatom                        = XInternAtom(dpy, "_RAWM_SURFACE",                 false);
   rawmatom[RawmAtomFloating]         = XInternAtom(dpy, "_RAWM_FLOATING",                false);
   rawmatom[RawmAtomSelected]         = XInternAtom(dpy, "_RAWM_SELECTED",                false);
@@ -5425,7 +5494,6 @@ setup(void)
 
   /* init bars */
   updatebars();
-  updatestatus();
 
   /* EWMH support per view */
   XChangeProperty(dpy,
@@ -5532,8 +5600,30 @@ drainsignalpipe(void)
         reap = true;
   }
   if (reap)
-    while (waitpid(-1, NULL, WNOHANG) > 0)
-      /* NOTHING */;
+  {
+    pid_t pid;
+
+    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0)
+    {
+      if (pid == statusworker.pid)
+      {
+        uint64_t now = monotonicms();
+
+        statusworker.pid = -1;
+        if (statusworker.fd >= 0)
+        {
+          close(statusworker.fd);
+          statusworker.fd = -1;
+        }
+        if (statusworker_started_at && now >= statusworker_started_at &&
+            now - statusworker_started_at >= 10000u)
+          statusworker_restart_delay_ms = 1000u;
+        statusworker_started_at = 0;
+        markstatusstale();
+        statusworkerschedulerestart();
+      }
+    }
+  }
 }
 
 static void
@@ -6456,19 +6546,6 @@ updatetitle(Client *c)
 }
 
 static void
-updatestatus(void)
-{
-  RawmStatusData next = {0};
-
-  if (config.status_enabled)
-    (void)getstatusprop(&next);
-  freestatus(&statusdata);
-  statusdata = next;
-
-  drawbar(selmon);
-}
-
-static void
 updatewindowtype(Client *c)
 {
   Atom wtype = getatomprop(c, netatom[NetWMWindowType]);
@@ -6733,6 +6810,7 @@ main(int argc, char *argv[])
 {
   const char *config_path = NULL;
   bool check_config = false;
+  bool status_debug = false;
   int i;
 
   for (i = 1; i < argc; ++i)
@@ -6744,6 +6822,8 @@ main(int argc, char *argv[])
     }
     else if (!strcmp(argv[i], "-C") || !strcmp(argv[i], "--check-config"))
       check_config = true;
+    else if (!strcmp(argv[i], "--status-debug"))
+      status_debug = true;
     else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--config"))
     {
       if (++i >= argc)
@@ -6756,7 +6836,7 @@ main(int argc, char *argv[])
     else
     {
       fprintf(stderr,
-              "usage: rawm [-C] [-c path] [-v]\n");
+              "usage: rawm [-C | --status-debug] [-c path] [-v]\n");
       return EXIT_FAILURE;
     }
   }
@@ -6769,11 +6849,25 @@ main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
+  if (check_config && status_debug)
+  {
+    fputs("rawm: -C/--check-config and --status-debug are mutually exclusive\n", stderr);
+    freeruntimeconfig();
+    rawm_config_destroy(&config);
+    return EXIT_FAILURE;
+  }
   if (check_config)
   {
     freeruntimeconfig();
     rawm_config_destroy(&config);
     return EXIT_SUCCESS;
+  }
+  if (status_debug)
+  {
+    int status = rawm_status_worker_debug(&config.status, stdout, stderr);
+    freeruntimeconfig();
+    rawm_config_destroy(&config);
+    return status;
   }
 
   if (!setlocale(LC_CTYPE, "") || !XSupportsLocale())
@@ -6789,10 +6883,14 @@ main(int argc, char *argv[])
 
   checkotherwm();
   setup();
+  statusworkerstart();
   scan();
   run();
   if (restart)
+  {
+    rawm_status_worker_stop(&statusworker, stderr);
     execvp(argv[0], argv);
+  }
   cleanup();
   XCloseDisplay(dpy);
   freeruntimeconfig();

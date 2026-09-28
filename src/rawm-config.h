@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "status/config.h"
+
 #define RAWM_MAX_TAGS 31
 #define RAWM_TAG_NAME_MAX 22u
 #define RAWM_LAYOUT_SYMBOL_MAX 32u
@@ -185,6 +187,7 @@ typedef struct {
 
   bool status_enabled;
   char *status_separator;
+  RawmStatusConfig status;
 
   RawmCenterMode dialog_center;
   RawmSizeHintsMode size_hints;

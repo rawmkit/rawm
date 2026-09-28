@@ -497,6 +497,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->systray_icon_size = 0;
   cfg->status_enabled = true;
   cfg->status_separator = xstrdup(" | ");
+  rawm_status_config_init(&cfg->status);
   cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->size_hints = RAWM_SIZE_HINTS_FLOATING;
   cfg->floating_placement = RAWM_FLOATING_PLACEMENT_CASCADE;
@@ -630,6 +631,7 @@ rawm_config_destroy(RawmConfig *cfg)
   size_t i, j;
   free(cfg->font);
   free(cfg->status_separator);
+  rawm_status_config_destroy(&cfg->status);
   for (i = 0; i < RAWM_COLOR_SCHEMES; ++i)
     for (j = 0; j < RAWM_COLOR_COMPONENTS; ++j)
       free(cfg->colors[i][j]);
@@ -941,12 +943,12 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 static int
 parse_status(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
-  static const char *const allowed[] = { "enabled", "separator" };
+  static const char *const allowed[] = { "enabled", "separator", "sources" };
   config_setting_t *setting;
 
   if (config_setting_type(group) != CONFIG_TYPE_GROUP)
     return cfg_error(err, group, "status must be a group", "");
-  if (validate_members(err, group, allowed, 2) < 0 ||
+  if (validate_members(err, group, allowed, 3) < 0 ||
       read_bool(err, group, "enabled", &cfg->status_enabled) < 0)
     return -1;
 
@@ -956,6 +958,9 @@ parse_status(FILE *err, RawmConfig *cfg, const config_setting_t *group)
       return cfg_error(err, setting, "status.separator must be a string", "");
     replace_string(&cfg->status_separator, config_setting_get_string(setting));
   }
+  setting = config_setting_get_member(group, "sources");
+  if (setting && rawm_status_config_parse_sources(&cfg->status, setting, err) < 0)
+    return -1;
   return 0;
 }
 
@@ -1625,7 +1630,7 @@ parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
       }
       value = config_setting_get_string(status_id);
       if (!rawm_status_id_valid((const unsigned char *)value, strlen(value))) {
-        cfg_error(err, status_id, "%s is not a valid rawm-v3 segment id",
+        cfg_error(err, status_id, "%s is not a valid status segment id",
                   "status_id");
         goto fail;
       }
@@ -2322,6 +2327,8 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
           err);
     return -1;
   }
+  if (rawm_status_config_validate(&cfg->status, err) < 0)
+    return -1;
   for (i = 0; i < RAWM_LAYOUT_COUNT; ++i) {
     if (!cfg->layout_symbols[i] ||
         strlen(cfg->layout_symbols[i]) > RAWM_LAYOUT_SYMBOL_MAX) {

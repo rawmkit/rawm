@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-#include "rawmstat-source.h"
+#include "source.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -25,7 +25,7 @@ xstrdup(const char *s)
   char *copy = strdup(s);
 
   if (!copy) {
-    fputs("rawmstat: out of memory\n", stderr);
+    fputs("rawm: status worker: out of memory\n", stderr);
     exit(EXIT_FAILURE);
   }
   return copy;
@@ -34,14 +34,14 @@ xstrdup(const char *s)
 static const char *
 proc_root(void)
 {
-  const char *root = getenv("RAWMSTAT_PROC_ROOT");
+  const char *root = getenv("RAWM_STATUS_PROC_ROOT");
   return root && root[0] ? root : "/proc";
 }
 
 static const char *
 sys_root(void)
 {
-  const char *root = getenv("RAWMSTAT_SYS_ROOT");
+  const char *root = getenv("RAWM_STATUS_SYS_ROOT");
   return root && root[0] ? root : "/sys";
 }
 
@@ -82,7 +82,7 @@ set_sample(char **text, RawmStatusState *state, const char *value,
 }
 
 static int
-sample_clock(const RawmstatSourceConfig *config, char **text,
+sample_clock(const RawmStatusSourceConfig *config, char **text,
              RawmStatusState *state)
 {
   char buffer[SAMPLE_TEXT_MAX];
@@ -138,7 +138,7 @@ read_cpu(uint64_t *total, uint64_t *idle)
 }
 
 static int
-sample_cpu(RawmstatSource *source, char **text, RawmStatusState *state)
+sample_cpu(RawmStatusSource *source, char **text, RawmStatusState *state)
 {
   uint64_t total, idle, delta_total, delta_idle, used;
   char buffer[64];
@@ -170,7 +170,7 @@ sample_cpu(RawmstatSource *source, char **text, RawmStatusState *state)
 }
 
 static int
-sample_memory(const RawmstatSourceConfig *config, char **text,
+sample_memory(const RawmStatusSourceConfig *config, char **text,
               RawmStatusState *state)
 {
   char path[4096], key[128], unit[32], buffer[64];
@@ -214,7 +214,7 @@ invalid:
 }
 
 static int
-sample_filesystem(const RawmstatSourceConfig *config, char **text,
+sample_filesystem(const RawmStatusSourceConfig *config, char **text,
                   RawmStatusState *state)
 {
   struct statvfs fs;
@@ -339,7 +339,7 @@ rate_per_second(uint64_t delta, uint64_t elapsed_ms)
 }
 
 static int
-sample_network(RawmstatSource *source, uint64_t now_ms, char **text,
+sample_network(RawmStatusSource *source, uint64_t now_ms, char **text,
                RawmStatusState *state)
 {
   char iface[IF_NAMESIZE], rx_path[4096], tx_path[4096];
@@ -390,7 +390,7 @@ sample_network(RawmstatSource *source, uint64_t now_ms, char **text,
 }
 
 static int
-sample_battery(const RawmstatSourceConfig *config, char **text,
+sample_battery(const RawmStatusSourceConfig *config, char **text,
                RawmStatusState *state)
 {
   char base[4096], path[4096], status[64] = "", buffer[64];
@@ -472,9 +472,22 @@ parse_exec_line(char *line, char **text, RawmStatusState *state)
   return set_sample(text, state, payload, semantic);
 }
 
+static void
+terminate_exec_group(pid_t pid, int *status)
+{
+  struct timespec delay = { .tv_sec = 0, .tv_nsec = 100000000L };
+
+  (void)kill(-pid, SIGTERM);
+  while (nanosleep(&delay, &delay) < 0 && errno == EINTR)
+    ;
+  (void)kill(-pid, SIGKILL);
+  while (waitpid(pid, status, 0) < 0 && errno == EINTR)
+    ;
+}
+
 static int
-sample_exec(const RawmstatSourceConfig *config, char **text,
-            RawmStatusState *state)
+sample_exec(const RawmStatusSourceConfig *config, char **text,
+            RawmStatusState *state, const volatile sig_atomic_t *terminate)
 {
   int pipefd[2], status = 0;
   pid_t pid;
@@ -518,9 +531,15 @@ sample_exec(const RawmstatSourceConfig *config, char **text,
     uint64_t now = monotonic_ms();
     int timeout, rc;
 
+    if (terminate && *terminate) {
+      terminate_exec_group(pid, &status);
+      close(pipefd[0]);
+      return -1;
+    }
     if (now >= deadline) {
-      kill(-pid, SIGKILL);
-      waitpid(pid, &status, 0);
+      (void)kill(-pid, SIGKILL);
+      while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+        ;
       close(pipefd[0]);
       return -1;
     }
@@ -529,8 +548,9 @@ sample_exec(const RawmstatSourceConfig *config, char **text,
       timeout = 100;
     rc = poll(&pfd, 1, timeout);
     if (rc < 0 && errno != EINTR) {
-      kill(-pid, SIGKILL);
-      waitpid(pid, &status, 0);
+      (void)kill(-pid, SIGKILL);
+      while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+        ;
       close(pipefd[0]);
       return -1;
     }
@@ -568,15 +588,15 @@ sample_exec(const RawmstatSourceConfig *config, char **text,
 }
 
 void
-rawmstat_source_init(RawmstatSource *source,
-                     const RawmstatSourceConfig *config)
+rawm_status_source_init(RawmStatusSource *source,
+                     const RawmStatusSourceConfig *config)
 {
   memset(source, 0, sizeof(*source));
   source->config = config;
 }
 
 void
-rawmstat_source_destroy(RawmstatSource *source)
+rawm_status_source_destroy(RawmStatusSource *source)
 {
   free(source->text);
   free(source->network_interface);
@@ -584,32 +604,33 @@ rawmstat_source_destroy(RawmstatSource *source)
 }
 
 int
-rawmstat_source_refresh(RawmstatSource *source, uint64_t now_ms, FILE *err)
+rawm_status_source_refresh(RawmStatusSource *source, uint64_t now_ms,
+                           const volatile sig_atomic_t *terminate, FILE *err)
 {
   char *text = NULL;
   RawmStatusState state = RAWM_STATUS_NORMAL;
   int rc = -1;
 
   switch (source->config->provider) {
-  case RAWMSTAT_PROVIDER_BATTERY:
+  case RAWM_STATUS_PROVIDER_BATTERY:
     rc = sample_battery(source->config, &text, &state);
     break;
-  case RAWMSTAT_PROVIDER_CLOCK:
+  case RAWM_STATUS_PROVIDER_CLOCK:
     rc = sample_clock(source->config, &text, &state);
     break;
-  case RAWMSTAT_PROVIDER_CPU:
+  case RAWM_STATUS_PROVIDER_CPU:
     rc = sample_cpu(source, &text, &state);
     break;
-  case RAWMSTAT_PROVIDER_EXEC:
-    rc = sample_exec(source->config, &text, &state);
+  case RAWM_STATUS_PROVIDER_EXEC:
+    rc = sample_exec(source->config, &text, &state, terminate);
     break;
-  case RAWMSTAT_PROVIDER_FILESYSTEM:
+  case RAWM_STATUS_PROVIDER_FILESYSTEM:
     rc = sample_filesystem(source->config, &text, &state);
     break;
-  case RAWMSTAT_PROVIDER_MEMORY:
+  case RAWM_STATUS_PROVIDER_MEMORY:
     rc = sample_memory(source->config, &text, &state);
     break;
-  case RAWMSTAT_PROVIDER_NETWORK:
+  case RAWM_STATUS_PROVIDER_NETWORK:
     rc = sample_network(source, now_ms, &text, &state);
     break;
   }
@@ -627,11 +648,11 @@ rawmstat_source_refresh(RawmstatSource *source, uint64_t now_ms, FILE *err)
     return 0;
   if (source->has_value && source->state != RAWM_STATUS_STALE) {
     source->state = RAWM_STATUS_STALE;
-    fprintf(err, "rawmstat: source '%s' refresh failed; marking stale\n",
+    fprintf(err, "rawm: status worker: source '%s' refresh failed; marking stale\n",
             source->config->id);
     return 1;
   }
   if (!source->has_value)
-    fprintf(err, "rawmstat: source '%s' refresh failed\n", source->config->id);
+    fprintf(err, "rawm: status worker: source '%s' refresh failed\n", source->config->id);
   return 0;
 }

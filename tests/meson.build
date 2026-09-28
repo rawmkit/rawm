@@ -115,6 +115,13 @@ status_client = executable(
   build_by_default: false,
 )
 
+status_bar_checksum = executable(
+  'status-bar-checksum',
+  'status-bar-checksum.c',
+  dependencies: x11_dep,
+  build_by_default: false,
+)
+
 if xinerama_dep.found()
   xinerama_probe = executable(
     'xinerama-probe',
@@ -151,6 +158,7 @@ endif
 placement_test = find_program('placement.sh')
 tagbar_test = find_program('tagbar.sh')
 status_test = find_program('status.sh')
+status_worker_test = find_program('status-worker.sh')
 if get_option('systray')
   systray_test = find_program('systray.sh')
 endif
@@ -519,7 +527,7 @@ if x11_missing.length() == 0
   test(
     'status',
     status_test,
-    args: [rawm, status_client],
+    args: [rawm, status_client, status_bar_checksum],
     workdir: test_workdir,
   )
 else
@@ -566,7 +574,20 @@ else
   )
 endif
 
-subdir('rawmstat')
+if grep_program.found()
+  test(
+    'status-worker',
+    status_worker_test,
+    args: [rawm],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'status-worker',
+    skip_test,
+    args: ['missing test dependency: grep'],
+  )
+endif
 
 subdir('unit')
 

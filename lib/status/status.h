@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define RAWM_STATUS_V3_MAX 4096u
+#define RAWM_STATUS_SNAPSHOT_MAX 4096u
 #define RAWM_STATUS_ID_MAX 64u
 
 typedef enum {
@@ -45,10 +45,11 @@ const char *rawm_status_state_name(RawmStatusState state);
 int rawm_status_state_parse(const unsigned char *text, size_t length,
                             RawmStatusState *state);
 void rawm_status_data_destroy(RawmStatusData *status);
-RawmStatusResult rawm_status_v3_parse(const unsigned char *value, size_t length,
-                                      RawmStatusData *status);
-RawmStatusResult rawm_status_v3_encode(const RawmStatusView *segments,
-                                       size_t count, char **value,
-                                       size_t *length);
+RawmStatusResult rawm_status_snapshot_parse(const unsigned char *value,
+                                            size_t length,
+                                            RawmStatusData *status);
+RawmStatusResult rawm_status_snapshot_encode(const RawmStatusView *segments,
+                                             size_t count, char **value,
+                                             size_t *length);
 
 #endif

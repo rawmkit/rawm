@@ -188,7 +188,7 @@ contains_id(const RawmStatusSegment *segments, size_t count,
 }
 
 RawmStatusResult
-rawm_status_v3_parse(const unsigned char *value, size_t length,
+rawm_status_snapshot_parse(const unsigned char *value, size_t length,
                      RawmStatusData *status)
 {
   RawmStatusData parsed = {0};
@@ -200,8 +200,8 @@ rawm_status_v3_parse(const unsigned char *value, size_t length,
     *status = parsed;
     return RAWM_STATUS_OK;
   }
-  if (!value || length > RAWM_STATUS_V3_MAX)
-    return length > RAWM_STATUS_V3_MAX ? RAWM_STATUS_TOO_LARGE
+  if (!value || length > RAWM_STATUS_SNAPSHOT_MAX)
+    return length > RAWM_STATUS_SNAPSHOT_MAX ? RAWM_STATUS_TOO_LARGE
                                        : RAWM_STATUS_INVALID;
   if (value[length - 1] != '\n')
     return RAWM_STATUS_INVALID;
@@ -266,7 +266,7 @@ no_memory:
 }
 
 RawmStatusResult
-rawm_status_v3_encode(const RawmStatusView *segments, size_t count,
+rawm_status_snapshot_encode(const RawmStatusView *segments, size_t count,
                       char **value, size_t *length)
 {
   size_t i, j, total = 0;
@@ -291,14 +291,14 @@ rawm_status_v3_encode(const RawmStatusView *segments, size_t count,
         !rawm_status_text_valid((const unsigned char *)segments[i].text,
                                 text_len))
       return RAWM_STATUS_INVALID;
-    if (text_len > RAWM_STATUS_V3_MAX)
+    if (text_len > RAWM_STATUS_SNAPSHOT_MAX)
       return RAWM_STATUS_TOO_LARGE;
     for (j = 0; j < i; ++j)
       if (!strcmp(segments[j].id, segments[i].id))
         return RAWM_STATUS_INVALID;
     state_len = strlen(state_name);
     extra = id_len + 1 + state_len + 1 + text_len + 1;
-    if (extra > RAWM_STATUS_V3_MAX - total)
+    if (extra > RAWM_STATUS_SNAPSHOT_MAX - total)
       return RAWM_STATUS_TOO_LARGE;
     total += extra;
   }

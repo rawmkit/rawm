@@ -273,7 +273,7 @@ input = {
 };
 EOC
 expect_fail "$tmp/status-button-id-invalid-value.conf"
-grep -q "valid rawm-v3 segment id" "$tmp/stderr" ||
+grep -q "valid status segment id" "$tmp/stderr" ||
   fail "invalid status_id diagnostic missing"
 
 cat >"$tmp/status-button-id-duplicate.conf" <<'EOC'
@@ -374,7 +374,7 @@ grep -q "unknown setting 'protocol'" "$tmp/stderr" ||
   fail "retired status protocol setting was not rejected"
 
 cat >"$tmp/status-member.conf" <<'EOC'
-status = { enabled = true; protcol = "rawm-v3"; };
+status = { enabled = true; protcol = "obsolete"; };
 EOC
 expect_fail "$tmp/status-member.conf"
 
@@ -651,5 +651,102 @@ HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" \
   cat "$tmp/stderr" >&2
   fail "explicit -c did not isolate the selected file from user configuration"
 }
+
+
+cat >"$tmp/status-sources.conf" <<'EOC'
+status = {
+  sources = {
+    battery = { provider = "battery"; period_ms = 15000; warning = 20; critical = 10; };
+    cpu = { provider = "cpu"; period_ms = 2000; warning = 80; critical = 95; };
+    memory = { provider = "memory"; period_ms = 5000; warning = 85; critical = 95; };
+    disk = { provider = "filesystem"; path = "/"; period_ms = 60000; warning = 20; critical = 5; };
+    network = { provider = "network"; interface = "default"; period_ms = 2000; };
+    helper = { provider = "exec"; command = ("printf", "ok\\n"); period_ms = 1000; timeout_ms = 500; };
+    clock = { period_ms = 30000; };
+  };
+};
+EOC
+expect_ok "$tmp/status-sources.conf"
+
+cat >"$tmp/status-source-disable.conf" <<'EOC'
+status = { sources = { clock = { enabled = false; }; }; };
+EOC
+expect_ok "$tmp/status-source-disable.conf"
+
+cat >"$tmp/status-source-new-no-provider.conf" <<'EOC'
+status = { sources = { probe = { period_ms = 1000; }; }; };
+EOC
+expect_fail "$tmp/status-source-new-no-provider.conf"
+grep -q "new source requires a provider" "$tmp/stderr" ||
+  fail "new status source without provider was accepted"
+
+cat >"$tmp/status-source-provider.conf" <<'EOC'
+status = { sources = { x = { provider = "not-a-provider"; }; }; };
+EOC
+expect_fail "$tmp/status-source-provider.conf"
+grep -q "unknown provider" "$tmp/stderr" || fail "unknown status provider diagnostic missing"
+
+cat >"$tmp/status-source-exec.conf" <<'EOC'
+status = { sources = { x = { provider = "exec"; }; }; };
+EOC
+expect_fail "$tmp/status-source-exec.conf"
+grep -q "has no command" "$tmp/stderr" || fail "missing status exec command diagnostic missing"
+
+cat >"$tmp/status-source-cpu-threshold.conf" <<'EOC'
+status = { sources = { cpu = { provider = "cpu"; warning = 95; critical = 80; }; }; };
+EOC
+expect_fail "$tmp/status-source-cpu-threshold.conf"
+grep -q "warning < critical" "$tmp/stderr" || fail "CPU threshold diagnostic missing"
+
+cat >"$tmp/status-source-battery-threshold.conf" <<'EOC'
+status = { sources = { battery = { provider = "battery"; warning = 10; critical = 20; }; }; };
+EOC
+expect_fail "$tmp/status-source-battery-threshold.conf"
+grep -q "critical < warning" "$tmp/stderr" || fail "battery threshold diagnostic missing"
+
+cat >"$tmp/status-source-period.conf" <<'EOC'
+status = { sources = { clock = { period_ms = 99; }; }; };
+EOC
+expect_fail "$tmp/status-source-period.conf"
+grep -q "period_ms is out of range" "$tmp/stderr" || fail "status period range diagnostic missing"
+
+cat >"$tmp/status-source-command-native.conf" <<'EOC'
+status = { sources = { clock = { command = ("date"); }; }; };
+EOC
+expect_fail "$tmp/status-source-command-native.conf"
+grep -q "command is valid only for exec" "$tmp/stderr" || fail "native status command rejection missing"
+
+cat >"$tmp/status-source-cpu-format.conf" <<'EOC'
+status = { sources = { cpu = { provider = "cpu"; format = "%H:%M"; }; }; };
+EOC
+expect_fail "$tmp/status-source-cpu-format.conf"
+grep -q "format is valid only for clock" "$tmp/stderr" ||
+  fail "provider-specific format diagnostic missing"
+
+cat >"$tmp/status-source-clock-threshold.conf" <<'EOC'
+status = { sources = { clock = { warning = 1; }; }; };
+EOC
+expect_fail "$tmp/status-source-clock-threshold.conf"
+grep -q "warning/critical are not valid" "$tmp/stderr" ||
+  fail "provider-specific threshold diagnostic missing"
+
+cat >"$tmp/status-source-network-timeout.conf" <<'EOC'
+status = { sources = { network = { provider = "network"; timeout_ms = 1000; }; }; };
+EOC
+expect_fail "$tmp/status-source-network-timeout.conf"
+grep -q "timeout_ms is valid only for exec" "$tmp/stderr" ||
+  fail "provider-specific timeout diagnostic missing"
+
+cat >"$tmp/status-source-network-interface-long.conf" <<'EOC'
+status = { sources = { network = { provider = "network"; interface = "interface-name-is-too-long"; }; }; };
+EOC
+expect_fail "$tmp/status-source-network-interface-long.conf"
+grep -q "invalid interface" "$tmp/stderr" || fail "overlong network interface was not rejected"
+
+cat >"$tmp/status-source-network-interface-path.conf" <<'EOC'
+status = { sources = { network = { provider = "network"; interface = ".."; }; }; };
+EOC
+expect_fail "$tmp/status-source-network-interface-path.conf"
+grep -q "invalid interface" "$tmp/stderr" || fail "path-like network interface was not rejected"
 
 echo "config tests: ok"
