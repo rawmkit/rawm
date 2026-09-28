@@ -150,7 +150,9 @@ validated `status.sources` configuration. The worker collects semantic
 `id/state/text` snapshots and sends them to its parent through an anonymous
 `SOCK_SEQPACKET` socket. Native ALSA status joins the same event loop through
 libasound mixer poll descriptors, so volume changes are reported by mixer events
-rather than command polling. `normal`, `warning`, `critical`, and `stale` are
+rather than command polling. Native `volume_up`, `volume_down`, and `volume_mute`
+actions send control requests to that same worker and mixer authority. `normal`,
+`warning`, `critical`, and `stale` are
 source semantics; separators, colors, hit testing, and all other presentation
 remain rawm policy. The worker has no independent configuration file, public
 socket, PID file, X root property, or service lifecycle.

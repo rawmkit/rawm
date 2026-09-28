@@ -21,6 +21,11 @@ Unified status ownership
 * Native ALSA playback-volume status replaces the last command-polled desktop
   measurement. While healthy it is event-driven through libasound mixer poll
   descriptors; the configured period is used only for reconnect attempts.
+* Status source declaration order is authoritative across layered configuration,
+  so the effective snapshot/bar order follows the most recent declarations.
+* Native `volume_up`, `volume_down`, and `volume_mute` actions control the single
+  configured ALSA source through the same private status worker; no second mixer
+  authority or `amixer` subprocess is required.
 
 rawm 6.5.0 — 2026-09-26
 =========================
