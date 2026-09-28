@@ -111,7 +111,7 @@ A failed refresh with no prior value produces no segment. If a source already
 has a valid value, rawmstat keeps that text and changes its state to *stale*.
 The next successful sample replaces both text and state.
 
-The complete *_RAWM_STATUS_V3* snapshot must fit within 4096 bytes. rawmstat
+The complete *\_RAWM\_STATUS\_V3* snapshot must fit within 4096 bytes. rawmstat
 reports an oversized snapshot and keeps the previously published property
 rather than truncating it.
 
