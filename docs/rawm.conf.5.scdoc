@@ -347,14 +347,27 @@ status = {
 };
 ```
 
-Every new source requires *provider*. *period_ms* is its monotonic refresh
-period in milliseconds, from 100 through 3600000. Existing layered sources may
+Every new source requires *provider*. *period_ms* is a monotonic refresh or
+reconnect period in milliseconds, from 100 through 3600000. Existing layered sources may
 omit *provider* when only overriding provider-specific settings.
-Provider-specific settings are strict: *format* belongs only to *clock*, *path*
-only to *filesystem*, *interface* only to *network*, *command* and *timeout_ms*
-only to *exec*, and *warning*/*critical* only to providers that define threshold
-semantics. Meaningless settings are configuration errors rather than ignored
-policy.
+Provider-specific settings are strict: *device* and *control* belong only to
+*alsa*, *format* only to *clock*, *path* only to *filesystem*, *interface* only
+to *network*, *command* and *timeout_ms* only to *exec*, and
+*warning*/*critical* only to providers that define threshold semantics.
+Meaningless settings are configuration errors rather than ignored policy.
+
+## alsa
+
+Reads playback volume and mute state from an ALSA simple-mixer control.
+*device* defaults to *"default"* and *control* defaults to *"Master"*. The
+published text is *vol N%* or *vol mute*; mute is a *warning* state. Multi-channel
+volume is the rounded mean of the available playback channels.
+
+After the initial sample, the provider contributes libasound mixer descriptors
+directly to the status worker poll set. Healthy mixers therefore have no
+periodic sampling timer: changes are refreshed when ALSA reports an event.
+*period_ms* is the retry interval while the configured mixer/control is
+unavailable and defaults to 5000 ms.
 
 ## battery
 

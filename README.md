@@ -38,7 +38,7 @@ configuration. Major facilities include:
   * one Meson build and behavioral test suite covering rawm, its private status
     worker, and session integration with isolated Xvfb fixtures.
 
-`rawm` depends on `libX11`, `libXft`, `fontconfig`, and `libconfig`.
+`rawm` depends on `libX11`, `libXft`, `fontconfig`, `libconfig`, and `alsa-lib`.
 `rawmctl` depends on `libX11`; `rawmsession` depends on `libconfig`. The `rawmctl window select` command
 additionally composes at run time with the separately packaged `rawmenu`; the
 stock clipboard-history command similarly composes with separately packaged
@@ -67,6 +67,7 @@ Build time
   * `libXft`
   * `fontconfig`
   * `libconfig`
+  * `alsa-lib`
   * `xinerama` is optional, for Xinerama Extension support
   * `scdoc(1)` to build the manual pages
 
@@ -147,10 +148,12 @@ rendering and mouse hit testing share the same visibility state.
 When `status.enabled` is true, rawm starts a private status worker from the
 validated `status.sources` configuration. The worker collects semantic
 `id/state/text` snapshots and sends them to its parent through an anonymous
-`SOCK_SEQPACKET` socket. `normal`, `warning`, `critical`, and `stale` are source
-semantics; separators, colors, hit testing, and all other presentation remain
-rawm policy. The worker has no independent configuration file, public socket,
-PID file, X root property, or service lifecycle.
+`SOCK_SEQPACKET` socket. Native ALSA status joins the same event loop through
+libasound mixer poll descriptors, so volume changes are reported by mixer events
+rather than command polling. `normal`, `warning`, `critical`, and `stale` are
+source semantics; separators, colors, hit testing, and all other presentation
+remain rawm policy. The worker has no independent configuration file, public
+socket, PID file, X root property, or service lifecycle.
 
 Use `rawm -C` to validate the effective configuration without opening the X
 display, or `rawm -C -c ./config/rawm.conf` to validate one explicit file over the

@@ -64,12 +64,17 @@ public version selector or compatibility parser.
 
 A source is a named measurement with a provider and provider-specific policy.
 Native providers keep their sampling state in the worker. Periodic sources use
-a monotonic clock.
+a monotonic clock. Event-capable providers contribute descriptors directly to
+the worker poll set and therefore share the same lifecycle and wake-up authority
+as the private parent socket.
 
-Current native providers are battery, clock, CPU, filesystem, memory, and
-network. `exec` is an explicit extension boundary for measurements without a
-native provider. Command execution is therefore one provider, not the status
-architecture itself.
+Current native providers are ALSA playback volume, battery, clock, CPU,
+filesystem, memory, and network. The ALSA provider opens one libasound mixer,
+reads a named playback control, and remains event-driven while healthy; its
+configured period is used only to retry an unavailable mixer/control. `exec` is
+an explicit extension boundary for measurements without a native provider.
+Command execution is therefore one provider, not the status architecture
+itself.
 
 A failed source with no previous value is omitted. A failed refresh after a
 valid sample preserves the text and marks the segment `stale`. A successful

@@ -18,6 +18,9 @@ Unified status ownership
   manager. rawm reaps and restarts the worker with bounded backoff.
 * `rawm --status-debug` runs the same collector path in the foreground for
   configuration and source diagnostics without opening the X display.
+* Native ALSA playback-volume status replaces the last command-polled desktop
+  measurement. While healthy it is event-driven through libasound mixer poll
+  descriptors; the configured period is used only for reconnect attempts.
 
 rawm 6.5.0 — 2026-09-26
 =========================
