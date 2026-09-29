@@ -59,6 +59,7 @@ typedef struct {
   Atom supported_atom;
   Atom state_atom;
   Atom clients_atom;
+  Atom feedback_atom;
   Atom command_atom;
   Atom command_text_atom;
   Atom commands[RAWM_CONTROL_COMMAND_LAST];
@@ -81,6 +82,9 @@ int rawm_control_publish_state(RawmControl *control,
 int rawm_control_publish_clients(RawmControl *control,
                                  const void *data, size_t length,
                                  FILE *err);
+int rawm_control_publish_feedback(RawmControl *control,
+                                  const void *data, size_t length,
+                                  FILE *err);
 int rawm_control_read_text(RawmControl *control, Window requestor,
                            char *buffer, size_t capacity, FILE *err);
 

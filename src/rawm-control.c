@@ -70,12 +70,14 @@ rawm_control_init(RawmControl *control, Display *display, Window root,
   control->supported_atom = XInternAtom(display, "_RAWM_SUPPORTED_COMMANDS", False);
   control->state_atom = XInternAtom(display, "_RAWM_STATE", False);
   control->clients_atom = XInternAtom(display, "_RAWM_CLIENTS", False);
+  control->feedback_atom = XInternAtom(display, "_RAWM_FEEDBACK", False);
   control->command_atom = XInternAtom(display, "_RAWM_COMMAND", False);
   control->command_text_atom = XInternAtom(display, "_RAWM_COMMAND_TEXT", False);
 
   if (control->selection_atom == None || control->version_atom == None ||
       control->supported_atom == None || control->state_atom == None ||
-      control->clients_atom == None || control->command_atom == None ||
+      control->clients_atom == None || control->feedback_atom == None ||
+      control->command_atom == None ||
       control->command_text_atom == None)
   {
     if (err)
@@ -240,6 +242,28 @@ rawm_control_publish_clients(RawmControl *control,
                       control ? &control->last_clients : NULL,
                       control ? &control->last_clients_len : NULL,
                       data, length, "client inventory", err);
+}
+
+int
+rawm_control_publish_feedback(RawmControl *control,
+                              const void *data, size_t length,
+                              FILE *err)
+{
+  if (!control || !control->display || control->window == None ||
+      control->feedback_atom == None || (!data && length))
+    return -1;
+  if (length > INT_MAX)
+  {
+    if (err)
+      fputs("rawm: transient feedback exceeds X11 property size limit\n", err);
+    return -1;
+  }
+
+  XChangeProperty(control->display, control->window, control->feedback_atom,
+                  control->utf8, 8, PropModeReplace,
+                  (const unsigned char *)data, (int)length);
+  XFlush(control->display);
+  return 1;
 }
 
 int
