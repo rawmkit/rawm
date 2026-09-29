@@ -11,8 +11,9 @@
  * accessed whenever a new event has been fetched.  This allows event
  * dispatching in O(1) time.
  *
- * Each child of the root window is called a client, except windows
- * which have set the override_redirect flag.  Clients are organized
+ * Ordinary children of the root window become clients. Windows with
+ * override_redirect set and EWMH dock windows remain external surfaces.
+ * Clients are organized
  * in a linked client list on each monitor, the focus history is
  * remembered through a stack list on each monitor.  Each client
  * contains a bit array to indicate the tags of a client.
@@ -238,6 +239,8 @@ enum {
   NetClientList,            /**< _NET_CLIENT_LIST atom. */
   NetWMWindowType,          /**< _NET_WM_WINDOW_TYPE atom. */
   NetWMWindowTypeDialog,    /**< _NET_WM_WINDOW_TYPE_DIALOG atom. */
+  NetWMStrut,               /**< _NET_WM_STRUT atom. */
+  NetWMStrutPartial,        /**< _NET_WM_STRUT_PARTIAL atom. */
   NetLast                   /**< Sentinel value for the last EWMH atom. */
 };
 
@@ -523,6 +526,7 @@ static void           focusnstack(const Arg *arg);
 static void           focusstack(const Arg *arg);
 static void           grid(Monitor *m);
 static bool           atomlistcontains(Window w, Atom prop, Atom atom);
+static bool           getdockstrut(Window w, unsigned long strut[12]);
 static void           setatomlistmember(Window w, Atom prop, Atom atom, bool present);
 static void           setsurfaceproperties(Window window, const char *instance,
                                            const char *surface,
@@ -582,6 +586,7 @@ static void           killclient(const Arg *arg);
 static void           leavenotify(XEvent *e);
 static void           manage(Window w, XWindowAttributes *wa);
 static void           mappingnotify(XEvent *e);
+static void           mapnotify(XEvent *e);
 static void           maprequest(XEvent *e);
 static void           monocle(Monitor *m);
 static void           motionnotify(XEvent *e);
@@ -659,7 +664,10 @@ static void           unfocus(Client *c, bool setfocus);
 static void           unmanage(Client *c, bool destroyed);
 static void           unmapnotify(XEvent *e);
 static bool           updategeom(void);
+static bool           updateworkareas(void);
 static void           updatebarpos(Monitor *m);
+static void           reflowworkareas(void);
+static bool           windowisdock(Window w);
 static void           updatebars(void);
 static void           updateclientlist(void);
 static void           updatenumlockmask(void);
@@ -2225,12 +2233,13 @@ configurenotify(XEvent *e)
 
   if (ev->window == root)
   {
-    bool dirty = (sw != ev->width);
+    bool dirty = (sw != ev->width || sh != ev->height);
     sw = ev->width;
     sh = ev->height;
 
     if (updategeom() || dirty)
     {
+      (void)updateworkareas();
       if (dc.drawable != 0)
         XFreePixmap(dpy, dc.drawable);
 
@@ -2416,17 +2425,25 @@ destroynotify(XEvent *e)
 {
   Client              *c;
   XDestroyWindowEvent *ev = &e->xdestroywindow;
+  bool handled = false;
 
   if ((c = wintoclient(ev->window)))
+  {
     unmanage(c, true);
+    handled = true;
+  }
 #ifdef SYSTRAY
   else if ((c = wintosystrayicon(ev->window)))
   {
     removesystrayicon(c);
     resizebarwin(selmon);
     updatesystray();
+    handled = true;
   }
 #endif /* SYSTRAY */
+
+  if (!handled)
+    reflowworkareas();
 }
 
 static void
@@ -3424,6 +3441,61 @@ atomlistcontains(Window w, Atom prop, Atom atom)
   return found;
 }
 
+static bool
+windowisdock(Window w)
+{
+  return atomlistcontains(w, netatom[NetWMWindowType], dockatom);
+}
+
+static bool
+getdockstrut(Window w, unsigned long strut[12])
+{
+  Atom actual = None;
+  int format = 0;
+  unsigned long nitems = 0, bytes_after = 0;
+  unsigned char *data = NULL;
+  bool found = false;
+
+  memset(strut, 0, sizeof(unsigned long) * 12u);
+
+  if (XGetWindowProperty(dpy, w, netatom[NetWMStrutPartial], 0L, 12L, False,
+                         XA_CARDINAL, &actual, &format, &nitems, &bytes_after,
+                         &data) == Success &&
+      actual == XA_CARDINAL && format == 32 && nitems >= 12u && data)
+  {
+    memcpy(strut, data, sizeof(unsigned long) * 12u);
+    found = true;
+  }
+  if (data)
+    XFree(data);
+  if (found)
+    return true;
+
+  actual = None;
+  format = 0;
+  nitems = bytes_after = 0;
+  data = NULL;
+  if (XGetWindowProperty(dpy, w, netatom[NetWMStrut], 0L, 4L, False,
+                         XA_CARDINAL, &actual, &format, &nitems, &bytes_after,
+                         &data) == Success &&
+      actual == XA_CARDINAL && format == 32 && nitems >= 4u && data)
+  {
+    memcpy(strut, data, sizeof(unsigned long) * 4u);
+    strut[4] = 0u;
+    strut[5] = sh > 0 ? (unsigned long)(sh - 1) : 0u;
+    strut[6] = 0u;
+    strut[7] = sh > 0 ? (unsigned long)(sh - 1) : 0u;
+    strut[8] = 0u;
+    strut[9] = sw > 0 ? (unsigned long)(sw - 1) : 0u;
+    strut[10] = 0u;
+    strut[11] = sw > 0 ? (unsigned long)(sw - 1) : 0u;
+    found = true;
+  }
+  if (data)
+    XFree(data);
+  return found;
+}
+
 static void
 setatomlistmember(Window w, Atom prop, Atom atom, bool present)
 {
@@ -4349,6 +4421,19 @@ mappingnotify(XEvent *e)
 }
 
 static void
+mapnotify(XEvent *e)
+{
+  XMapEvent *ev = &e->xmap;
+  unsigned long strut[12];
+
+  if (!windowisdock(ev->window) || !getdockstrut(ev->window, strut))
+    return;
+
+  XSelectInput(dpy, ev->window, PropertyChangeMask);
+  reflowworkareas();
+}
+
+static void
 maprequest(XEvent *e)
 {
   static XWindowAttributes  wa;
@@ -4374,6 +4459,13 @@ maprequest(XEvent *e)
 
   if (!XGetWindowAttributes(dpy, ev->window, &wa))
     return;
+
+  if (windowisdock(ev->window))
+  {
+    XSelectInput(dpy, ev->window, PropertyChangeMask);
+    XMapWindow(dpy, ev->window);
+    return;
+  }
 
   if (wa.override_redirect)
     return;
@@ -4943,6 +5035,11 @@ propertynotify(XEvent *e)
   }
 #endif /* SYSTRAY */
 
+  if (ev->atom == netatom[NetWMWindowType] ||
+      ev->atom == netatom[NetWMStrut] ||
+      ev->atom == netatom[NetWMStrutPartial])
+    reflowworkareas();
+
   if (ev->state == PropertyDelete)
     return; /* ignore */
   else if ((c = wintoclient(ev->window)))
@@ -5424,6 +5521,7 @@ scan(void)
     {
       if (  !XGetWindowAttributes(dpy, wins[i], &wa)
           || wa.override_redirect
+          || windowisdock(wins[i])
           || XGetTransientForHint(dpy, wins[i], &d1)
           )
         continue;
@@ -5440,7 +5538,8 @@ scan(void)
       if (!XGetWindowAttributes(dpy, wins[i], &wa))
         continue;
 
-      if (   XGetTransientForHint(dpy, wins[i], &d1)
+      if (   !windowisdock(wins[i])
+          && XGetTransientForHint(dpy, wins[i], &d1)
           && (   wa.map_state      == IsViewable
               || getstate(wins[i]) == IconicState )
           )
@@ -5743,6 +5842,8 @@ setup(void)
   netatom[NetWMFullscreen]          = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN",     false);
   netatom[NetWMWindowType]          = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE",          false);
   netatom[NetWMWindowTypeDialog]    = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG",   false);
+  netatom[NetWMStrut]               = XInternAtom(dpy, "_NET_WM_STRUT",                 false);
+  netatom[NetWMStrutPartial]        = XInternAtom(dpy, "_NET_WM_STRUT_PARTIAL",         false);
   utf8atom                           = XInternAtom(dpy, "UTF8_STRING",                   false);
   dockatom                           = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK",      false);
   surfaceatom                        = XInternAtom(dpy, "_RAWM_SURFACE",                 false);
@@ -5757,6 +5858,9 @@ setup(void)
   xatom[Xembed]                     = XInternAtom(dpy, "_XEMBED",                      false);
   xatom[XembedInfo]                 = XInternAtom(dpy, "_XEMBED_INFO",                 false);
 #endif /* SYSTRAY */
+
+  /* Admit existing EWMH dock reservations before creating rawm surfaces. */
+  (void)updateworkareas();
 
   /* init cursors */
   cursor[CurNormal]  = XCreateFontCursor(dpy, XC_left_ptr);
@@ -6099,7 +6203,7 @@ togglebar(__attribute__((unused)) const Arg *arg)
     selmon->pertag->showbars[selmon->pertag->curtag] =
       !selmon->showbar;
 
-  updatebarpos(selmon);
+  (void)updateworkareas();
 
 #ifdef SYSTRAY
   resizebarwin(selmon);
@@ -6293,6 +6397,7 @@ unmapnotify(XEvent *e)
 {
   Client      *c;
   XUnmapEvent *ev = &e->xunmap;
+  bool dock = windowisdock(ev->window);
 
   if ((c = wintoclient(ev->window)))
   {
@@ -6313,6 +6418,9 @@ unmapnotify(XEvent *e)
     updatesystray();
   }
 #endif /* SYSTRAY */
+
+  if (dock)
+    reflowworkareas();
 }
 
 static void
@@ -6372,16 +6480,120 @@ updatebars(void)
 static void
 updatebarpos(Monitor *m)
 {
-  m->wy = m->my;
-  m->wh = m->mh;
+  int height;
+
+  if (!m)
+    return;
+
   if (m->showbar)
   {
-    m->wh -= bh;
-    m->by  = m->topbar  ?   m->wy        :  (m->wy + m->wh);
-    m->wy  = m->topbar  ?  (m->wy + bh)  :   m->wy;
+    height = MIN(bh, m->wh);
+    m->wh -= height;
+    m->by = m->topbar ? m->wy : m->wy + m->wh;
+    if (m->topbar)
+      m->wy += height;
   }
   else
-    m->by  = -bh;
+    m->by = -bh;
+}
+
+static bool
+updateworkareas(void)
+{
+  Window root_return, parent_return, *children = NULL;
+  unsigned int child_count = 0;
+  Monitor *m;
+  bool dirty = false;
+
+  for (m = mons; m; m = m->next)
+  {
+    m->wx = m->mx;
+    m->wy = m->my;
+    m->ww = m->mw;
+    m->wh = m->mh;
+  }
+
+  if (XQueryTree(dpy, root, &root_return, &parent_return,
+                 &children, &child_count))
+  {
+    unsigned int i;
+
+    for (i = 0; i < child_count; ++i)
+    {
+      XWindowAttributes wa;
+      unsigned long strut[12];
+
+      if (!XGetWindowAttributes(dpy, children[i], &wa) ||
+          wa.map_state != IsViewable ||
+          !windowisdock(children[i]) ||
+          !getdockstrut(children[i], strut))
+        continue;
+
+      XSelectInput(dpy, children[i], PropertyChangeMask);
+
+      for (m = mons; m; m = m->next)
+      {
+        long mx1 = m->mx;
+        long my1 = m->my;
+        long mx2 = m->mx + m->mw - 1L;
+        long my2 = m->my + m->mh - 1L;
+        long wx1 = m->wx;
+        long wy1 = m->wy;
+        long wx2 = m->wx + m->ww;
+        long wy2 = m->wy + m->wh;
+
+        if (strut[0] && (long)strut[4] <= my2 &&
+            (long)strut[5] >= my1)
+          wx1 = MAX(wx1, MIN((long)strut[0], mx2 + 1L));
+        if (strut[1] && (long)strut[6] <= my2 &&
+            (long)strut[7] >= my1)
+          wx2 = MIN(wx2, MAX((long)sw - (long)strut[1], mx1));
+        if (strut[2] && (long)strut[8] <= mx2 &&
+            (long)strut[9] >= mx1)
+          wy1 = MAX(wy1, MIN((long)strut[2], my2 + 1L));
+        if (strut[3] && (long)strut[10] <= mx2 &&
+            (long)strut[11] >= mx1)
+          wy2 = MIN(wy2, MAX((long)sh - (long)strut[3], my1));
+
+        m->wx = (int)wx1;
+        m->wy = (int)wy1;
+        m->ww = MAX(1, (int)(wx2 - wx1));
+        m->wh = MAX(1, (int)(wy2 - wy1));
+      }
+    }
+  }
+  if (children)
+    XFree(children);
+
+  for (m = mons; m; m = m->next)
+  {
+    updatebarpos(m);
+    dirty = true;
+  }
+
+  return dirty;
+}
+
+static void
+reflowworkareas(void)
+{
+  Monitor *m;
+
+  if (!updateworkareas())
+    return;
+
+  for (m = mons; m; m = m->next)
+  {
+#ifdef SYSTRAY
+    resizebarwin(m);
+#else
+    XMoveResizeWindow(dpy, m->barwin, m->wx, m->by, m->ww, bh);
+#endif /* SYSTRAY */
+  }
+#ifdef SYSTRAY
+  updatesystray();
+#endif /* SYSTRAY */
+  arrange(NULL);
 }
 
 void
