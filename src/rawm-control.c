@@ -11,6 +11,7 @@
 static const char *const command_names[RAWM_CONTROL_COMMAND_LAST] = {
   [RAWM_CONTROL_FOCUS_STACK] = "_RAWM_CMD_FOCUS_STACK",
   [RAWM_CONTROL_FOCUS_INDEX] = "_RAWM_CMD_FOCUS_INDEX",
+  [RAWM_CONTROL_FOCUS_CLIENT] = "_RAWM_CMD_FOCUS_CLIENT",
   [RAWM_CONTROL_INC_MASTER] = "_RAWM_CMD_INC_MASTER",
   [RAWM_CONTROL_SET_MASTER_FACTOR] = "_RAWM_CMD_SET_MASTER_FACTOR",
   [RAWM_CONTROL_ZOOM] = "_RAWM_CMD_ZOOM",
@@ -68,12 +69,14 @@ rawm_control_init(RawmControl *control, Display *display, Window root,
   control->version_atom = XInternAtom(display, "_RAWM_CONTROL_VERSION", False);
   control->supported_atom = XInternAtom(display, "_RAWM_SUPPORTED_COMMANDS", False);
   control->state_atom = XInternAtom(display, "_RAWM_STATE", False);
+  control->clients_atom = XInternAtom(display, "_RAWM_CLIENTS", False);
   control->command_atom = XInternAtom(display, "_RAWM_COMMAND", False);
   control->command_text_atom = XInternAtom(display, "_RAWM_COMMAND_TEXT", False);
 
   if (control->selection_atom == None || control->version_atom == None ||
       control->supported_atom == None || control->state_atom == None ||
-      control->command_atom == None || control->command_text_atom == None)
+      control->clients_atom == None || control->command_atom == None ||
+      control->command_text_atom == None)
   {
     if (err)
       fputs("rawm: could not intern control-plane atoms\n", err);
@@ -136,6 +139,7 @@ rawm_control_destroy(RawmControl *control)
     XDestroyWindow(control->display, control->window);
 
   free(control->last_state);
+  free(control->last_clients);
   memset(control, 0, sizeof(*control));
 }
 
@@ -173,25 +177,25 @@ rawm_control_decode(const RawmControl *control,
   return RAWM_CONTROL_MESSAGE_INVALID;
 }
 
-int
-rawm_control_publish_state(RawmControl *control,
-                           const void *data, size_t length,
-                           FILE *err)
+static int
+publish_utf8(RawmControl *control, Atom property,
+             unsigned char **last, size_t *last_length,
+             const void *data, size_t length,
+             const char *what, FILE *err)
 {
   unsigned char *copy = NULL;
 
   if (!control || !control->display || control->window == None ||
-      control->state_atom == None || (!data && length))
+      property == None || !last || !last_length || (!data && length))
     return -1;
   if (length > INT_MAX)
   {
     if (err)
-      fputs("rawm: control state exceeds X11 property size limit\n", err);
+      fprintf(err, "rawm: control %s exceeds X11 property size limit\n", what);
     return -1;
   }
 
-  if (control->last_state_len == length &&
-      (!length || !memcmp(control->last_state, data, length)))
+  if (*last_length == length && (!length || !memcmp(*last, data, length)))
     return 0;
 
   if (length)
@@ -200,20 +204,42 @@ rawm_control_publish_state(RawmControl *control,
     if (!copy)
     {
       if (err)
-        fputs("rawm: out of memory while publishing control state\n", err);
+        fprintf(err, "rawm: out of memory while publishing control %s\n", what);
       return -1;
     }
     memcpy(copy, data, length);
   }
 
-  XChangeProperty(control->display, control->window, control->state_atom,
+  XChangeProperty(control->display, control->window, property,
                   control->utf8, 8, PropModeReplace,
                   (const unsigned char *)data, (int)length);
   XFlush(control->display);
-  free(control->last_state);
-  control->last_state = copy;
-  control->last_state_len = length;
+  free(*last);
+  *last = copy;
+  *last_length = length;
   return 1;
+}
+
+int
+rawm_control_publish_state(RawmControl *control,
+                           const void *data, size_t length,
+                           FILE *err)
+{
+  return publish_utf8(control, control ? control->state_atom : None,
+                      control ? &control->last_state : NULL,
+                      control ? &control->last_state_len : NULL,
+                      data, length, "state", err);
+}
+
+int
+rawm_control_publish_clients(RawmControl *control,
+                             const void *data, size_t length,
+                             FILE *err)
+{
+  return publish_utf8(control, control ? control->clients_atom : None,
+                      control ? &control->last_clients : NULL,
+                      control ? &control->last_clients_len : NULL,
+                      data, length, "client inventory", err);
 }
 
 int

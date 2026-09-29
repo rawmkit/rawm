@@ -347,6 +347,7 @@ typedef enum {
  */
 struct Client {
   char name[256];       /**< Window title. */
+  char class_name[256]; /**< WM_CLASS class used for admitted-client metadata. */
   float mina, maxa;     /**< Min/max aspect ratios from size hints. */
   int x, y, w, h;       /**< Current geometry (position and size). */
   int oldx, oldy, oldw, oldh; /**< Previous geometry. */
@@ -455,6 +456,7 @@ struct Systray {
  * Function declarations.
  */
 
+static void           activateclient(Client *c);
 static void           applyrules(Client *c,
                                  bool *has_fullscreen,
                                  bool *fullscreen,
@@ -490,6 +492,7 @@ static bool           controlargumenttag(int32_t selector, Arg *arg, bool allow_
 static void           handlecontrolcommand(const RawmControlRequest *request);
 static int            layoutid(const Layout *layout);
 static void           publishcontrolstate(void);
+static void           publishcontrolclients(void);
 static void           configure(Client *c);
 static void           configurenotify(XEvent *e);
 static void           configurerequest(XEvent *e);
@@ -673,6 +676,7 @@ static void           updateclientlist(void);
 static void           updatenumlockmask(void);
 static void           updatesizehints(Client *c);
 static void           updatewindowtype(Client *c);
+static void           updateclass(Client *c);
 static void           updatetitle(Client *c);
 static void           updatewmhints(Client *c);
 static void           view(const Arg *arg);
@@ -1008,6 +1012,8 @@ applyrules(Client *c,
 
   class     = ch.res_class ? ch.res_class : broken;
   instance  = ch.res_name  ? ch.res_name  : broken;
+  snprintf(c->class_name, sizeof(c->class_name), "%s",
+           ch.res_class ? ch.res_class : "");
   role      = (role = getprop(c->win, "WM_WINDOW_ROLE"))
             ? role
             : broken;
@@ -1971,6 +1977,68 @@ publishcontrolstate(void)
 
   (void)rawm_control_publish_state(&control, snapshot, length, stderr);
   free(snapshot);
+  publishcontrolclients();
+}
+
+static void
+publishcontrolclients(void)
+{
+  char *snapshot = NULL;
+  size_t length = 0;
+  FILE *stream;
+  Monitor *m;
+
+  if (!control.display)
+    return;
+
+  stream = open_memstream(&snapshot, &length);
+  if (!stream)
+  {
+    fputs("rawm: could not allocate control-client stream\n", stderr);
+    return;
+  }
+
+  fputs("rawm-clients-v1\n", stream);
+  for (m = mons; m; m = m->next)
+  {
+    Client *c;
+
+    for (c = m->clients; c; c = c->next)
+    {
+      fprintf(stream, "client\t0x%lx\t%d\t%08x\t%d\t%d\t",
+              (unsigned long)c->win, m->num, c->tags,
+              ISVISIBLE(c) ? 1 : 0,
+              (m == selmon && c == m->sel) ? 1 : 0);
+      controlwriteescaped(stream, c->class_name);
+      fputc('\t', stream);
+      controlwriteescaped(stream, c->name);
+      fputc('\n', stream);
+    }
+  }
+
+  if (fclose(stream) != 0)
+  {
+    free(snapshot);
+    fputs("rawm: could not finalize control-client state\n", stderr);
+    return;
+  }
+
+  (void)rawm_control_publish_clients(&control, snapshot, length, stderr);
+  free(snapshot);
+}
+
+static void
+activateclient(Client *c)
+{
+  if (!c)
+    return;
+
+  if (!ISVISIBLE(c))
+  {
+    c->mon->seltags ^= 1;
+    c->mon->tagset[c->mon->seltags] = c->tags;
+  }
+  pop(c);
 }
 
 static void
@@ -1996,6 +2064,9 @@ handlecontrolcommand(const RawmControlRequest *request)
         arg.i = request->arg0;
         focusnstack(&arg);
       }
+      break;
+    case RAWM_CONTROL_FOCUS_CLIENT:
+      activateclient(wintoclient((Window)(uint32_t)request->arg0));
       break;
     case RAWM_CONTROL_INC_MASTER:
       if (request->arg0 != 0)
@@ -2213,14 +2284,7 @@ clientmessage(XEvent *e)
     }
   }
   else if (cme->message_type == netatom[NetActiveWindow])
-  {
-    if (!ISVISIBLE(c))
-    {
-      c->mon->seltags ^= 1;
-      c->mon->tagset[c->mon->seltags] = c->tags;
-    }
-    pop(c);
-  }
+    activateclient(c);
 }
 
 static void
@@ -5092,6 +5156,9 @@ propertynotify(XEvent *e)
       break;
     }
 
+    if (ev->atom == XA_WM_CLASS)
+      updateclass(c);
+
     if (   ev->atom == XA_WM_NAME
         || ev->atom == netatom[NetWMName]
         )
@@ -7061,6 +7128,20 @@ updatesystray(void)
   XSync(dpy, False);
 }
 #endif /* SYSTRAY */
+
+static void
+updateclass(Client *c)
+{
+  XClassHint hint = {NULL, NULL};
+
+  c->class_name[0] = '\0';
+  if (XGetClassHint(dpy, c->win, &hint) && hint.res_class)
+    snprintf(c->class_name, sizeof(c->class_name), "%s", hint.res_class);
+  if (hint.res_name)
+    XFree(hint.res_name);
+  if (hint.res_class)
+    XFree(hint.res_class);
+}
 
 static void
 updatetitle(Client *c)
