@@ -35,7 +35,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <X11/cursorfont.h>
@@ -44,7 +43,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
-#include <X11/Xft/Xft.h>
 
 #include "rawm-config.h"
 #include "rawm-control.h"
@@ -117,12 +115,6 @@
 #define MAXCOLORS  RAWM_COLOR_SCHEMES
 #define NUMCOLORS  RAWM_COLOR_SCHEMES
 
-/** Maximum number of Fontconfig fallback faces cached for OSD text. */
-#define RAWM_FONT_FALLBACK_MAX 32u
-
-/** Maximum number of unsupported codepoints cached after failed lookup. */
-#define RAWM_FONT_MISSING_MAX 128u
-
 /** Mouse mask for grabbing pointer motion and button events */
 #define MOUSEMASK  (BUTTONMASK|PointerMotionMask)
 
@@ -154,8 +146,6 @@
  * configured symbol plus rawm-owned dynamic counter suffixes.
  */
 #define MAX_LAYOUTLABEL (RAWM_LAYOUT_SYMBOL_MAX + 32u)
-
-#define RAWM_OSD_GEOMETRY_INTERVAL_MS 40u
 
 /*********************************************************************
  * Enums & Typedefs.
@@ -246,18 +236,6 @@ typedef struct Monitor  Monitor;
 typedef struct Client   Client;
 
 typedef struct {
-  Window win;                   /**< Override-redirect feedback surface. */
-  Pixmap pixmap;                /**< Backing pixmap for expose redraws. */
-  Monitor *mon;                 /**< Monitor owning the current feedback. */
-  unsigned int width, height;   /**< Current OSD geometry. */
-  uint64_t deadline_ms;         /**< Monotonic expiry deadline. */
-  uint64_t last_geometry_ms;    /**< Last live geometry OSD redraw. */
-  int scheme;                   /**< Configured semantic color scheme. */
-  bool visible;                 /**< Whether the surface is currently mapped. */
-  char text[256];               /**< Current UTF-8 feedback text. */
-} RawmOSD;
-
-typedef struct {
   int x, y, w, h;
 } RawmGeometry;
 
@@ -297,23 +275,11 @@ struct Client {
 };
 
 /**
- * @brief Drawing context.
- *
- * Holds resources needed for window borders and the transient OSD.
+ * @brief Drawing context for window-manager border colors.
  */
 typedef struct {
-  XftColor colors[MAXCOLORS][ColLast]; /**< Runtime color schemes. */
-  GC gc;             /**< Graphics context. */
-  struct {
-    int ascent;     /**< Primary font ascent. */
-    int descent;    /**< Primary font descent. */
-    int height;     /**< Primary font height (ascent + descent). */
-    XftFont *xfont; /**< Primary Xft font. */
-    FcPattern *pattern; /**< Requested primary pattern used for fallback. */
-    XftFont *fallbacks[RAWM_FONT_FALLBACK_MAX]; /**< Cached fallback faces. */
-    size_t fallback_count; /**< Number of cached fallback faces. */
-    FcChar32 missing[RAWM_FONT_MISSING_MAX]; /**< Unsupported-codepoint cache. */
-  } font; /**< Font information. */
+  unsigned long colors[MAXCOLORS][ColLast];
+  GC gc;
 } DC;
 
 /**
@@ -333,7 +299,7 @@ typedef struct Pertag Pertag;
  * @brief Monitor structure to manage screens.
  */
 struct Monitor {
-  char ltsymbol[MAX_LAYOUTLABEL]; /**< Dynamic layout label used by OSD/state. */
+  char ltsymbol[MAX_LAYOUTLABEL]; /**< Dynamic layout label. */
   char tag_names[RAWM_MAX_TAGS][MAX_TAGLEN]; /**< Runtime tag labels. */
   float mfact;            /**< Master area factor [0.05..0.95] (per tag). */
   int nmaster;            /**< Number of clients in master area (per tag). */
@@ -399,7 +365,6 @@ static void           detachstack(Client *c);
 static void           die(const char *errstr, ...);
 static Monitor       *dirtomon(int dir);
 static void           enternotify(XEvent *e);
-static void           expose(XEvent *e);
 static void           focus(Client *c);
 static void           focusin(XEvent *e);
 static void           focusmon(const Arg *arg);
@@ -409,16 +374,13 @@ static void           grid(Monitor *m);
 static bool           atomlistcontains(Window w, Atom prop, Atom atom);
 static bool           getdockstrut(Window w, unsigned long strut[12]);
 static void           setatomlistmember(Window w, Atom prop, Atom atom, bool present);
-static void           setsurfaceproperties(Window window, const char *instance,
-                                           const char *surface,
-                                           unsigned long monitor);
 static bool           clientiselevated(const Client *c);
 static int            clientselectedscheme(const Client *c);
 static void           clearclientcomposition(Client *c);
 static void           updateclientcomposition(Client *c);
 
 
-static XftColor       getcolor(const char *colstr);
+static unsigned long  getcolor(const char *colstr);
 static bool           getrootptr(int *x, int *y);
 static Atom           getatomprop(Client *c, Atom prop);
 static long           getstate(Window w);
@@ -426,16 +388,6 @@ static bool           gettextprop(Window w, Atom atom, char *text,
                                   unsigned int size);
 static void           grabbuttons(Client *c, bool focused);
 static void           incnmaster(const Arg *arg);
-static void           cleanupfont(void);
-static XftFont        *fontforchar(FcChar32 codepoint);
-static void           initfont(const char *fontstr);
-static int            fonttextwidth(XftFont *font, const char *text,
-                                    size_t len);
-static void           drawutf8(XftDraw *draw, XftColor *color,
-                               int x, int y, int height,
-                               const char *text, size_t len);
-static size_t         utf8decode(const char *text, size_t len,
-                                 FcChar32 *codepoint);
 static void           killclient(const Arg *arg);
 static void           manage(Window w, XWindowAttributes *wa);
 static void           mappingnotify(XEvent *e);
@@ -443,23 +395,8 @@ static void           mapnotify(XEvent *e);
 static void           maprequest(XEvent *e);
 static void           monocle(Monitor *m);
 static void           motionnotify(XEvent *e);
-static uint64_t       monotonicms(void);
 static void           movemouse(const Arg *arg);
 static void           settagname(const char *name);
-static void           osdcreate(void);
-static void           osddraw(void);
-static void           osdexpire(void);
-static void           osdhide(void);
-static int            osdpolltimeout(void);
-static void           osdformattags(const Monitor *m, unsigned int tags,
-                                    char *buf, size_t buflen);
-static void           osdshowgeometry(Client *c, bool resizing, bool force);
-static void           osdshow(Monitor *m, int scheme, const char *text);
-static void           osdshowf(Monitor *m, int scheme, const char *fmt, ...);
-static void           osdshowmonitor(Monitor *m);
-static void           osdshowtags(Monitor *m, const char *verb,
-                                  unsigned int tags);
-static void           osdshowview(Monitor *m);
 static Client        *nexttiled(Client *c);
 static void           pop(Client *);
 static void           propertynotify(XEvent *e);
@@ -495,7 +432,6 @@ static void           sighup(int sig);
 static void           sigterm(int sig);
 static void           tag(const Arg *arg);
 static void           tagmon(const Arg *arg);
-static int            textnw(const char *text, unsigned int len);
 static void           tile(Monitor *);
 static void           togglefloating(const Arg *arg);
 static void           togglefullscr(const Arg *arg);
@@ -533,6 +469,7 @@ static unsigned int   runtime_modifiers(unsigned int modifiers);
 
 static const char     broken[] = "broken";
 static RawmControl    control = {0};
+static uint64_t       feedback_serial;
 static Atom           dockatom, surfaceatom, utf8atom;
 static int            screen;
 static int            sw, sh; /* X display screen geometry width, height */
@@ -545,7 +482,6 @@ static void          (*handler[LASTEvent]) (XEvent *) = {
   [ConfigureNotify]   = configurenotify,
   [DestroyNotify]     = destroynotify,
   [EnterNotify]       = enternotify,
-  [Expose]            = expose,
   [FocusIn]           = focusin,
   [MappingNotify]     = mappingnotify,
   [MapNotify]         = mapnotify,
@@ -578,7 +514,6 @@ static Layout         layouts[RAWM_LAYOUT_COUNT] = {
 };
 static Button        *buttons = NULL;
 static size_t         button_count = 0;
-static RawmOSD        osd = { .win = None, .pixmap = None };
 static unsigned int   opacity = 0xffffffffu;
 
 struct Pertag {
@@ -909,7 +844,7 @@ arrangemon(Monitor *m)
 
     if (m == selmon && m->sel == c)
       XSetWindowBorder(dpy, c->win,
-                       dc.colors[clientselectedscheme(c)][ColBorder].pixel);
+                       dc.colors[clientselectedscheme(c)][ColBorder]);
   }
 
   if (m->lt[m->sellt]->arrange)
@@ -1159,15 +1094,6 @@ cleanup(void)
     while (m->stack)
       unmanage(m->stack, false);
 
-  if (osd.pixmap != None)
-    XFreePixmap(dpy, osd.pixmap);
-  if (osd.win != None)
-    XDestroyWindow(dpy, osd.win);
-  XFreeGC(dpy, dc.gc);
-  XFreeCursor(dpy, cursor[CurNormal]);
-  XFreeCursor(dpy, cursor[CurResize]);
-  XFreeCursor(dpy, cursor[CurMove]);
-  cleanupfont();
 
   while (mons)
     cleanupmon(mons);
@@ -1918,193 +1844,12 @@ dirtomon(int dir)
   return m;
 }
 
-static size_t
-utf8decode(const char *text, size_t len, FcChar32 *codepoint)
-{
-  int consumed;
 
-  if (!text || !len || !codepoint)
-    return 0;
 
-  consumed = FcUtf8ToUcs4((const FcChar8 *)text, codepoint,
-                          len > INT_MAX ? INT_MAX : (int)len);
-  if (consumed <= 0 || (size_t)consumed > len)
-  {
-    *codepoint = 0xfffdu;
-    return 1;
-  }
 
-  return (size_t)consumed;
-}
 
-static void
-fontmissingindexes(FcChar32 codepoint, size_t *first, size_t *second)
-{
-  unsigned int hash = (unsigned int)codepoint;
 
-  hash = ((hash >> 16) ^ hash) * 0x21f0aaadu;
-  hash = ((hash >> 15) ^ hash) * 0xd35a2d97u;
-  hash = (hash >> 15) ^ hash;
 
-  *first = hash % RAWM_FONT_MISSING_MAX;
-  *second = (hash >> 17) % RAWM_FONT_MISSING_MAX;
-}
-
-static bool
-fontmissing(FcChar32 codepoint)
-{
-  size_t first, second;
-
-  fontmissingindexes(codepoint, &first, &second);
-  return dc.font.missing[first] == codepoint ||
-         dc.font.missing[second] == codepoint;
-}
-
-static void
-fontremembermissing(FcChar32 codepoint)
-{
-  size_t first, second;
-
-  fontmissingindexes(codepoint, &first, &second);
-  dc.font.missing[dc.font.missing[first] ? second : first] = codepoint;
-}
-
-static XftFont *
-fontforchar(FcChar32 codepoint)
-{
-  FcCharSet *charset;
-  FcPattern *match;
-  FcPattern *pattern;
-  FcResult result;
-  XftFont *font;
-  size_t i;
-
-  if (XftCharExists(dpy, dc.font.xfont, codepoint))
-    return dc.font.xfont;
-
-  for (i = 0; i < dc.font.fallback_count; ++i)
-    if (XftCharExists(dpy, dc.font.fallbacks[i], codepoint))
-      return dc.font.fallbacks[i];
-
-  if (!dc.font.pattern || fontmissing(codepoint) ||
-      dc.font.fallback_count >= RAWM_FONT_FALLBACK_MAX)
-    return dc.font.xfont;
-
-  charset = FcCharSetCreate();
-  pattern = FcPatternDuplicate(dc.font.pattern);
-  if (!charset || !pattern)
-  {
-    if (charset)
-      FcCharSetDestroy(charset);
-    if (pattern)
-      FcPatternDestroy(pattern);
-    fontremembermissing(codepoint);
-    return dc.font.xfont;
-  }
-
-  FcCharSetAddChar(charset, codepoint);
-  FcPatternDel(pattern, FC_CHARSET);
-  FcPatternAddCharSet(pattern, FC_CHARSET, charset);
-
-  /*
-   * Keep fallback faces inside Xft's dependable text-rendering subset.
-   * Fixed-size bitmap faces can expose strike metrics larger than the OSD,
-   * while modern color fonts can advertise a Unicode glyph that Xft cannot
-   * necessarily rasterize (notably COLR v1). Prefer a scalable monochrome
-   * outline instead; if none exists, preserve the primary font's missing
-   * glyph rather than reserving an invisible advance.
-   */
-  FcPatternDel(pattern, FC_SCALABLE);
-  FcPatternAddBool(pattern, FC_SCALABLE, FcTrue);
-  FcPatternDel(pattern, FC_COLOR);
-  FcPatternAddBool(pattern, FC_COLOR, FcFalse);
-  FcConfigSubstitute(NULL, pattern, FcMatchPattern);
-  FcDefaultSubstitute(pattern);
-
-  match = XftFontMatch(dpy, screen, pattern, &result);
-  FcPatternDestroy(pattern);
-  FcCharSetDestroy(charset);
-
-  if (!match)
-  {
-    fontremembermissing(codepoint);
-    return dc.font.xfont;
-  }
-
-  font = XftFontOpenPattern(dpy, match);
-  if (!font)
-  {
-    FcPatternDestroy(match);
-    fontremembermissing(codepoint);
-    return dc.font.xfont;
-  }
-
-  if (!XftCharExists(dpy, font, codepoint))
-  {
-    XftFontClose(dpy, font);
-    fontremembermissing(codepoint);
-    return dc.font.xfont;
-  }
-
-  dc.font.fallbacks[dc.font.fallback_count++] = font;
-  return font;
-}
-
-static int
-fonttextwidth(XftFont *font, const char *text, size_t len)
-{
-  XGlyphInfo extents;
-
-  if (!font || !text || !len)
-    return 0;
-
-  XftTextExtentsUtf8(dpy, font, (const FcChar8 *)text, (int)len, &extents);
-  return extents.xOff;
-}
-
-static void
-drawutf8(XftDraw *draw, XftColor *color, int x, int y, int height,
-         const char *text, size_t len)
-{
-  size_t pos = 0;
-
-  while (pos < len)
-  {
-    FcChar32 codepoint;
-    XftFont *font;
-    size_t next;
-    size_t run_start = pos;
-
-    next = utf8decode(text + pos, len - pos, &codepoint);
-    if (!next)
-      break;
-    font = fontforchar(codepoint);
-    pos += next;
-
-    while (pos < len)
-    {
-      XftFont *next_font;
-
-      next = utf8decode(text + pos, len - pos, &codepoint);
-      if (!next)
-        break;
-      next_font = fontforchar(codepoint);
-      if (next_font != font)
-        break;
-      pos += next;
-    }
-
-    {
-      int font_height = font->ascent + font->descent;
-      int baseline = y + (height - font_height) / 2 + font->ascent;
-
-      XftDrawStringUtf8(draw, color, font, x, baseline,
-                        (const FcChar8 *)text + run_start,
-                        (int)(pos - run_start));
-    }
-    x += fonttextwidth(font, text + run_start, pos - run_start);
-  }
-}
 
 static void
 enternotify(XEvent *e)
@@ -2134,18 +1879,6 @@ enternotify(XEvent *e)
   focus(c);
 }
 
-static void
-expose(XEvent *e)
-{
-  XExposeEvent *ev = &e->xexpose;
-
-  if (ev->count != 0)
-    return;
-  if (osd.win != None && ev->window == osd.win &&
-      osd.visible && osd.pixmap != None)
-    XCopyArea(dpy, osd.pixmap, osd.win, dc.gc, 0, 0,
-              osd.width, osd.height, 0, 0);
-}
 
 static void
 focus(Client *c)
@@ -2175,7 +1908,7 @@ focus(Client *c)
     attachstack(c);
     grabbuttons(c, true);
     XSetWindowBorder(dpy, c->win,
-                     dc.colors[clientselectedscheme(c)][ColBorder].pixel);
+                     dc.colors[clientselectedscheme(c)][ColBorder]);
     setfocus(c);
   }
   else
@@ -2214,7 +1947,6 @@ focusmon(const Arg *arg)
   selmon = m;
   focus(NULL);
   publishfeedback("monitor", selmon, selmon->num, 0);
-  osdshowmonitor(selmon);
 }
 
 static void
@@ -2488,22 +2220,16 @@ setatomlistmember(Window w, Atom prop, Atom atom, bool present)
 }
 
 
-static XftColor
+static unsigned long
 getcolor(const char *colstr)
 {
   Colormap cmap = DefaultColormap(dpy, screen);
-  XftColor color;
+  XColor color, exact;
 
-  if (!XftColorAllocName(dpy,
-                         DefaultVisual(dpy, screen),
-                         cmap, /* DefaultColormap(dpy, screen), */
-                         colstr,
-                         &color
-                         )
-      )
+  if (!XAllocNamedColor(dpy, cmap, colstr, &color, &exact))
     die("error, cannot allocate color '%s'\n", colstr);
 
-  return color;
+  return color.pixel;
 }
 
 static Atom
@@ -2595,23 +2321,6 @@ setcardinalproperty(Window window, Atom atom, unsigned long value)
                   (unsigned char *)&value, 1);
 }
 
-static void
-setsurfaceproperties(Window window, const char *instance, const char *surface,
-                     unsigned long monitor)
-{
-  XClassHint class_hint = { (char *)instance, (char *)"rawm" };
-
-  XSetClassHint(dpy, window, &class_hint);
-  XStoreName(dpy, window, instance);
-  XChangeProperty(dpy, window, netatom[NetWMName], utf8atom, 8,
-                  PropModeReplace, (const unsigned char *)instance,
-                  (int)strlen(instance));
-  XChangeProperty(dpy, window, netatom[NetWMWindowType], XA_ATOM, 32,
-                  PropModeReplace, (unsigned char *)&dockatom, 1);
-  XChangeProperty(dpy, window, surfaceatom, utf8atom, 8, PropModeReplace,
-                  (const unsigned char *)surface, (int)strlen(surface));
-  setcardinalproperty(window, rawmatom[RawmAtomMonitor], monitor);
-}
 
 static bool
 clientiselevated(const Client *c)
@@ -2756,50 +2465,9 @@ incnmaster(const Arg *arg)
 
   arrange(selmon);
   publishfeedback("master-count", selmon, selmon->nmaster, 0);
-  osdshowf(selmon, SchemeSel, "master %d", selmon->nmaster);
 }
 
-static void
-cleanupfont(void)
-{
-  size_t i;
 
-  for (i = 0; i < dc.font.fallback_count; ++i)
-    XftFontClose(dpy, dc.font.fallbacks[i]);
-  if (dc.font.xfont)
-    XftFontClose(dpy, dc.font.xfont);
-  if (dc.font.pattern)
-    FcPatternDestroy(dc.font.pattern);
-
-  memset(&dc.font, 0, sizeof dc.font);
-}
-
-static void
-initfont(const char *fontstr)
-{
-  const char *pattern_name = fontstr;
-
-  dc.font.xfont = XftFontOpenName(dpy, screen, fontstr);
-  if (!dc.font.xfont)
-  {
-    pattern_name = "fixed";
-    dc.font.xfont = XftFontOpenName(dpy, screen, pattern_name);
-  }
-  if (!dc.font.xfont)
-    die("error, cannot load font: '%s'\n", fontstr);
-
-  dc.font.pattern = FcNameParse((const FcChar8 *)pattern_name);
-  if (!dc.font.pattern)
-  {
-    XftFontClose(dpy, dc.font.xfont);
-    dc.font.xfont = NULL;
-    die("error, cannot parse font pattern: '%s'\n", pattern_name);
-  }
-
-  dc.font.ascent  = dc.font.xfont->ascent;
-  dc.font.descent = dc.font.xfont->descent;
-  dc.font.height  = dc.font.ascent + dc.font.descent;
-}
 
 #ifdef XINERAMA
 static bool
@@ -2905,7 +2573,7 @@ manage(Window w, XWindowAttributes *wa)
   wc.border_width = c->bw;
 
   XConfigureWindow(dpy, w, CWBorderWidth, &wc);
-  XSetWindowBorder(dpy, w, dc.colors[0][ColBorder].pixel);
+  XSetWindowBorder(dpy, w, dc.colors[0][ColBorder]);
 
   configure(c); /* propagates border_width, if size doesn't change */
   updatewindowtype(c);
@@ -3076,7 +2744,6 @@ movemouse(__attribute__((unused)) const Arg *arg)
   restack(selmon);
   ocx = c->x;
   ocy = c->y;
-  osd.last_geometry_ms = 0;
 
   if (XGrabPointer(dpy,
                    root,
@@ -3153,7 +2820,6 @@ movemouse(__attribute__((unused)) const Arg *arg)
           moved = true;
           publishfeedback("move", c->mon, c->x - c->mon->wx,
                           c->y - c->mon->wy);
-          osdshowgeometry(c, false, false);
         }
       }
 
@@ -3173,7 +2839,6 @@ movemouse(__attribute__((unused)) const Arg *arg)
   if (moved)
     publishfeedback("move", c->mon, c->x - c->mon->wx,
                     c->y - c->mon->wy);
-    osdshowgeometry(c, false, true);
 }
 
 static void
@@ -3204,7 +2869,6 @@ settagname(const char *name)
 
   publishfeedback("view", selmon,
                   (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
-  osdshowview(selmon);
 }
 
 static Client *
@@ -3225,289 +2889,18 @@ pop(Client *c)
   arrange(c->mon);
 }
 
-static uint64_t
-monotonicms(void)
-{
-  struct timespec ts;
 
-  if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0)
-    die("fatal: clock_gettime failed: %s\n", strerror(errno));
 
-  return (uint64_t)ts.tv_sec * 1000u + (uint64_t)ts.tv_nsec / 1000000u;
-}
 
-static void
-osdcreate(void)
-{
-  XSetWindowAttributes wa;
 
-  if (!config.show_osd || osd.win != None)
-    return;
 
-  memset(&wa, 0, sizeof wa);
-  wa.override_redirect = true;
-  wa.background_pixel = dc.colors[SchemeNorm][ColBG].pixel;
-  wa.event_mask = ExposureMask;
 
-  osd.win =
-      XCreateWindow(dpy, root, 0, 0, 1, 1, 0,
-                    DefaultDepth(dpy, screen), CopyFromParent,
-                    DefaultVisual(dpy, screen),
-                    CWOverrideRedirect | CWBackPixel | CWEventMask, &wa);
 
-  setsurfaceproperties(osd.win, "rawm-osd", "osd", 0);
-}
 
-static void
-osddraw(void)
-{
-  XftColor *col;
-  XftDraw *draw;
-  unsigned int marker_height, marker_width;
-  unsigned int padding;
-  unsigned int text_width;
-  int text_x;
-  int x, y;
 
-  if (!osd.mon || osd.win == None || !osd.text[0])
-    return;
 
-  col = dc.colors[osd.scheme];
-  padding = config.osd_padding;
-  text_width = (unsigned int)MAX(textnw(osd.text, strlen(osd.text)), 1);
 
-  osd.width = MAX(text_width + 2u * padding, config.osd_min_width);
-  osd.height = (unsigned int)dc.font.height + 2u * padding;
 
-  if (osd.width > (unsigned int)osd.mon->ww)
-    osd.width = (unsigned int)osd.mon->ww;
-  if (osd.height > (unsigned int)osd.mon->wh)
-    osd.height = (unsigned int)osd.mon->wh;
-
-  x = osd.mon->wx + (osd.mon->ww - (int)osd.width) / 2;
-  if (config.osd_top)
-    y = osd.mon->wy + (int)config.osd_offset;
-  else
-    y = osd.mon->wy + osd.mon->wh - (int)osd.height -
-        (int)config.osd_offset;
-
-  if (y < osd.mon->wy)
-    y = osd.mon->wy;
-  if (y + (int)osd.height > osd.mon->wy + osd.mon->wh)
-    y = osd.mon->wy + osd.mon->wh - (int)osd.height;
-
-  if (osd.pixmap != None)
-    XFreePixmap(dpy, osd.pixmap);
-  osd.pixmap = XCreatePixmap(dpy, root, osd.width, osd.height,
-                             DefaultDepth(dpy, screen));
-
-  XSetForeground(dpy, dc.gc, col[ColBG].pixel);
-  XFillRectangle(dpy, osd.pixmap, dc.gc, 0, 0, osd.width, osd.height);
-
-  draw = XftDrawCreate(dpy, osd.pixmap, DefaultVisual(dpy, screen),
-                       DefaultColormap(dpy, screen));
-  if (!draw)
-    die("fatal: could not create Xft OSD drawing context\n");
-
-  text_x = osd.width > text_width
-      ? ((int)osd.width - (int)text_width) / 2
-      : 0;
-  drawutf8(draw, &col[ColFG],
-           text_x, (int)padding, dc.font.height,
-           osd.text, strlen(osd.text));
-  XftDrawDestroy(draw);
-
-  marker_height = MIN(2u, osd.height);
-  marker_width = MIN(osd.width / 3u, 64u);
-  if (marker_height && marker_width)
-  {
-    XSetForeground(dpy, dc.gc, col[ColBorder].pixel);
-    XFillRectangle(dpy, osd.pixmap, dc.gc,
-                   (osd.width - marker_width) / 2u,
-                   osd.height - marker_height,
-                   marker_width, marker_height);
-  }
-
-  XMoveResizeWindow(dpy, osd.win, x, y, osd.width, osd.height);
-  setcardinalproperty(osd.win, rawmatom[RawmAtomMonitor],
-                      (unsigned long)osd.mon->num);
-  XCopyArea(dpy, osd.pixmap, osd.win, dc.gc, 0, 0,
-            osd.width, osd.height, 0, 0);
-}
-
-static void
-osdhide(void)
-{
-  if (!osd.visible || osd.win == None)
-    return;
-
-  XUnmapWindow(dpy, osd.win);
-  XFlush(dpy);
-  osd.visible = false;
-  osd.deadline_ms = 0;
-}
-
-static void
-osdexpire(void)
-{
-  if (osd.visible && monotonicms() >= osd.deadline_ms)
-    osdhide();
-}
-
-static int
-osdpolltimeout(void)
-{
-  uint64_t now, remaining;
-
-  if (!osd.visible)
-    return -1;
-
-  now = monotonicms();
-  if (now >= osd.deadline_ms)
-    return 0;
-
-  remaining = osd.deadline_ms - now;
-  return remaining > (uint64_t)INT_MAX ? INT_MAX : (int)remaining;
-}
-
-static void
-osdformattags(const Monitor *m, unsigned int tags, char *buf, size_t buflen)
-{
-  size_t used = 0;
-  bool first = true;
-
-  if (!buflen)
-    return;
-
-  buf[0] = '\0';
-  tags &= TAGMASK;
-
-  if (tags == TAGMASK)
-  {
-    snprintf(buf, buflen, "all");
-    return;
-  }
-
-  for (size_t i = 0; i < config.tag_count; i++)
-  {
-    int n;
-
-    if (!(tags & (1u << i)))
-      continue;
-
-    n = snprintf(buf + used, buflen - used, "%s%s",
-                 first ? "" : "+", m->tag_names[i]);
-    if (n < 0)
-      return;
-    if ((size_t)n >= buflen - used)
-    {
-      buf[buflen - 1] = '\0';
-      return;
-    }
-
-    used += (size_t)n;
-    first = false;
-  }
-
-  if (first)
-    snprintf(buf, buflen, "none");
-}
-
-static void
-osdshowgeometry(Client *c, bool resizing, bool force)
-{
-  Monitor *m;
-  uint64_t now;
-
-  if (!c || !config.show_osd || !config.osd_geometry)
-    return;
-
-  now = monotonicms();
-  if (!force && osd.last_geometry_ms &&
-      now - osd.last_geometry_ms < RAWM_OSD_GEOMETRY_INTERVAL_MS)
-    return;
-
-  m = recttomon(c->x, c->y, c->w, c->h);
-  if (!m)
-    m = c->mon;
-
-  if (resizing)
-    osdshowf(m, SchemeFloating, "%d × %d", c->w, c->h);
-  else
-    osdshowf(m, SchemeFloating, "x %d  ·  y %d",
-             c->x - m->wx, c->y - m->wy);
-
-  osd.last_geometry_ms = now;
-}
-
-static void
-osdshow(Monitor *m, int scheme, const char *text)
-{
-  if (!running || !config.show_osd || osd.win == None ||
-      !m || !text || !text[0])
-    return;
-
-  osd.mon = m;
-  osd.scheme = scheme;
-  snprintf(osd.text, sizeof osd.text, "%s", text);
-  osddraw();
-  XMapRaised(dpy, osd.win);
-  XFlush(dpy);
-  osd.visible = true;
-  osd.deadline_ms = monotonicms() + config.osd_duration_ms;
-}
-
-static void
-osdshowf(Monitor *m, int scheme, const char *fmt, ...)
-{
-  char text[sizeof osd.text];
-  va_list ap;
-
-  if (!config.show_osd)
-    return;
-
-  va_start(ap, fmt);
-  vsnprintf(text, sizeof text, fmt, ap);
-  va_end(ap);
-  osdshow(m, scheme, text);
-}
-
-static void
-osdshowmonitor(Monitor *m)
-{
-  char tags[160];
-
-  if (!m)
-    return;
-
-  osdformattags(m, m->tagset[m->seltags], tags, sizeof tags);
-  osdshowf(m, SchemeSel, "monitor %d  ·  %s", m->num, tags);
-}
-
-static void
-osdshowtags(Monitor *m, const char *verb, unsigned int tags)
-{
-  char label[160];
-
-  if (!m || !verb)
-    return;
-
-  osdformattags(m, tags, label, sizeof label);
-  osdshowf(m, SchemeSel, "%s  ·  %s", verb, label);
-}
-
-static void
-osdshowview(Monitor *m)
-{
-  const char *tag = "all";
-
-  if (!m)
-    return;
-  if (m->pertag->curtag > 0 && m->pertag->curtag <= config.tag_count)
-    tag = m->tag_names[m->pertag->curtag - 1];
-
-  osdshowf(m, SchemeSel, "%s  ·  %s", tag, m->lt[m->sellt]->symbol);
-}
 
 static void
 propertynotify(XEvent *e)
@@ -3548,7 +2941,7 @@ propertynotify(XEvent *e)
           if (clienturgent(c))
       {
         /* Set urgent/warning border color (from config.colors[2]) */
-        XSetWindowBorder(dpy, c->win, dc.colors[2][ColFG].pixel);
+        XSetWindowBorder(dpy, c->win, dc.colors[2][ColFG]);
       }
       break;
     default:
@@ -3746,7 +3139,6 @@ resizemouse(__attribute__((unused)) const Arg *arg)
   restack(selmon);
   ocx = c->x;
   ocy = c->y;
-  osd.last_geometry_ms = 0;
 
   if (XGrabPointer(dpy,
                    root,
@@ -3815,7 +3207,6 @@ resizemouse(__attribute__((unused)) const Arg *arg)
         {
           resized = true;
           publishfeedback("resize", c->mon, c->w, c->h);
-          osdshowgeometry(c, true, false);
         }
       }
 
@@ -3847,7 +3238,6 @@ resizemouse(__attribute__((unused)) const Arg *arg)
 
   if (resized)
     publishfeedback("resize", c->mon, c->w, c->h);
-    osdshowgeometry(c, true, true);
 }
 
 
@@ -3882,7 +3272,7 @@ run(void)
   XSync(dpy, false);
   while (running)
   {
-    int timeout, poll_result;
+    int poll_result;
 
     while (running && XPending(dpy))
     {
@@ -3894,7 +3284,6 @@ run(void)
       break;
 
     publishcontrolstate();
-    osdexpire();
 
     memset(fds, 0, sizeof(fds));
     fds[0].fd = ConnectionNumber(dpy);
@@ -3902,8 +3291,7 @@ run(void)
     fds[1].fd = signalpipe[0];
     fds[1].events = POLLIN;
 
-    timeout = osdpolltimeout();
-    poll_result = poll(fds, 2, timeout);
+    poll_result = poll(fds, 2, -1);
     if (poll_result < 0)
     {
       if (errno == EINTR)
@@ -3912,7 +3300,6 @@ run(void)
     }
     if (poll_result == 0)
     {
-      osdexpire();
       continue;
     }
 
@@ -4114,7 +3501,6 @@ setlayout(const Arg *arg)
     arrange(selmon);
 
   publishfeedback("layout", selmon, layoutid(selmon->lt[selmon->sellt]), 0);
-  osdshowf(selmon, SchemeSel, "%s", selmon->lt[selmon->sellt]->symbol);
 }
 
 /* arg > 1.0 will set mfact absolutely */
@@ -4137,7 +3523,6 @@ setmfact(const Arg *arg)
   arrange(selmon);
   publishfeedback("master-factor", selmon,
                   (int32_t)(selmon->mfact * RAWM_CONTROL_FACTOR_SCALE), 0);
-  osdshowf(selmon, SchemeSel, "master %d%%", (int)(selmon->mfact * 100.0f + 0.5f));
 }
 
 static void
@@ -4158,7 +3543,6 @@ setup(void)
   screen = DefaultScreen(dpy);
   root = RootWindow(dpy, screen);
 
-  initfont(config.font);
   sw = DisplayWidth(dpy, screen);
   sh = DisplayHeight(dpy, screen);
   updategeom();
@@ -4203,7 +3587,6 @@ setup(void)
 
   dc.gc = XCreateGC(dpy, root, 0, NULL);
   XSetLineAttributes(dpy, dc.gc, 1, LineSolid, CapButt, JoinMiter);
-  osdcreate();
 
   XChangeProperty(dpy, root, netatom[NetSupported], XA_ATOM, 32,
                   PropModeReplace, (unsigned char *)netatom, NetLast);
@@ -4310,7 +3693,6 @@ tag(const Arg *arg)
     focus(NULL);
     arrange(selmon);
     publishfeedback("tag", selmon, (int32_t)tags, 0);
-    osdshowtags(selmon, "send", tags);
   }
 }
 
@@ -4330,46 +3712,8 @@ tagmon(const Arg *arg)
 
   sendmon(c, target);
   publishfeedback("tag-monitor", target, target->num, 0);
-  osdshowf(target, SchemeSel, "send  ·  monitor %d", target->num);
 }
 
-static int
-textnw(const char *text, unsigned int len)
-{
-  size_t pos = 0;
-  int width = 0;
-
-  while (pos < len)
-  {
-    FcChar32 codepoint;
-    XftFont *font;
-    size_t next;
-    size_t run_start = pos;
-
-    next = utf8decode(text + pos, len - pos, &codepoint);
-    if (!next)
-      break;
-    font = fontforchar(codepoint);
-    pos += next;
-
-    while (pos < len)
-    {
-      XftFont *next_font;
-
-      next = utf8decode(text + pos, len - pos, &codepoint);
-      if (!next)
-        break;
-      next_font = fontforchar(codepoint);
-      if (next_font != font)
-        break;
-      pos += next;
-    }
-
-    width += fonttextwidth(font, text + run_start, pos - run_start);
-  }
-
-  return width;
-}
 
 static void
 tile(Monitor *m)
@@ -4457,9 +3801,6 @@ togglefloating(const Arg *arg)
 
   if (arg)
     publishfeedback("floating", c->mon, clientiselevated(c) ? 1 : 0, 0);
-    osdshowf(c->mon,
-             clientiselevated(c) ? SchemeFloating : SchemeSel,
-             "%s", clientiselevated(c) ? "float" : "tile");
 }
 
 static void
@@ -4471,8 +3812,6 @@ togglefullscr(__attribute__((unused)) const Arg *arg)
 
     setfullscreen(c, !c->isfullscreen);
     publishfeedback("fullscreen", c->mon, c->isfullscreen ? 1 : 0, 0);
-    osdshowf(c->mon, SchemeSel, "%s",
-             c->isfullscreen ? "fullscreen" : "windowed");
   }
 }
 
@@ -4490,7 +3829,6 @@ toggletag(const Arg *arg)
     focus(NULL);
     arrange(selmon);
     publishfeedback("toggle-tag", selmon, (int32_t)newtags, 0);
-    osdshowtags(selmon, "tags", newtags);
   }
 }
 
@@ -4538,7 +3876,6 @@ toggleview(const Arg *arg)
   arrange(selmon);
   publishfeedback("view", selmon,
                   (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
-  osdshowview(selmon);
 }
 
 static void
@@ -4549,7 +3886,7 @@ unfocus(Client *c, bool setfocus)
 
 
   grabbuttons(c, false);
-  XSetWindowBorder(dpy, c->win, dc.colors[0][ColBorder].pixel);
+  XSetWindowBorder(dpy, c->win, dc.colors[0][ColBorder]);
   setcardinalproperty(c->win, rawmatom[RawmAtomSelected], 0);
 
   if (setfocus)
@@ -5044,7 +4381,6 @@ view(const Arg *arg)
   arrange(selmon);
   publishfeedback("view", selmon,
                   (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
-  osdshowview(selmon);
 }
 
 static Client *

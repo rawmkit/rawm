@@ -19,14 +19,10 @@ add_project_arguments(
 )
 
 x11_dep = dependency('x11')
-xft_dep = dependency('xft')
-fontconfig_dep = dependency('fontconfig')
 libconfig_dep = dependency('libconfig')
 
 rawm_deps = [
   x11_dep,
-  xft_dep,
-  fontconfig_dep,
   libconfig_dep,
 ]
 rawm_c_args = []
