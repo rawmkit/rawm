@@ -1,12 +1,13 @@
 OVERVIEW
 ========
 
-`rawm` is a compact X11 desktop control-plane repository centered on a
-dynamic tiling window manager derived from suckless `dwm` 6.0. It builds the
-`rawm` window manager, the `rawmctl` operational CLI, and the `rawmsession`
-lifecycle supervisor from one source authority while keeping process and
-runtime-policy boundaries explicit. Status collection is an internal rawm
-worker rather than a separately configured desktop service.
+`rawm` is a compact X11 window manager derived from suckless `dwm` 6.0.
+The repository currently also contains the transitional `rawmctl` and
+`rawmsession` programs while their independent authority boundaries are being
+extracted. New cross-component behavior must use explicit contracts rather than
+adding another responsibility to the window-manager process or repository.
+Status collection is still an internal rawm worker until panel/status authority
+is extracted.
 
 The code keeps the small, direct Xlib model of its ancestor while moving
 desktop policy out of compile-time headers and into validated runtime
@@ -23,14 +24,19 @@ configuration. Major facilities include:
     anonymous message socket;
   * compositor-facing `_RAWM_FLOATING`, `_RAWM_SELECTED`, `_RAWM_LAYOUT`,
     `_RAWM_MONITOR`, and `_RAWM_SURFACE` state;
+  * a versioned rawm control/state membrane owned by an X selection window;
+    external consumers receive authoritative monitor/tag/layout/focus snapshots
+    and send only window-manager commands instead of reconstructing rawm truth;
   * rawm-owned transient OSD feedback for layout, view, routing, fullscreen,
     master-area, and optional live floating geometry changes;
   * configurable semantic mouse actions, status-segment actions, view/layout
     cycling, and command-backed tag renaming;
   * optional XEmbed systray, Xinerama, per-window keyboard layout, and focused
     window title support;
-  * `rawmctl` for direct EWMH window inspection/activation, rawmenu-backed
-    window selection, and XKB keyboard-group control;
+  * transitional `rawmctl` behavior for direct EWMH window
+    inspection/activation, rawmenu-backed window selection, and XKB
+    keyboard-group control; this mixed interface is not the new rawm control
+    contract and will not be extracted verbatim;
   * stock `Mod4+v` clipboard-history invocation through separately packaged
     `rawclip`, while rawm retains global-key authority;
   * `rawmsession` for one-primary session lifetime, supervised Picom lifecycle,
@@ -39,8 +45,9 @@ configuration. Major facilities include:
     worker, and session integration with isolated Xvfb fixtures.
 
 `rawm` depends on `libX11`, `libXft`, `fontconfig`, `libconfig`, and `alsa-lib`.
-`rawmctl` depends on `libX11`; `rawmsession` depends on `libconfig`. The `rawmctl window select` command
-additionally composes at run time with the separately packaged `rawmenu`; the
+`rawmctl` depends on `libX11`; `rawmsession` depends on `libconfig`. The
+`rawmctl window select` command additionally composes at run time with the
+separately packaged `rawmenu`; the
 stock clipboard-history command similarly composes with separately packaged
 `rawclip`. Neither is a link-time dependency of rawm. Xinerama support is
 optional for the window manager.
@@ -53,7 +60,8 @@ The original `dwm` 6.0 sources remain the historical base:
 
 See the git history and `NEWS.md` for rawm-specific evolution.
 See `docs/architecture.md` for repository, process, library, history, and
-security-boundary policy.
+security-boundary policy. `docs/control-protocol.md` defines the rawm
+window-management command/state contract.
 
 
 REQUIREMENTS

@@ -165,6 +165,29 @@ Each segment carries a stable identifier, text, and one of *normal*, *warning*,
 rawm exports no status property for external producers. See *rawm.conf*(5) for
 source configuration.
 
+## Control and state interface
+
+rawm owns the per-screen X selection *\_RAWM\_CONTROL\_SN*, where _N_ is the
+X screen number. The selection owner is an unmapped rawm-owned window and is the
+liveness boundary for the external control/state protocol. If rawm loses its X
+connection, X destroys that owner window and clears the selection.
+
+The owner publishes *\_RAWM\_CONTROL\_VERSION*,
+*\_RAWM\_SUPPORTED\_COMMANDS*, and the complete authoritative
+*\_RAWM\_STATE* snapshot. Consumers that need change notification select
+*PropertyChangeMask* on the owner and reread the complete snapshot after state
+changes rather than reconstructing rawm tag/layout/focus semantics from EWMH or
+the client tree.
+
+Commands are versioned *ClientMessage* events of type *\_RAWM\_COMMAND* sent
+directly to the selection owner. The advertised command set contains only
+window-management operations. Program spawning, panel visibility, status,
+volume, global-key/XKB policy, and session lifecycle are intentionally outside
+this interface.
+
+The exact version-1 record grammar, command atoms, and argument semantics are
+documented in the source-tree *docs/control-protocol.md* contract.
+
 ## Compositor integration
 
 rawm publishes private per-client properties describing window-manager state

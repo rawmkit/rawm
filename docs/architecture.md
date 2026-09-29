@@ -2,41 +2,42 @@
 
 ## Repository authority
 
-The rawm repository owns the non-privileged X11 desktop control plane. A
-repository boundary is chosen for shared protocol/release authority, not to
-force components into one process.
+The repository is currently in a decomposition transition. The target rule is
+one authority and one independently releasable failure domain per repository.
+No new subsystem should be added to this repository merely because rawm can
+currently call it directly.
 
-Current programs:
+`rawm` itself is the window-management authority: client admission, monitor and
+tag state, layouts, focus, geometry, and pointer-driven window manipulation.
+The first extraction prerequisite is now an explicit control/state membrane; see
+`control-protocol.md`. External components command rawm through that membrane
+and consume rawm-published state instead of reconstructing rawm truth from EWMH
+or the X window tree.
 
-* `rawm`: window-manager policy, client admission, geometry, focus, bar,
-  compositor-facing state, and the private status-worker lifecycle.
-* `rawmctl`: direct operational control and inspection of rawm/X11 state.
-  Window list/activation use EWMH authority, window selection composes with
-  `rawmenu` while retaining XID identity, and keyboard-group control uses XKB.
-  These behaviors replace the useful portions of the historical `rawin` and
-  `rawkb` utilities without importing their external-tool chains.
-* `rawmsession`: session-lifecycle authority. It starts rawm as the primary
-  process and supervises independent long-lived desktop infrastructure such as
-  Picom. The primary defines session lifetime; sidecars may be restarted under
-  a bounded crash budget.
+The current tree still contains transitional responsibilities that are planned
+for extraction rather than further integration:
 
-Status collection is process-isolated but not a separate product. rawm forks a
-private worker after validating `rawm.conf`; the worker owns acquisition state
-and communicates only with its parent through an anonymous packet socket.
-Provider failures therefore remain outside the X11 window-manager process while
-configuration and lifecycle authority remain inside rawm.
+* `rawmctl` currently mixes EWMH window operations, rawmenu composition, and XKB
+  keyboard control. It is not the authority or specification for the new rawm
+  membrane and must not be extracted verbatim. A future standalone `rawmctl`
+  repository will be implemented against the rawm control/state contract only.
+* `rawmsession` is already a distinct session-lifecycle authority and is a
+  candidate for direct repository extraction.
+* the built-in bar, systray, OSD, status providers, and ALSA control are future
+  `rawpanel` authority. Their current residence in rawm is transitional.
+* global keyboard grabs, command dispatch, and per-window XKB policy are future
+  `rawkeys` authority. Pointer-driven move/resize remains in rawm because that
+  mechanism depends directly on admitted client geometry and pointer grabs.
 
-Session supervision is likewise kept out of rawm. rawm owns window-manager
-state and already performs an in-place SIGHUP restart. Starting independent desktop sidecars from
-the WM would make that restart path duplicate-prone and would couple compositor
-failures to the X11 policy engine. rawmsession therefore owns those process
-trees one layer above rawm. The status worker is different: it is an internal
-fault-containment process whose lifetime is part of rawm itself.
+Status collection remains process-isolated while it is still resident in rawm.
+The private worker is fault containment for the current implementation, not a
+reason for status acquisition to remain part of the window-manager repository.
+When `rawpanel` is extracted, the native status provider implementation moves
+with it and is deleted from rawm.
 
-The session boundary is intentionally narrower than a generic service manager.
-Only continuously desired desktop infrastructure belongs in `sidecars`; user
-applications, gpg-agent/Pinentry, screen locking, and one-shot startup actions
-retain their own lifecycle authorities.
+Session supervision likewise remains outside rawm's runtime authority. The
+current in-tree `rawmsession` program supervises desktop process topology, but
+rawm itself does not start or restart independent desktop sidecars.
 
 ## Private libraries
 
@@ -67,21 +68,22 @@ authority.
 
 `rawclip` remains a separate repository. Clipboard capture, exclusion, history
 retention, selection ownership, and rawmenu-backed history presentation form a
-separate runtime authority. rawm may invoke `rawclip menu` through an ordinary
-configured argv binding and owns the global key grab, but rawclip must not grab
-global keys or move clipboard-history policy into the window manager.
+separate runtime authority. The current rawm tree may still launch `rawclip menu`
+through transitional key policy; the target owner of that global key is
+`rawkeys`. rawclip must not absorb global-key or window-manager policy.
 
 `rawlock` remains a separate repository. Screen locking and authentication form
 a privileged security boundary with materially different failure, review, and
-release requirements from the non-privileged desktop control plane. rawm may
-invoke it through an ordinary configured argv binding, but does not absorb its
-authentication policy, and rawmsession must not supervise it as a long-lived
-sidecar.
+release requirements from the non-privileged desktop control plane. The current
+rawm key policy may still invoke it during transition; the target invocation
+owner is `rawkeys`. Neither rawm nor rawsession absorbs rawlock authentication
+or long-lived lifecycle authority.
 
-`rawin` and `rawkb` are migration sources, not long-term architecture. Their
-useful behaviors are now implemented by `rawmctl` using explicit EWMH and XKB
-authorities. After release acceptance, their original repositories should be
-retained read-only for provenance rather than kept as compatibility ghosts.
+`rawin` and `rawkb` are migration sources, not long-term architecture. The
+current in-tree `rawmctl` absorbed parts of both, but that mixed boundary is now
+explicitly transitional: future `rawmctl` speaks only the rawm membrane, while
+XKB/global-key authority belongs to `rawkeys`. Historical repositories should
+remain provenance rather than compatibility ghosts.
 
 ## History and licensing
 
@@ -97,15 +99,18 @@ licensing; see `LICENSES/README.md` for the provenance boundary.
 
 ## Change discipline
 
-Cross-component changes should follow the authority boundary:
+Cross-component changes follow authority rather than repository convenience:
 
-1. change a private semantic library when the contract itself changes;
-2. change each producer/consumer in separate commits when their behavior must
-   adapt to that contract;
-3. keep integration tests in the same repository so incompatible producer and
-   consumer states cannot be released accidentally;
-4. keep externally privileged or independently reusable components in their
-   own repositories even when the desktop session composes them.
+1. define a producer-owned contract before extracting a consumer;
+2. create an independent repository as soon as the extracted subsystem has its
+   own authority, lifecycle, public interface, or failure domain;
+3. delete extracted implementation from the source repository instead of
+   keeping compatibility copies or dormant fallback authority;
+4. keep producer contract tests with the producer and consumer behavior tests
+   with the consumer; cross-repository composition belongs in the integration
+   configuration repository;
+5. introduce a shared library only after multiple independent consumers prove a
+   stable reusable semantic boundary.
 
 Repository integration is therefore a control mechanism, not an objective by
 itself.

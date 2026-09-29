@@ -1,6 +1,25 @@
 rawm 7.0.0 — unreleased
 ======================
 
+Window-manager authority membrane
+---------------------------------
+
+* rawm now owns an explicit versioned X11 control/state membrane for its
+  window-management authority. Consumers discover a per-screen selection owner
+  rather than reconstructing rawm semantics from EWMH or the client tree.
+* `_RAWM_STATE` on the control owner is a complete semantic snapshot of monitor,
+  tag, layout, focus, master-area, occupancy, and urgency state. Property changes
+  are snapshot replacement notifications, not an incremental event log.
+* `_RAWM_COMMAND` accepts only window-manager operations and advertises the
+  supported command atoms on the control owner. Spawn, panel, status, volume,
+  keyboard/XKB, and session operations are deliberately absent.
+* The control authority is tied to an X selection owner window. X destroys that
+  owner and clears the selection when rawm exits, so stale state cannot survive
+  a crashed or disconnected window manager.
+* Integration coverage drives view, layout, master-factor, and tag-name changes
+  exclusively through the external membrane and verifies that non-WM commands
+  are rejected without changing admitted state.
+
 Unified status ownership
 ------------------------
 
