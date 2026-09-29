@@ -5,7 +5,7 @@ config_reference_test = executable(
   'config-reference-test.c',
   rawm_config_source,
   include_directories: rawm_src_include,
-  dependencies: [libconfig_dep, rawm_status_dep],
+  dependencies: libconfig_dep,
   build_by_default: false,
 )
 
@@ -14,7 +14,7 @@ config_defaults_test = executable(
   'config-defaults-test.c',
   rawm_config_source,
   include_directories: rawm_src_include,
-  dependencies: [libconfig_dep, rawm_status_dep],
+  dependencies: libconfig_dep,
   build_by_default: false,
 )
 
@@ -502,5 +502,3 @@ else
     args: ['missing test dependencies: @0@'.format(', '.join(signals_missing))],
   )
 endif
-
-subdir('unit')

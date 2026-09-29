@@ -7,6 +7,6 @@ rawm = executable(
   'rawm-control.c',
   rawm_config_source,
   c_args: rawm_c_args,
-  dependencies: rawm_deps + [rawm_status_dep],
+  dependencies: rawm_deps,
   install: true,
 )
