@@ -22,14 +22,12 @@ x11_dep = dependency('x11')
 xft_dep = dependency('xft')
 fontconfig_dep = dependency('fontconfig')
 libconfig_dep = dependency('libconfig')
-alsa_dep = dependency('alsa')
 
 rawm_deps = [
   x11_dep,
   xft_dep,
   fontconfig_dep,
   libconfig_dep,
-  alsa_dep,
 ]
 rawm_c_args = []
 
@@ -37,18 +35,6 @@ xinerama_dep = dependency('xinerama', required: get_option('xinerama'))
 if xinerama_dep.found()
   rawm_deps += xinerama_dep
   rawm_c_args += '-DXINERAMA'
-endif
-
-if get_option('systray')
-  rawm_c_args += '-DSYSTRAY'
-endif
-
-if get_option('per_window_keyboard_layout')
-  rawm_c_args += '-DPWKL'
-endif
-
-if get_option('window_title')
-  rawm_c_args += '-DWINTITLE'
 endif
 
 sysconfdir = get_option('sysconfdir')

@@ -4,24 +4,3 @@ option(
   value: 'enabled',
   description: 'Enable Xinerama multi-monitor support',
 )
-
-option(
-  'systray',
-  type: 'boolean',
-  value: true,
-  description: 'Enable the built-in XEmbed system tray',
-)
-
-option(
-  'per_window_keyboard_layout',
-  type: 'boolean',
-  value: false,
-  description: 'Enable per-window XKB keyboard layout tracking',
-)
-
-option(
-  'window_title',
-  type: 'boolean',
-  value: true,
-  description: 'Enable focused-window title rendering in the bar',
-)

@@ -9,7 +9,7 @@ esac
 
 rawm=${1:-./rawm}
 client=${2:-./tests/compositor-state-client}
-sendkey=${3:-./tests/send-key}
+control=${3:-./tests/control-client}
 tmp=${TMPDIR:-/tmp}/rawm-window-view-test.$$
 mkdir -p "$tmp"
 wm=
@@ -42,7 +42,7 @@ for tool in Xvfb xwininfo; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 [ -x "$client" ] || skip "compositor-state-client not built"
-[ -x "$sendkey" ] || skip "send-key not built"
+[ -x "$control" ] || skip "control-client not built"
 
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
@@ -60,16 +60,7 @@ tags = {
     { name = "two"; layout = "tile"; }
   );
 };
-input = {
-  keys = (
-    { key = "F1"; action = "tag"; tag = "all"; },
-    { key = "F2"; action = "view"; tag = "all"; },
-    { key = "F3"; action = "set_layout"; layout = "floating"; },
-    { key = "F4"; action = "view"; tag = 1; },
-    { key = "F5"; action = "window_view"; }
-  );
-  buttons = ();
-};
+input = { keys = (); buttons = (); };
 EOC
 
 "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
@@ -96,34 +87,30 @@ state()
   "$client" --inspect "$win"
 }
 
-press()
+command()
 {
-  "$sendkey" "$1" || {
-    rc=$?
-    [ "$rc" -ne 77 ] || skip "XTest unavailable"
-    fail "cannot synthesize $1"
-  }
+  "$control" --send "$@" || fail "cannot send rawm command: $*"
   sleep 0.12
 }
 
 # Make the selected client an all-tags client.
-press F1
+command _RAWM_CMD_TAG -1
 
 # Give the all-tags pertag slot a layout distinct from tag one.
-press F2
+command _RAWM_CMD_VIEW -1
 case "$(state)" in
   *"layout=tile "*) ;;
   *) fail "all-tags view did not begin in tile layout: $(state)" ;;
 esac
 
-press F3
+command _RAWM_CMD_SET_LAYOUT 1
 case "$(state)" in
   *"layout=floating "*) ;;
   *) fail "all-tags pertag layout did not become floating: $(state)" ;;
 esac
 
 # Return to tag one, whose own pertag layout remains tile.
-press F4
+command _RAWM_CMD_VIEW 1
 case "$(state)" in
   *"layout=tile "*) ;;
   *) fail "tag-one layout was not restored: $(state)" ;;
@@ -131,7 +118,7 @@ esac
 
 # window_view derives its target from the focused client's bounded TAGMASK.
 # It must restore the all-tags pertag slot, not treat that mask as tag one.
-press F5
+command _RAWM_CMD_WINDOW_VIEW
 case "$(state)" in
   *"layout=floating "*) ;;
   *) fail "window_view did not restore all-tags pertag state: $(state)" ;;

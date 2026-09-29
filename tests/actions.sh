@@ -9,7 +9,7 @@ esac
 
 rawm=${1:-./rawm}
 client=${2:-./tests/compositor-state-client}
-sendkey=${3:-./tests/send-key}
+control=${3:-./tests/control-client}
 tmp=${TMPDIR:-/tmp}/rawm-actions-test.$$
 mkdir -p "$tmp"
 wm=
@@ -45,15 +45,9 @@ for tool in Xvfb xwininfo; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 [ -x "$client" ] || skip "compositor-state-client not built"
-[ -x "$sendkey" ] || skip "send-key not built"
+[ -x "$control" ] || skip "control-client not built"
 
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
-
-cat >"$tmp/spawn-probe.sh" <<EOF
-#!/bin/sh
-: > "$tmp/spawn.marker"
-EOF
-chmod +x "$tmp/spawn-probe.sh"
 
 cat >"$tmp/rawm.conf" <<EOF
 ui = {
@@ -74,27 +68,7 @@ tags = {
     { name = "two"; layout = "tile"; }
   );
 };
-commands = {
-  probe = ("sh", "$tmp/spawn-probe.sh");
-};
-input = {
-  keys = (
-    { key = "s"; action = "spawn"; command = "probe"; },
-    { key = "F1"; action = "focus_stack"; number = 1; },
-    { key = "F2"; action = "focus_stack"; number = -1; },
-    { key = "F3"; action = "zoom"; },
-    { key = "F4"; action = "inc_master"; number = 1; },
-    { key = "F5"; action = "inc_master"; number = -1; },
-    { key = "F6"; action = "set_master_factor"; delta = 0.10; },
-    { key = "F7"; action = "set_master_factor"; delta = -0.10; },
-    { key = "F8"; action = "toggle_tag"; tag = 2; },
-    { key = "F9"; action = "view"; tag = 2; },
-    { key = "F10"; action = "view"; tag = 1; },
-    { key = "F11"; action = "toggle_fullscreen"; },
-    { key = "F12"; action = "kill_client"; }
-  );
-  buttons = ();
-};
+input = { keys = (); buttons = (); };
 EOF
 
 "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
@@ -105,13 +79,9 @@ kill -0 "$wm" 2>/dev/null || {
   fail "rawm exited"
 }
 
-press()
+command()
 {
-  "$sendkey" "$1" || {
-    rc=$?
-    [ "$rc" -ne 77 ] || skip "XTest unavailable"
-    fail "cannot synthesize $1"
-  }
+  "$control" --send "$@" || fail "cannot send rawm command: $*"
   sleep 0.12
 }
 
@@ -145,16 +115,6 @@ selected()
   esac
 }
 
-# Async spawn must execute without owning rawm's event loop.
-rm -f "$tmp/spawn.marker"
-press s
-n=0
-while [ ! -f "$tmp/spawn.marker" ]; do
-  n=$((n + 1))
-  [ "$n" -lt 40 ] || fail "spawn action did not execute configured command"
-  sleep 0.025
-done
-
 "$client" >"$tmp/a.out" 2>"$tmp/a.err" &
 a_pid=$!
 a_win=$(wait_window "$tmp/a.out")
@@ -166,38 +126,38 @@ sleep 0.12
 selected "$b_win" || fail "client B did not start selected"
 
 # Relative focus follows the visible client sequence in both directions.
-press F1
+command _RAWM_CMD_FOCUS_STACK 1
 selected "$a_win" || fail "focus_stack forward did not select client A"
-press F2
+command _RAWM_CMD_FOCUS_STACK -1
 selected "$b_win" || fail "focus_stack backward did not return to client B"
 
 # B starts as master. zoom must promote A and focus it.
-press F3
+command _RAWM_CMD_ZOOM
 selected "$a_win" || fail "zoom did not promote/focus the next tiled client"
 
 # Increasing nmaster from one to two must make A consume the full layout width.
 set -- $(geom "$a_win")
 master_width=$3
-press F4
+command _RAWM_CMD_INC_MASTER 1
 set -- $(geom "$a_win")
 two_master_width=$3
 [ "$two_master_width" -gt "$master_width" ] ||
   fail "inc_master did not expand the first client: $master_width -> $two_master_width"
 
-press F5
+command _RAWM_CMD_INC_MASTER -1
 set -- $(geom "$a_win")
 restored_master_width=$3
 [ "$restored_master_width" -lt "$two_master_width" ] ||
   fail "inc_master -1 did not restore a split layout"
 
 # Relative master-factor changes must alter admitted tile geometry.
-press F6
+command _RAWM_CMD_SET_MASTER_FACTOR 100000 0
 set -- $(geom "$a_win")
 larger_master_width=$3
 [ "$larger_master_width" -gt "$restored_master_width" ] ||
   fail "positive master-factor delta did not widen master"
 
-press F7
+command _RAWM_CMD_SET_MASTER_FACTOR -100000 0
 set -- $(geom "$a_win")
 normal_master_width=$3
 [ "$normal_master_width" -lt "$larger_master_width" ] ||
@@ -205,14 +165,14 @@ normal_master_width=$3
 
 # Add tag two to A, switch there, and prove A remains visible while B (tag one
 # only) is moved offscreen by rawm's normal hide path.
-press F8
-press F9
+command _RAWM_CMD_TOGGLE_TAG 2
+command _RAWM_CMD_VIEW 2
 set -- $(geom "$a_win")
 [ "$1" -ge 0 ] || fail "toggle_tag did not keep client A visible on tag two"
 set -- $(geom "$b_win")
 [ "$1" -lt 0 ] || fail "tag-one-only client B remained visible on tag two"
 
-press F10
+command _RAWM_CMD_FOCUS_STACK 10
 set -- $(geom "$a_win")
 [ "$1" -ge 0 ] || fail "client A did not return visibly to tag one"
 set -- $(geom "$b_win")
@@ -222,7 +182,7 @@ selected "$a_win" || fail "client A lost selection before fullscreen test"
 # Fullscreen is temporary elevation and must restore the previous tiled state
 # and rectangle.
 before_fullscreen=$(geom "$a_win")
-press F11
+command _RAWM_CMD_FOCUS_STACK 11
 case "$(state "$a_win")" in
   "floating=1 selected=1 layout=tile monitor=0") ;;
   *) fail "toggle_fullscreen did not expose elevated selected state: $(state "$a_win")" ;;
@@ -232,7 +192,7 @@ set -- $(geom "$a_win")
 [ "$3" -eq 800 ] && [ "$4" -eq 600 ] ||
   fail "fullscreen geometry is not the monitor rectangle: $(geom "$a_win")"
 
-press F11
+command _RAWM_CMD_FOCUS_STACK 11
 case "$(state "$a_win")" in
   "floating=0 selected=1 layout=tile monitor=0") ;;
   *) fail "leaving fullscreen did not restore tiled state: $(state "$a_win")" ;;
@@ -242,7 +202,7 @@ esac
 
 # kill_client must use the advertised WM_DELETE_WINDOW protocol. The helper
 # destroys its own window and exits cleanly; rawm then selects the survivor.
-press F12
+command _RAWM_CMD_FOCUS_STACK 12
 n=0
 while kill -0 "$a_pid" 2>/dev/null; do
   n=$((n + 1))

@@ -9,7 +9,7 @@ esac
 
 rawm=${1:-./rawm}
 client=${2:-./tests/compositor-state-client}
-sendkey=${3:-./tests/send-key}
+control=${3:-./tests/control-client}
 tmp=${TMPDIR:-/tmp}/rawm-focus-index-test.$$
 mkdir -p "$tmp"
 wm=
@@ -46,7 +46,7 @@ for tool in Xvfb xwininfo; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 [ -x "$client" ] || skip "compositor-state-client not built"
-[ -x "$sendkey" ] || skip "send-key not built"
+[ -x "$control" ] || skip "control-client not built"
 
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
@@ -64,15 +64,7 @@ tags = {
     { name = "two"; layout = "tile"; }
   );
 };
-input = {
-  keys = (
-    { key = "F1"; action = "tag"; tag = 2; },
-    { key = "F2"; action = "focus_index"; number = 1; },
-    { key = "F3"; action = "focus_index"; number = 2; },
-    { key = "F4"; action = "focus_index"; number = 3; }
-  );
-  buttons = ();
-};
+input = { keys = (); buttons = (); };
 EOC
 
 "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
@@ -108,13 +100,9 @@ selected()
   esac
 }
 
-press()
+command()
 {
-  "$sendkey" "$1" || {
-    rc=$?
-    [ "$rc" -ne 77 ] || skip "XTest unavailable"
-    fail "cannot synthesize $1"
-  }
+  "$control" --send "$@" || fail "cannot send rawm command: $*"
   sleep 0.12
 }
 
@@ -130,7 +118,7 @@ selected "$b_win" || fail "client B did not start selected"
 
 # Move B to tag two. It remains at the head of the monitor client list but is
 # hidden from the current tag-one view.
-press F1
+command _RAWM_CMD_TAG 2
 selected "$a_win" || fail "client A did not become selected after hiding B"
 
 # Create C on tag one. Client-list order is now C, B(hidden), A while visible
@@ -141,15 +129,15 @@ c_win=$(wait_window "$tmp/c.out")
 sleep 0.12
 selected "$c_win" || fail "client C did not start selected"
 
-press F3
+command _RAWM_CMD_FOCUS_INDEX 2
 selected "$a_win" ||
   fail "focus_index 2 counted hidden client B instead of visible client A"
 
-press F2
+command _RAWM_CMD_FOCUS_INDEX 1
 selected "$c_win" || fail "focus_index 1 did not select first visible client"
 
 # Out-of-range direct selection is a no-op.
-press F4
+command _RAWM_CMD_FOCUS_INDEX 3
 selected "$c_win" || fail "out-of-range focus_index changed selection"
 
 echo "focus index tests: ok"

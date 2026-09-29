@@ -53,12 +53,6 @@ compositor_state_client = executable(
   build_by_default: false,
 )
 
-rawmctl_client = executable(
-  'rawmctl-client',
-  'rawmctl-client.c',
-  dependencies: x11_dep,
-  build_by_default: false,
-)
 
 control_client = executable(
   'control-client',
@@ -74,46 +68,22 @@ dock_strut_client = executable(
   build_by_default: false,
 )
 
-tagbar_client = executable(
-  'tagbar-client',
-  'tagbar-client.c',
-  dependencies: x11_dep,
-  build_by_default: false,
-)
 
 dl_dep = cc.find_library('dl', required: false)
-send_key_deps = [x11_dep]
+send_pointer_deps = [x11_dep]
 if dl_dep.found()
-  send_key_deps += dl_dep
+  send_pointer_deps += dl_dep
 endif
 
-send_key = executable(
-  'send-key',
-  'send-key.c',
-  dependencies: send_key_deps,
-  build_by_default: false,
-)
 
 send_pointer = executable(
   'send-pointer',
   'send-pointer.c',
-  dependencies: send_key_deps,
+  dependencies: send_pointer_deps,
   build_by_default: false,
 )
 
-status_client = executable(
-  'status-client',
-  'status-client.c',
-  dependencies: x11_dep,
-  build_by_default: false,
-)
 
-status_bar_checksum = executable(
-  'status-bar-checksum',
-  'status-bar-checksum.c',
-  dependencies: x11_dep,
-  build_by_default: false,
-)
 
 if xinerama_dep.found()
   xinerama_probe = executable(
@@ -124,14 +94,6 @@ if xinerama_dep.found()
   )
 endif
 
-if get_option('systray')
-  systray_client = executable(
-    'systray-client',
-    'systray-client.c',
-    dependencies: x11_dep,
-    build_by_default: false,
-  )
-endif
 
 config_test = find_program('config.sh')
 gaps_test = find_program('gaps.sh')
@@ -140,23 +102,15 @@ fullscreen_rule_test = find_program('fullscreen-rule.sh')
 attention_rule_test = find_program('attention-rule.sh')
 geometry_test = find_program('geometry.sh')
 compositor_state_test = find_program('compositor-state.sh')
-rawmctl_test = find_program('rawmctl.sh')
 control_membrane_test = find_program('control-membrane.sh')
 dock_strut_test = find_program('dock-strut.sh')
 focus_index_test = find_program('focus-index.sh')
 window_view_test = find_program('window-view.sh')
 actions_test = find_program('actions.sh')
-clipboard_binding_test = find_program('clipboard-binding.sh')
 if xinerama_dep.found()
   multimon_test = find_program('multimon.sh')
 endif
 placement_test = find_program('placement.sh')
-tagbar_test = find_program('tagbar.sh')
-status_test = find_program('status.sh')
-status_worker_test = find_program('status-worker.sh')
-if get_option('systray')
-  systray_test = find_program('systray.sh')
-endif
 signals_test = find_program('signals.sh')
 skip_test = find_program('support/skip.sh')
 xvfb_probe = find_program('support/probe-xvfb.sh')
@@ -372,7 +326,7 @@ if geometry_missing.length() == 0
   test(
     'geometry',
     geometry_test,
-    args: [rawm, geometry_client, send_key],
+    args: [rawm, geometry_client, control_client],
     workdir: test_workdir,
   )
 else
@@ -388,7 +342,7 @@ if compositor_state_missing.length() == 0
   test(
     'compositor-state',
     compositor_state_test,
-    args: [rawm, compositor_state_client, send_key, send_pointer],
+    args: [rawm, compositor_state_client, control_client, send_pointer],
     workdir: test_workdir,
   )
 else
@@ -396,28 +350,6 @@ else
     'compositor-state',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(compositor_state_missing))],
-  )
-endif
-
-rawmctl_missing = x11_missing
-if not grep_program.found()
-  rawmctl_missing += ['grep']
-endif
-if not sed_program.found()
-  rawmctl_missing += ['sed']
-endif
-if rawmctl_missing.length() == 0
-  test(
-    'rawmctl',
-    rawmctl_test,
-    args: [rawm, rawmctl, rawmctl_client],
-    workdir: test_workdir,
-  )
-else
-  test(
-    'rawmctl',
-    skip_test,
-    args: ['missing test dependencies: @0@'.format(', '.join(rawmctl_missing))],
   )
 endif
 
@@ -472,7 +404,7 @@ if x11_missing.length() == 0
   test(
     'focus-index',
     focus_index_test,
-    args: [rawm, compositor_state_client, send_key],
+    args: [rawm, compositor_state_client, control_client],
     workdir: test_workdir,
   )
 else
@@ -487,7 +419,7 @@ if x11_missing.length() == 0
   test(
     'window-view',
     window_view_test,
-    args: [rawm, compositor_state_client, send_key],
+    args: [rawm, compositor_state_client, control_client],
     workdir: test_workdir,
   )
 else
@@ -502,7 +434,7 @@ if x11_missing.length() == 0
   test(
     'actions',
     actions_test,
-    args: [rawm, compositor_state_client, send_key],
+    args: [rawm, compositor_state_client, control_client],
     workdir: test_workdir,
   )
 else
@@ -513,19 +445,21 @@ else
   )
 endif
 
-if x11_missing.length() == 0
-  test(
-    'clipboard-binding',
-    clipboard_binding_test,
-    args: [rawm, send_key],
-    workdir: test_workdir,
-  )
-else
-  test(
-    'clipboard-binding',
-    skip_test,
-    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
-  )
+if xinerama_dep.found()
+  if x11_missing.length() == 0
+    test(
+      'multimon',
+      multimon_test,
+      args: [rawm, compositor_state_client, control_client, xinerama_probe],
+      workdir: test_workdir,
+    )
+  else
+    test(
+      'multimon',
+      skip_test,
+      args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
+    )
+  endif
 endif
 
 placement_missing = x11_missing
@@ -550,53 +484,6 @@ else
   )
 endif
 
-if x11_missing.length() == 0
-  test(
-    'tagbar',
-    tagbar_test,
-    args: [rawm, tagbar_client],
-    workdir: test_workdir,
-  )
-else
-  test(
-    'tagbar',
-    skip_test,
-    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
-  )
-endif
-
-if x11_missing.length() == 0
-  test(
-    'status',
-    status_test,
-    args: [rawm, status_client, status_bar_checksum],
-    workdir: test_workdir,
-  )
-else
-  test(
-    'status',
-    skip_test,
-    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
-  )
-endif
-
-if get_option('systray')
-  if x11_missing.length() == 0
-    test(
-      'systray',
-      systray_test,
-      args: [rawm, systray_client],
-      workdir: test_workdir,
-    )
-  else
-    test(
-      'systray',
-      skip_test,
-      args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
-    )
-  endif
-endif
-
 signals_missing = x11_missing
 if not grep_program.found()
   signals_missing += ['grep']
@@ -613,21 +500,6 @@ else
     'signals',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(signals_missing))],
-  )
-endif
-
-if grep_program.found()
-  test(
-    'status-worker',
-    status_worker_test,
-    args: [rawm],
-    workdir: test_workdir,
-  )
-else
-  test(
-    'status-worker',
-    skip_test,
-    args: ['missing test dependency: grep'],
   )
 endif
 

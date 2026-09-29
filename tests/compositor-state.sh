@@ -9,7 +9,7 @@ esac
 
 rawm=${1:-./rawm}
 client=${2:-./tests/compositor-state-client}
-sendkey=${3:-./tests/send-key}
+control=${3:-./tests/control-client}
 sendpointer=${4:-./tests/send-pointer}
 tmp=${TMPDIR:-/tmp}/rawm-compositor-state-test.$$
 mkdir -p "$tmp"
@@ -46,22 +46,15 @@ for tool in Xvfb xwininfo; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 [ -x "$client" ] || skip "compositor-state-client not built"
-[ -x "$sendkey" ] || skip "send-key not built"
+[ -x "$control" ] || skip "control-client not built"
 [ -x "$sendpointer" ] || skip "send-pointer not built"
 
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
-cat >"$tmp/rename-tag.sh" <<EOF
-#!/bin/sh
-printf 'desk\\n'
-: > "$tmp/rename.marker"
-EOF
-chmod +x "$tmp/rename-tag.sh"
-
 cat >"$tmp/rawm.conf" <<EOC
 ui = {
   border_width = 2;
-  bar = { show = true; };
+  bar = { show = false; };
   osd = { show = true; position = "bottom"; geometry = true; duration_ms = 300; padding = 6; offset = 12; min_width = 180; };
   systray = { show = false; };
 };
@@ -71,25 +64,8 @@ tags = {
     { name = "two"; layout = "tile"; }
   );
 };
-commands = {
-  rename_test = ("sh", "$tmp/rename-tag.sh");
-};
 input = {
-  keys = (
-    { key = "F1"; action = "toggle_floating"; },
-    { key = "F2"; action = "set_layout"; layout = "floating"; },
-    { key = "F3"; action = "set_layout"; layout = "tile"; },
-    { key = "F4"; action = "toggle_bar"; },
-    { key = "F5"; action = "view"; tag = "all"; },
-    { key = "F6"; action = "toggle_view"; tag = 2; },
-    { key = "F7"; action = "tag"; tag = 2; },
-    { key = "F8"; action = "view"; tag = 2; },
-    { key = "F9"; action = "cycle_layout"; number = 1; },
-    { key = "F10"; action = "cycle_layout"; number = -1; },
-    { key = "F11"; action = "cycle_view"; number = 1; },
-    { key = "F12"; action = "cycle_view"; number = -1; },
-    { key = "r"; action = "rename_tag"; command = "rename_test"; }
-  );
+  keys = ();
   buttons = (
     { click = "client"; button = 1; action = "move"; },
     { click = "client"; button = 3; action = "resize"; }
@@ -105,8 +81,6 @@ kill -0 "$wm_pid" 2>/dev/null || {
   fail "rawm exited"
 }
 
-[ "$("$client" --surface bar)" = "surface=bar monitor=0 class=rawm instance=rawm-bar type=dock" ] ||
-  fail "bar compositor surface metadata is incorrect"
 [ "$("$client" --surface osd)" = "surface=osd monitor=0 class=rawm instance=rawm-osd type=dock" ] ||
   fail "osd compositor surface metadata is incorrect"
 [ "$("$client" --surface-state osd)" = "unmapped" ] ||
@@ -129,13 +103,9 @@ state()
   "$client" --inspect "$1"
 }
 
-press()
+command()
 {
-  "$sendkey" "$1" || {
-    rc=$?
-    [ "$rc" -ne 77 ] || skip "XTest unavailable"
-    fail "cannot synthesize $1"
-  }
+  "$control" --send "$@" || fail "cannot send rawm command: $*"
   sleep 0.12
 }
 
@@ -155,7 +125,7 @@ sleep 0.12
 [ "$(state "$b_win")" = "floating=0 selected=1 layout=tile monitor=0" ] ||
   fail "client B did not become selected: $(state "$b_win")"
 
-press F1
+command _RAWM_CMD_TOGGLE_FLOATING
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=tile monitor=0" ] ||
   fail "explicit floating state not published: $(state "$b_win")"
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
@@ -168,13 +138,13 @@ sleep 0.35
 [ "$("$client" --surface-state osd)" = "unmapped" ] ||
   fail "osd did not expire after configured timeout"
 
-press F2
+command _RAWM_CMD_SET_LAYOUT 1
 [ "$(state "$a_win")" = "floating=1 selected=0 layout=floating monitor=0" ] ||
   fail "floating layout state missing from client A: $(state "$a_win")"
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=floating monitor=0" ] ||
   fail "floating layout state missing from client B: $(state "$b_win")"
 
-press F3
+command _RAWM_CMD_SET_LAYOUT 0
 [ "$(state "$a_win")" = "floating=0 selected=0 layout=tile monitor=0" ] ||
   fail "client A did not return to tiled presentation: $(state "$a_win")"
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=tile monitor=0" ] ||
@@ -184,36 +154,31 @@ sleep 0.35
 [ "$("$client" --surface-state osd)" = "unmapped" ] ||
   fail "osd did not expire before workspace-feedback checks"
 
-press F4
-[ "$("$client" --surface-state osd)" = "mapped" ] ||
-  fail "explicit bar toggle did not map osd"
-kill -0 "$wm_pid" 2>/dev/null || fail "rawm exited after bar toggle"
-
 sleep 0.35
-press F5
+command _RAWM_CMD_VIEW -1
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "all-tags view did not map osd"
 
 sleep 0.35
-press F6
+command _RAWM_CMD_TOGGLE_VIEW 2
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "toggle-view from all-tags view did not map osd"
 kill -0 "$wm_pid" 2>/dev/null ||
   fail "rawm exited while leaving all-tags toggle-view"
 
 sleep 0.35
-press F7
+command _RAWM_CMD_TAG 2
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "tag assignment did not map osd"
 
 sleep 0.35
-press F8
+command _RAWM_CMD_VIEW 2
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=tile monitor=0" ] ||
   fail "tagged client did not become selected on tag two: $(state "$b_win")"
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "tag-two view did not map osd"
 
-press F9
+command _RAWM_CMD_CYCLE_LAYOUT 1
 case "$(state "$b_win")" in
   *"layout=floating "*) ;;
   *) fail "forward layout cycle did not select floating: $(state "$b_win")" ;;
@@ -221,13 +186,13 @@ esac
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "forward layout cycle did not map osd"
 
-press F9
+command _RAWM_CMD_CYCLE_LAYOUT 1
 case "$(state "$b_win")" in
   *"layout=monocle "*) ;;
   *) fail "second forward layout cycle did not select monocle: $(state "$b_win")" ;;
 esac
 
-press F10
+command _RAWM_CMD_TOGGLE_FLOATING0
 case "$(state "$b_win")" in
   *"layout=floating "*) ;;
   *) fail "backward layout cycle did not return to floating: $(state "$b_win")" ;;
@@ -268,32 +233,29 @@ after_resize=$("$client" --client-geometry "$b_win")
   fail "interactive resize did not map geometry osd"
 
 sleep 0.35
-press F11
+command _RAWM_CMD_TOGGLE_FLOATING1
 [ "$(state "$a_win")" = "floating=0 selected=1 layout=tile monitor=0" ] ||
   fail "forward view cycle did not wrap tag two to tag one: $(state "$a_win")"
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "forward view cycle did not map osd"
 
-press F12
+command _RAWM_CMD_TOGGLE_FLOATING2
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=floating monitor=0" ] ||
   fail "backward view cycle did not wrap tag one to tag two: $(state "$b_win")"
 
-press F5
-press F11
+command _RAWM_CMD_VIEW -1
+command _RAWM_CMD_TOGGLE_FLOATING1
 [ "$(state "$a_win")" = "floating=0 selected=1 layout=tile monitor=0" ] ||
   fail "forward cycle from all-tags view did not select tag one: $(state "$a_win")"
 
-press F5
-press F12
+command _RAWM_CMD_VIEW -1
+command _RAWM_CMD_TOGGLE_FLOATING2
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=floating monitor=0" ] ||
   fail "backward cycle from all-tags view did not select final tag: $(state "$b_win")"
 
 sleep 0.35
-rm -f "$tmp/rename.marker"
-press r
-[ -f "$tmp/rename.marker" ] ||
-  fail "rename_tag did not execute configured capture command"
+command _RAWM_CMD_RENAME_TAG 0 0 desk
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
-  fail "rename_tag output did not reach tag rename/OSD path"
+  fail "rename_tag command did not reach tag rename/OSD path"
 
 echo "compositor state tests: ok"

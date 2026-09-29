@@ -9,7 +9,7 @@ esac
 
 rawm=${1:-./rawm}
 client=${2:-./tests/compositor-state-client}
-sendkey=${3:-./tests/send-key}
+control=${3:-./tests/control-client}
 probe=${4:-./tests/xinerama-probe}
 tmp=${TMPDIR:-/tmp}/rawm-multimon-test.$$
 mkdir -p "$tmp"
@@ -43,7 +43,7 @@ for tool in Xvfb xwininfo; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
 [ -x "$client" ] || skip "compositor-state-client not built"
-[ -x "$sendkey" ] || skip "send-key not built"
+[ -x "$control" ] || skip "control-client not built"
 [ -x "$probe" ] || skip "xinerama-probe not built"
 
 # Different screen sizes keep both overlapping Xvfb heads distinct under
@@ -71,15 +71,7 @@ tags = {
     { name = "two"; layout = "tile"; }
   );
 };
-input = {
-  keys = (
-    { key = "F1"; action = "tag_monitor"; number = 1; },
-    { key = "F2"; action = "focus_monitor"; number = 1; },
-    { key = "F3"; action = "focus_monitor"; number = -1; },
-    { key = "F4"; action = "tag_monitor"; number = -1; }
-  );
-  buttons = ();
-};
+input = { keys = (); buttons = (); };
 EOC
 
 "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
@@ -106,13 +98,9 @@ state()
   "$client" --inspect "$win"
 }
 
-press()
+command()
 {
-  "$sendkey" "$1" || {
-    rc=$?
-    [ "$rc" -ne 77 ] || skip "XTest unavailable"
-    fail "cannot synthesize $1"
-  }
+  "$control" --send "$@" || fail "cannot send rawm command: $*"
   sleep 0.12
 }
 
@@ -122,37 +110,37 @@ case "$(state)" in
 esac
 
 # Routing does not implicitly move monitor focus.
-press F1
+command _RAWM_CMD_TAG_MONITOR 1
 case "$(state)" in
   "floating=0 selected=0 layout=tile monitor=1") ;;
   *) fail "tag_monitor +1 did not route client to monitor one: $(state)" ;;
 esac
 
-press F2
+command _RAWM_CMD_FOCUS_MONITOR 1
 case "$(state)" in
   "floating=0 selected=1 layout=tile monitor=1") ;;
   *) fail "focus_monitor +1 did not select routed client: $(state)" ;;
 esac
 
-press F3
+command _RAWM_CMD_FOCUS_MONITOR -1
 case "$(state)" in
   "floating=0 selected=0 layout=tile monitor=1") ;;
   *) fail "focus_monitor -1 did not leave client on monitor one: $(state)" ;;
 esac
 
-press F2
+command _RAWM_CMD_FOCUS_MONITOR 1
 case "$(state)" in
   "floating=0 selected=1 layout=tile monitor=1") ;;
   *) fail "focus_monitor +1 did not return to monitor one: $(state)" ;;
 esac
 
-press F4
+command _RAWM_CMD_TAG_MONITOR -1
 case "$(state)" in
   "floating=0 selected=0 layout=tile monitor=0") ;;
   *) fail "tag_monitor -1 did not route client back to monitor zero: $(state)" ;;
 esac
 
-press F3
+command _RAWM_CMD_FOCUS_MONITOR -1
 case "$(state)" in
   "floating=0 selected=1 layout=tile monitor=0") ;;
   *) fail "focus_monitor -1 did not return focus to monitor zero: $(state)" ;;

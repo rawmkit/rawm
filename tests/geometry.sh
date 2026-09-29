@@ -9,7 +9,7 @@ esac
 
 rawm=${1:-./rawm}
 client=${2:-./tests/geometry-client}
-sendkey=${3:-./tests/send-key}
+control=${3:-./tests/control-client}
 
 tmp=${TMPDIR:-/tmp}/rawm-geometry-test.$$
 mkdir -p "$tmp"
@@ -41,7 +41,7 @@ fail()
 for tool in Xvfb xwininfo awk sed wc; do
   command -v "$tool" >/dev/null 2>&1 || skip "$tool not found"
 done
-for helper in "$client" "$sendkey"; do
+for helper in "$client" "$control"; do
   [ -x "$helper" ] || skip "$helper not built"
 done
 
@@ -71,16 +71,9 @@ wait_window()
   sed -n '1p' "$file"
 }
 
-press()
+command()
 {
-  "$sendkey" "$1" || {
-    rc=$?
-    [ "$rc" -ne 77 ] || {
-      echo "geometry tests: skipped (XTest unavailable)"
-      exit 77
-    }
-    fail "cannot synthesize $1"
-  }
+  "$control" --send "$@" || fail "cannot send rawm command: $*"
   sleep 0.12
 }
 
@@ -115,14 +108,7 @@ write_config()
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
 behavior = { size_hints = "$mode"; floating_placement = "client"; };
 tags = { default = ({ name = "one"; layout = "tile"; }); };
-input = {
-  keys = (
-    { key = "F1"; action = "set_layout"; layout = "floating"; },
-    { key = "F2"; action = "set_layout"; layout = "tile"; },
-    { key = "F3"; action = "toggle_floating"; }
-  );
-  buttons = ();
-};
+input = { keys = (); buttons = (); };
 EOC
 }
 
@@ -146,7 +132,7 @@ set -- $(geometry "$a_win")
   fail "client A was not arranged while tiled: $*"
 a_tiled="$1 $2 $3 $4 $5"
 b_tiled=$(geometry "$b_win")
-press F1
+command _RAWM_CMD_SET_LAYOUT 1
 [ "$(geometry "$a_win")" = "$a_tiled" ] ||
   fail "floating layout moved client A: $(geometry "$a_win"); expected $a_tiled"
 [ "$(geometry "$b_win")" = "$b_tiled" ] ||
@@ -161,11 +147,11 @@ sleep 0.12
 set -- $(geometry "$a_win")
 [ "$1" -eq 111 ] && [ "$2" -eq 123 ] && [ "$3" -eq 350 ] && [ "$4" -eq 240 ] && [ "$5" -eq 2 ] ||
   fail "free ConfigureRequest was $*; expected 111 123 350 240 2"
-press F2
+command _RAWM_CMD_SET_LAYOUT 0
 a_tiled_again=$(geometry "$a_win")
 [ "$a_tiled_again" != "111 123 350 240 2" ] ||
   fail "client A remained in free geometry after returning to tile: $a_tiled_again"
-press F1
+command _RAWM_CMD_SET_LAYOUT 1
 [ "$(geometry "$a_win")" = "$a_tiled_again" ] ||
   fail "second floating layout transition restored historical geometry: $(geometry "$a_win"); expected $a_tiled_again"
 stop_case
@@ -180,7 +166,7 @@ start_wm
 a_pid=$!
 a_win=$(wait_window "$tmp/a.out")
 sleep 0.12
-press F3
+command _RAWM_CMD_TOGGLE_FLOATING
 set -- $(geometry "$a_win")
 [ "$1" -eq 40 ] && [ "$2" -eq 60 ] && [ "$3" -eq 320 ] && [ "$4" -eq 210 ] && [ "$5" -eq 2 ] ||
   fail "individual floating restore with hints was $*; expected 40 60 320 210 2"
@@ -195,7 +181,7 @@ start_wm
 a_pid=$!
 a_win=$(wait_window "$tmp/a.out")
 sleep 0.12
-press F3
+command _RAWM_CMD_TOGGLE_FLOATING
 set -- $(geometry "$a_win")
 [ "$1" -eq 40 ] && [ "$2" -eq 60 ] && [ "$3" -eq 323 ] && [ "$4" -eq 217 ] && [ "$5" -eq 2 ] ||
   fail "size_hints=never restore was $*; expected 40 60 323 217 2"
@@ -205,7 +191,7 @@ stop_case
 # its admitted position unless an explicit centering policy says otherwise.
 write_config floating
 start_wm
-press F1
+command _RAWM_CMD_SET_LAYOUT 1
 "$client" --name rawm-geometry-floating-manage --geometry 73 91 321 207 --increment 1 1 \
   >"$tmp/a.out" 2>"$tmp/a.err" &
 a_pid=$!
