@@ -2,10 +2,11 @@ OVERVIEW
 ========
 
 `rawm` is a compact X11 window manager derived from suckless `dwm` 6.0.
-The repository currently also contains the transitional `rawmctl` and
-`rawmsession` programs while their independent authority boundaries are being
-extracted. New cross-component behavior must use explicit contracts rather than
-adding another responsibility to the window-manager process or repository.
+The repository currently still contains the transitional in-tree `rawmctl`
+while that mixed legacy interface is being retired. Session lifecycle has been
+extracted to the standalone `rawsession` repository. New cross-component
+behavior must use explicit contracts rather than adding another responsibility
+to the window-manager process or repository.
 Status collection is still an internal rawm worker until panel/status authority
 is extracted.
 
@@ -39,13 +40,11 @@ configuration. Major facilities include:
     contract and will not be extracted verbatim;
   * stock `Mod4+v` clipboard-history invocation through separately packaged
     `rawclip`, while rawm retains global-key authority;
-  * `rawmsession` for one-primary session lifetime, supervised Picom lifecycle,
-    bounded crash recovery, and orderly session shutdown;
   * one Meson build and behavioral test suite covering rawm, its private status
     worker, and session integration with isolated Xvfb fixtures.
 
 `rawm` depends on `libX11`, `libXft`, `fontconfig`, `libconfig`, and `alsa-lib`.
-`rawmctl` depends on `libX11`; `rawmsession` depends on `libconfig`. The
+The transitional in-tree `rawmctl` depends on `libX11`. The
 `rawmctl window select` command additionally composes at run time with the
 separately packaged `rawmenu`; the
 stock clipboard-history command similarly composes with separately packaged
@@ -175,37 +174,21 @@ binding semantics.
 SESSION LIFECYCLE
 =================
 
-For `startx`, make `rawmsession` the final foreground command in `.xinitrc`:
+Session lifecycle is not owned or installed by rawm. The standalone
+`rawsession` package provides the rawmkit process supervisor and X11 session
+entry. Its stock policy starts rawm as the primary process and supervises
+long-lived sidecars such as Picom.
+
+For `startx`, a typical startup is:
 
     export XDG_CURRENT_DESKTOP=rawm
-    exec rawmsession
+    exec rawsession
 
-The installed `rawm.desktop` offers the same session to display managers that
-read X11 session entries from the configured datadir's `xsessions` directory.
-With `--prefix=/usr` and the default datadir this is
-`/usr/share/xsessions/rawm.desktop`. A `/usr/local` install puts the entry in
-`/usr/local/share/xsessions`; check whether the chosen display manager searches
-that directory. The entry launches `rawmsession` directly and declares
-`DesktopNames=rawm;` for the login manager to set `XDG_CURRENT_DESKTOP`. It
-does not install or configure a display manager.
+A rawm package therefore installs no session supervisor, no session
+configuration, and no `xsessions` entry. This keeps process-lifecycle authority
+outside the window-manager repository. See `rawsession(1)` and
+`rawsession.conf(5)` from the standalone rawsession package.
 
-Traditional `xdm` uses an `Xsession` script, typically invoking the user's
-`.xsession`, rather than selecting an entry from `xsessions`. Place the same
-two commands in `.xsession` when using that route. The X server, X authority
-and any session bus remain the responsibility of the chosen login path.
-
-The installed `/etc/rawm/rawmsession.conf` starts `rawm` as the primary and
-supervises `picom` as a long-lived sidecar. The primary defines session
-lifetime. Sidecar crashes are restarted with a bounded rate; repeated fast
-failures disable only that sidecar rather than killing or fork-bombing the
-session. rawm itself owns and supervises its private status worker.
-
-`rawmsession` is deliberately not an application autostart mechanism. Remove a
-sidecar when another authority owns that process. `rawmenu` and the `rawclip`
-menu frontend are invoked on demand, Pinentry remains owned by gpg-agent, and
-rawlock remains an invoked authentication boundary. The separately started
-`rawclipd` service retains clipboard-history lifecycle authority. See
-`rawmsession(1)` and `rawmsession.conf(5)`.
 
 RELEASE VERIFICATION
 ====================
@@ -224,12 +207,11 @@ host system:
     DESTDIR="$PWD/stage" meson install -C build
     find stage -type f -print | sort
 
-The staged tree must contain the `rawm`, `rawmctl`, and `rawmsession` binaries,
-their manual pages, `rawm.conf(5)`, `rawmsession.conf(5)`, and both configuration
-files under `/etc/rawm`. It must not contain a `rawmstat` executable, manual, or
-configuration file. Configuration/default parity for rawm and rawmsession is
-covered by the test suite, including parity between installed configuration and
-compiled defaults.
+The staged tree must contain the `rawm` and transitional in-tree `rawmctl`
+binaries, their manual pages, `rawm.conf(5)`, and `/etc/rawm/rawm.conf`. It must
+not contain a `rawmstat` or `rawmsession` executable, session manual, session
+configuration, or X11 session entry. Session lifecycle belongs to the standalone
+`rawsession` package.
 
 Meson can create a source archive from a clean git checkout with:
 

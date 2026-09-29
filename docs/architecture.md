@@ -21,8 +21,8 @@ for extraction rather than further integration:
   keyboard control. It is not the authority or specification for the new rawm
   membrane and must not be extracted verbatim. A future standalone `rawmctl`
   repository will be implemented against the rawm control/state contract only.
-* `rawmsession` is already a distinct session-lifecycle authority and is a
-  candidate for direct repository extraction.
+* session lifecycle has been extracted to the standalone `rawsession`
+  repository; rawm no longer builds, installs, tests, or configures it.
 * the built-in bar, systray, OSD, status providers, and ALSA control are future
   `rawpanel` authority. Their current residence in rawm is transitional.
 * global keyboard grabs, command dispatch, and per-window XKB policy are future
@@ -35,9 +35,9 @@ reason for status acquisition to remain part of the window-manager repository.
 When `rawpanel` is extracted, the native status provider implementation moves
 with it and is deleted from rawm.
 
-Session supervision likewise remains outside rawm's runtime authority. The
-current in-tree `rawmsession` program supervises desktop process topology, but
-rawm itself does not start or restart independent desktop sidecars.
+Session supervision is outside both rawm's runtime and repository authority.
+The standalone `rawsession` process supervises desktop process topology; rawm
+does not start or restart independent desktop sidecars.
 
 ## Private libraries
 
@@ -71,6 +71,11 @@ retention, selection ownership, and rawmenu-backed history presentation form a
 separate runtime authority. The current rawm tree may still launch `rawclip menu`
 through transitional key policy; the target owner of that global key is
 `rawkeys`. rawclip must not absorb global-key or window-manager policy.
+
+`rawsession` is a separate repository. It owns desktop process topology: one
+primary process, long-lived supervised sidecars, bounded restart policy, and
+orderly shutdown. rawm is merely the stock primary and does not depend on
+rawsession at build or runtime.
 
 `rawlock` remains a separate repository. Screen locking and authentication form
 a privileged security boundary with materially different failure, review, and

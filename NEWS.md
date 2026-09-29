@@ -20,6 +20,19 @@ Window-manager authority membrane
   exclusively through the external membrane and verifies that non-WM commands
   are rejected without changing admitted state.
 
+Session authority extraction
+----------------------------
+
+* Desktop process-lifecycle authority is now the standalone `rawsession`
+  repository. rawm no longer builds or installs the former `rawmsession`
+  executable, configuration, manuals, lifecycle tests, or X11 session entry.
+* rawm packages contain only window-manager-owned runtime surfaces; the
+  standalone rawsession package owns `/etc/rawsession/rawsession.conf` and the
+  `rawm.desktop` session launcher.
+* The extraction preserves lifecycle semantics without a compatibility copy in
+  rawm: one primary process defines session lifetime, sidecars have bounded
+  restart policy, and session reload/shutdown remain rawsession concerns.
+
 Unified status ownership
 ------------------------
 

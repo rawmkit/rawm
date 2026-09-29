@@ -416,6 +416,6 @@ an edit.
 
 # SEE ALSO
 
-*rawm.conf*(5), *rawmctl*(1), *rawmsession*(1), *rawmenu*(1), *rawlock*(1)
+*rawm.conf*(5), *rawmctl*(1), *rawsession*(1), *rawmenu*(1), *rawlock*(1)
 
 ; vim: ft=scdoc cc=72 tw=70
