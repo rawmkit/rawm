@@ -81,6 +81,13 @@ rawmctl_client = executable(
   build_by_default: false,
 )
 
+control_client = executable(
+  'control-client',
+  'control-client.c',
+  dependencies: x11_dep,
+  build_by_default: false,
+)
+
 tagbar_client = executable(
   'tagbar-client',
   'tagbar-client.c',
@@ -148,6 +155,7 @@ attention_rule_test = find_program('attention-rule.sh')
 geometry_test = find_program('geometry.sh')
 compositor_state_test = find_program('compositor-state.sh')
 rawmctl_test = find_program('rawmctl.sh')
+control_membrane_test = find_program('control-membrane.sh')
 focus_index_test = find_program('focus-index.sh')
 window_view_test = find_program('window-view.sh')
 actions_test = find_program('actions.sh')
@@ -423,6 +431,25 @@ else
     'rawmctl',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(rawmctl_missing))],
+  )
+endif
+
+control_membrane_missing = x11_missing
+if not grep_program.found()
+  control_membrane_missing += ['grep']
+endif
+if control_membrane_missing.length() == 0
+  test(
+    'control-membrane',
+    control_membrane_test,
+    args: [rawm, control_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'control-membrane',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(control_membrane_missing))],
   )
 endif
 
