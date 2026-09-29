@@ -721,6 +721,7 @@ static void          (*handler[LASTEvent]) (XEvent *) = {
   [KeyPress]          = keypress,
   [LeaveNotify]       = leavenotify,
   [MappingNotify]     = mappingnotify,
+  [MapNotify]         = mapnotify,
   [MapRequest]        = maprequest,
   [MotionNotify]      = motionnotify,
   [PropertyNotify]    = propertynotify,
