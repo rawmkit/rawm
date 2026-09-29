@@ -39,7 +39,9 @@ The owner publishes:
 * `_RAWM_SUPPORTED_COMMANDS`, type `ATOM`, format 32. Every listed atom is a
   command accepted by this rawm instance.
 * `_RAWM_STATE`, type `UTF8_STRING`, format 8. This is the complete current
-  authoritative state snapshot.
+  authoritative monitor/tag/layout state snapshot.
+* `_RAWM_CLIENTS`, type `UTF8_STRING`, format 8. This is the complete current
+  authoritative admitted-client inventory.
 
 A consumer that needs change notification selects `PropertyChangeMask` on the
 owner and rereads `_RAWM_STATE` after a `PropertyNotify`. rawm replaces the
@@ -95,6 +97,32 @@ bytes exactly.
 The snapshot deliberately does not publish panel presentation, status values,
 keyboard state, or process lifecycle. Those are different authorities.
 
+
+## Client inventory version 1
+
+The first line of `_RAWM_CLIENTS` is exactly:
+
+```
+rawm-clients-v1
+```
+
+Every remaining line is a `client` record with tab-separated fields:
+
+```
+client<TAB>XID<TAB>MONITOR<TAB>TAGS<TAB>VISIBLE<TAB>FOCUSED<TAB>CLASS<TAB>TITLE
+```
+
+`XID` is hexadecimal with a `0x` prefix. `MONITOR` is rawm's admitted monitor
+number. `TAGS` is an eight-digit hexadecimal tag mask without a prefix.
+`VISIBLE` and `FOCUSED` are `0` or `1`; `FOCUSED` names the globally focused
+client, not merely a monitor-local stack selection. `CLASS` is the admitted
+client's current `WM_CLASS` class component and `TITLE` is rawm's current
+window-title observation. Text fields use the same `%HH` escaping as tag names.
+
+This inventory is the authority boundary for managed-window enumeration.
+Consumers must not reconstruct rawm's admitted client set from `_NET_CLIENT_LIST`,
+the X window tree, or a combination of EWMH properties.
+
 ## Commands
 
 Commands are X `ClientMessage` events sent directly to the current control
@@ -126,6 +154,12 @@ There is no reply message: command capability is discovered from
 
 `_RAWM_CMD_FOCUS_INDEX`
 : `arg0` is a positive one-based visible-client index.
+
+`_RAWM_CMD_FOCUS_CLIENT`
+: `arg0` carries the target admitted client XID as an unsigned 32-bit value.
+  rawm ignores XIDs that are no longer admitted. If the target is outside its
+  monitor's current view, rawm switches that monitor to the client's admitted
+  tag set before applying the normal focus/pop semantics.
 
 `_RAWM_CMD_INC_MASTER`
 : `arg0` is a non-zero signed delta.

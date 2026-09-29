@@ -1,3 +1,7 @@
+* The rawm control membrane now publishes `_RAWM_CLIENTS` as an authoritative
+  admitted-client inventory and accepts `_RAWM_CMD_FOCUS_CLIENT`. External
+  selectors no longer need to reconstruct rawm client authority from EWMH.
+
 rawm 7.0.0 — unreleased
 ======================
 

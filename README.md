@@ -25,7 +25,8 @@ configuration. Major facilities include:
     anonymous message socket;
   * compositor-facing `_RAWM_FLOATING`, `_RAWM_SELECTED`, `_RAWM_LAYOUT`,
     `_RAWM_MONITOR`, and `_RAWM_SURFACE` state;
-  * a versioned rawm control/state membrane owned by an X selection window;
+  * a versioned rawm control/state membrane owned by an X selection window,
+    including authoritative monitor/tag state and admitted-client inventory;
     external consumers receive authoritative monitor/tag/layout/focus snapshots
     and send only window-manager commands instead of reconstructing rawm truth;
   * rawm-owned transient OSD feedback for layout, view, routing, fullscreen,
