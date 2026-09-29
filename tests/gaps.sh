@@ -94,7 +94,6 @@ layout = {
   gaps = { inner = 10; outer = 20; smart = $smart; };
 };
 tags = { default = ({ name = "1"; layout = "$layout"; }); };
-input = { keys = (); buttons = (); };
 EOC
 }
 

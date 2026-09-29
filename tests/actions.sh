@@ -67,7 +67,6 @@ tags = {
     { name = "two"; layout = "tile"; }
   );
 };
-input = { keys = (); buttons = (); };
 EOF
 
 "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &

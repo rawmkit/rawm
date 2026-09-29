@@ -100,7 +100,6 @@ cat >"$tmp/rawm.conf" <<'EOC'
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
 behavior = { floating_placement = "client"; };
 tags = { default = ({ name = "one"; }, { name = "video"; }); };
-input = { keys = (); buttons = (); };
 rules = (
   { class = "RawmFullscreenRule"; tags = (2); fullscreen = true; }
 );

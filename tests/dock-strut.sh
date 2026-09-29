@@ -59,8 +59,6 @@ ui = {
 };
 layout = { gaps = { inner = 0; outer = 0; smart = false; }; };
 tags = { default = ({ name = "one"; layout = "tile"; }); };
-commands = {};
-input = { keys = (); buttons = (); };
 EOC
 
 "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &

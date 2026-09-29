@@ -64,11 +64,10 @@ tags = {
     { name = "two"; layout = "tile"; }
   );
 };
-input = {
-  keys = ();
-  buttons = (
-    { click = "client"; button = 1; action = "move"; },
-    { click = "client"; button = 3; action = "resize"; }
+pointer = {
+  bindings = (
+    { button = 1; action = "move"; },
+    { button = 3; action = "resize"; }
   );
 };
 EOC

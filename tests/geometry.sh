@@ -108,7 +108,6 @@ write_config()
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
 behavior = { size_hints = "$mode"; floating_placement = "client"; };
 tags = { default = ({ name = "one"; layout = "tile"; }); };
-input = { keys = (); buttons = (); };
 EOC
 }
 
@@ -209,7 +208,6 @@ cat >"$tmp/rawm.conf" <<'EOC'
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
 behavior = { size_hints = "never"; floating_placement = "client"; };
 tags = { default = ({ name = "one"; }, { name = "two"; }); };
-input = { keys = (); buttons = (); };
 rules = (
   { class = "RawmGeometry"; tags = (2); floating = true; }
 );
@@ -237,7 +235,6 @@ cat >"$tmp/rawm.conf" <<'EOC'
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
 behavior = { size_hints = "never"; floating_placement = "client"; };
 tags = { default = ({ name = "one"; }, { name = "two"; }); };
-input = { keys = (); buttons = (); };
 rules = (
   { class = "RawmGeometry"; tags = (2); floating = true; center = "monitor"; }
 );
@@ -266,7 +263,6 @@ stop_case
 cat >"$tmp/rawm.conf" <<'EOC'
 ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
 behavior = { size_hints = "never"; floating_placement = "client"; };
-input = { keys = (); buttons = (); };
 rules = (
   { class = "RawmGeometry"; floating = true; }
 );

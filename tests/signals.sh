@@ -55,7 +55,6 @@ ui = {
   bar = { show = true; position = "bottom"; height = 24; };
   systray = { show = false; };
 };
-input = { keys = (); buttons = (); };
 EOC
 }
 

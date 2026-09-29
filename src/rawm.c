@@ -609,13 +609,13 @@ runtime_modifiers(unsigned int modifiers)
 }
 
 static void (*
-pointer_action_function(RawmAction action))(const Arg *)
+pointer_action_function(RawmPointerAction action))(const Arg *)
 {
   switch (action)
   {
-    case RAWM_ACTION_MOVE:            return movemouse;
-    case RAWM_ACTION_RESIZE:          return resizemouse;
-    case RAWM_ACTION_TOGGLE_FLOATING: return togglefloating;
+    case RAWM_POINTER_MOVE:            return movemouse;
+    case RAWM_POINTER_RESIZE:          return resizemouse;
+    case RAWM_POINTER_TOGGLE_FLOATING: return togglefloating;
     default:                          return NULL;
   }
 }
@@ -628,26 +628,24 @@ initruntimeconfig(FILE *err)
   for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
     layouts[i].symbol = config.layout_symbols[i];
 
-  buttons = calloc(config.button_count, sizeof(*buttons));
-  if (config.button_count && !buttons)
+  buttons = calloc(config.pointer_binding_count, sizeof(*buttons));
+  if (config.pointer_binding_count && !buttons)
   {
     fputs("rawm: out of memory while building pointer configuration\n", err);
     return -1;
   }
 
-  for (i = 0; i < config.button_count; ++i)
+  for (i = 0; i < config.pointer_binding_count; ++i)
   {
     void (*func)(const Arg *);
 
     /* Only admitted-client pointer mechanics remain rawm authority. */
-    if (config.buttons[i].click != RAWM_CLICK_CLIENT)
-      continue;
-    func = pointer_action_function(config.buttons[i].binding.action);
+    func = pointer_action_function(config.pointer_bindings[i].action);
     if (!func)
       continue;
 
-    buttons[button_count].mask = runtime_modifiers(config.buttons[i].modifiers);
-    buttons[button_count].button = config.buttons[i].button;
+    buttons[button_count].mask = runtime_modifiers(config.pointer_bindings[i].modifiers);
+    buttons[button_count].button = config.pointer_bindings[i].button;
     buttons[button_count].func = func;
     buttons[button_count].arg = (Arg){0};
     ++button_count;

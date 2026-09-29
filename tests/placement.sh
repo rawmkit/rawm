@@ -110,7 +110,6 @@ behavior = {
   cascade_step = 32;
 };
 tags = { default = ({ name = "one"; layout = "floating"; }); };
-input = { keys = (); buttons = (); };
 EOC
 }
 
@@ -183,7 +182,6 @@ tags = { default = ({ name = "one"; layout = "floating"; }); };
 rules = (
   { title = "rawm-placement-centered"; floating = true; center = "monitor"; }
 );
-input = { keys = (); buttons = (); };
 EOC
 start_wm
 launch centered --name rawm-placement-centered --geometry 0 0 200 120 --position none

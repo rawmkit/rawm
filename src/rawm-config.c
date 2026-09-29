@@ -1,5 +1,4 @@
 #include "rawm-config.h"
-#include "status.h"
 #include <errno.h>
 #include <libconfig.h>
 #include <limits.h>
@@ -83,55 +82,6 @@ free_rules(RawmRule *rules, size_t count)
     free(rules[i].role);
   }
   free(rules);
-}
-
-static void
-free_command(RawmCommand *cmd)
-{
-  size_t i;
-  free(cmd->name);
-  for (i = 0; i < cmd->argc; ++i)
-    free(cmd->argv[i]);
-  free(cmd->argv);
-  memset(cmd, 0, sizeof(*cmd));
-}
-
-static void
-free_commands(RawmCommand *cmds, size_t count)
-{
-  size_t i;
-  for (i = 0; i < count; ++i)
-    free_command(&cmds[i]);
-  free(cmds);
-}
-
-static void
-free_binding(RawmBinding *binding)
-{
-  free(binding->command);
-  memset(binding, 0, sizeof(*binding));
-}
-
-static void
-free_keys(RawmKeyBinding *keys, size_t count)
-{
-  size_t i;
-  for (i = 0; i < count; ++i) {
-    free(keys[i].key);
-    free_binding(&keys[i].binding);
-  }
-  free(keys);
-}
-
-static void
-free_buttons(RawmButtonBinding *buttons, size_t count)
-{
-  size_t i;
-  for (i = 0; i < count; ++i) {
-    free(buttons[i].status_id);
-    free_binding(&buttons[i].binding);
-  }
-  free(buttons);
 }
 
 const char *
@@ -283,94 +233,23 @@ parse_layout_name(const char *name, RawmLayoutId *layout)
 }
 
 static void
-append_command(RawmConfig *cfg, const char *name, const char *const *argv,
-               size_t argc)
+append_pointer_binding(RawmConfig *cfg, unsigned int modifiers,
+                       unsigned int button, RawmPointerAction action)
 {
-  RawmCommand *cmd;
-  size_t i;
+  RawmPointerBinding *binding;
 
-  cfg->commands = xrealloc(cfg->commands,
-                           (cfg->command_count + 1) * sizeof(*cfg->commands));
-  cmd = &cfg->commands[cfg->command_count++];
-  memset(cmd, 0, sizeof(*cmd));
-  cmd->name = xstrdup(name);
-  cmd->argv = xcalloc(argc + 1, sizeof(*cmd->argv));
-  cmd->argc = argc;
-  for (i = 0; i < argc; ++i)
-    cmd->argv[i] = xstrdup(argv[i]);
-}
-
-static void
-append_key(RawmConfig *cfg, unsigned int modifiers, const char *key,
-           RawmAction action)
-{
-  RawmKeyBinding *binding;
-  cfg->keys = xrealloc(cfg->keys, (cfg->key_count + 1) * sizeof(*cfg->keys));
-  binding = &cfg->keys[cfg->key_count++];
-  memset(binding, 0, sizeof(*binding));
-  binding->modifiers = modifiers;
-  binding->key = xstrdup(key);
-  binding->binding.action = action;
-}
-
-static void
-append_button(RawmConfig *cfg, RawmClick click, unsigned int modifiers,
-              unsigned int button, RawmAction action)
-{
-  RawmButtonBinding *binding;
-  cfg->buttons = xrealloc(cfg->buttons,
-      (cfg->button_count + 1) * sizeof(*cfg->buttons));
-  binding = &cfg->buttons[cfg->button_count++];
-  memset(binding, 0, sizeof(*binding));
-  binding->click = click;
+  cfg->pointer_bindings = xrealloc(
+      cfg->pointer_bindings,
+      (cfg->pointer_binding_count + 1) * sizeof(*cfg->pointer_bindings));
+  binding = &cfg->pointer_bindings[cfg->pointer_binding_count++];
   binding->modifiers = modifiers;
   binding->button = button;
-  binding->binding.action = action;
-}
-
-static void
-set_key_number(RawmKeyBinding *key, int number)
-{
-  key->binding.has_number = true;
-  key->binding.number = number;
-}
-
-static void
-set_key_factor(RawmKeyBinding *key, double factor)
-{
-  key->binding.has_factor = true;
-  key->binding.factor_absolute = false;
-  key->binding.factor = factor;
-}
-
-static void
-set_key_layout(RawmKeyBinding *key, RawmLayoutId layout)
-{
-  key->binding.has_layout = true;
-  key->binding.layout = layout;
-}
-
-static void
-set_key_tag(RawmKeyBinding *key, unsigned int tag, bool all)
-{
-  key->binding.has_tag = true;
-  key->binding.tag = tag;
-  key->binding.all_tags = all;
+  binding->action = action;
 }
 
 void
 rawm_config_init(RawmConfig *cfg)
 {
-  static const char *const terminal[] = { "st" };
-  static const char *const launcher[] = { "rawmenu-run" };
-  static const char *const tag_rename[] = {
-    "rawmenu", "-M", "input", "-p", "tag"
-  };
-  static const char *const window_select[] = {
-    "rawmctl", "window", "select"
-  };
-  static const char *const lock[] = { "rawlock" };
-  static const char *const clipboard_history[] = { "rawclip", "menu" };
   static const char *scheme_defaults[RAWM_COLOR_SCHEMES][3] = {
     { "#cccccc", "#000000", "#cccccc" },
     { "#0066ff", "#ffffff", "#0066ff" },
@@ -383,9 +262,7 @@ rawm_config_init(RawmConfig *cfg)
   static const char *symbols[RAWM_LAYOUT_COUNT] = {
     "[]=", "<1/1>", "[1/1]", "TTT", "===", "###"
   };
-  static const char *tagkeys[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
   size_t i, j;
-  unsigned int mod = RAWM_MOD_4;
 
   memset(cfg, 0, sizeof(*cfg));
   cfg->font = xstrdup("monospace:size=9");
@@ -436,106 +313,9 @@ rawm_config_init(RawmConfig *cfg)
     cfg->tags[i].layout = RAWM_LAYOUT_TILE;
   }
 
-  append_command(cfg, "terminal", terminal, 1);
-  append_command(cfg, "launcher", launcher, 1);
-  append_command(cfg, "tag_rename", tag_rename,
-                 sizeof(tag_rename) / sizeof(tag_rename[0]));
-  append_command(cfg, "window_select", window_select,
-                 sizeof(window_select) / sizeof(window_select[0]));
-  append_command(cfg, "lock", lock, 1);
-  append_command(cfg, "clipboard_history", clipboard_history,
-                 sizeof(clipboard_history) / sizeof(clipboard_history[0]));
-
-  append_key(cfg, mod, "r", RAWM_ACTION_SPAWN);
-  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("launcher");
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "Return", RAWM_ACTION_SPAWN);
-  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("terminal");
-  append_key(cfg, mod, "b", RAWM_ACTION_TOGGLE_BAR);
-  append_key(cfg, mod, "n", RAWM_ACTION_RENAME_TAG);
-  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("tag_rename");
-  append_key(cfg, mod, "w", RAWM_ACTION_SPAWN);
-  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("window_select");
-  append_key(cfg, mod, "v", RAWM_ACTION_SPAWN);
-  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("clipboard_history");
-  append_key(cfg, RAWM_MOD_CONTROL | RAWM_MOD_1, "Delete", RAWM_ACTION_SPAWN);
-  cfg->keys[cfg->key_count - 1].binding.command = xstrdup("lock");
-  append_key(cfg, mod, "j", RAWM_ACTION_FOCUS_STACK);
-  set_key_number(&cfg->keys[cfg->key_count - 1], 1);
-  append_key(cfg, mod, "k", RAWM_ACTION_FOCUS_STACK);
-  set_key_number(&cfg->keys[cfg->key_count - 1], -1);
-  append_key(cfg, mod, "i", RAWM_ACTION_INC_MASTER);
-  set_key_number(&cfg->keys[cfg->key_count - 1], 1);
-  append_key(cfg, mod, "d", RAWM_ACTION_INC_MASTER);
-  set_key_number(&cfg->keys[cfg->key_count - 1], -1);
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "h", RAWM_ACTION_SET_MASTER_FACTOR);
-  set_key_factor(&cfg->keys[cfg->key_count - 1], -0.01);
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "l", RAWM_ACTION_SET_MASTER_FACTOR);
-  set_key_factor(&cfg->keys[cfg->key_count - 1], 0.01);
-  append_key(cfg, mod, "Return", RAWM_ACTION_ZOOM);
-  append_key(cfg, mod, "Tab", RAWM_ACTION_VIEW);
-  append_key(cfg, mod, "c", RAWM_ACTION_KILL_CLIENT);
-
-  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i) {
-    static const char *layout_keys[RAWM_LAYOUT_COUNT] = { "t", "f", "m", "s", "h", "g" };
-    append_key(cfg, mod, layout_keys[i], RAWM_ACTION_SET_LAYOUT);
-    set_key_layout(&cfg->keys[cfg->key_count - 1], (RawmLayoutId)i);
-  }
-  append_key(cfg, mod, "space", RAWM_ACTION_SET_LAYOUT);
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "space", RAWM_ACTION_TOGGLE_FLOATING);
-  append_key(cfg, mod, "0", RAWM_ACTION_VIEW);
-  set_key_tag(&cfg->keys[cfg->key_count - 1], 0, true);
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "0", RAWM_ACTION_TAG);
-  set_key_tag(&cfg->keys[cfg->key_count - 1], 0, true);
-  append_key(cfg, mod, "o", RAWM_ACTION_WINDOW_VIEW);
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "f", RAWM_ACTION_TOGGLE_FULLSCREEN);
-  append_key(cfg, mod, "comma", RAWM_ACTION_FOCUS_MONITOR);
-  set_key_number(&cfg->keys[cfg->key_count - 1], -1);
-  append_key(cfg, mod, "period", RAWM_ACTION_FOCUS_MONITOR);
-  set_key_number(&cfg->keys[cfg->key_count - 1], 1);
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "comma", RAWM_ACTION_TAG_MONITOR);
-  set_key_number(&cfg->keys[cfg->key_count - 1], -1);
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "period", RAWM_ACTION_TAG_MONITOR);
-  set_key_number(&cfg->keys[cfg->key_count - 1], 1);
-  append_key(cfg, mod | RAWM_MOD_SHIFT, "q", RAWM_ACTION_QUIT);
-  append_key(cfg, mod | RAWM_MOD_CONTROL | RAWM_MOD_SHIFT, "q", RAWM_ACTION_QUIT);
-  cfg->keys[cfg->key_count - 1].binding.restart = true;
-
-  for (i = 0; i < 9; ++i) {
-    append_key(cfg, mod, tagkeys[i], RAWM_ACTION_VIEW);
-    set_key_tag(&cfg->keys[cfg->key_count - 1], (unsigned int)i + 1, false);
-    append_key(cfg, mod | RAWM_MOD_CONTROL, tagkeys[i], RAWM_ACTION_TOGGLE_VIEW);
-    set_key_tag(&cfg->keys[cfg->key_count - 1], (unsigned int)i + 1, false);
-    append_key(cfg, mod | RAWM_MOD_SHIFT, tagkeys[i], RAWM_ACTION_TAG);
-    set_key_tag(&cfg->keys[cfg->key_count - 1], (unsigned int)i + 1, false);
-    append_key(cfg, mod | RAWM_MOD_CONTROL | RAWM_MOD_SHIFT, tagkeys[i], RAWM_ACTION_TOGGLE_TAG);
-    set_key_tag(&cfg->keys[cfg->key_count - 1], (unsigned int)i + 1, false);
-  }
-
-  append_button(cfg, RAWM_CLICK_LAYOUT, 0, 1, RAWM_ACTION_SET_LAYOUT);
-  append_button(cfg, RAWM_CLICK_LAYOUT, 0, 3, RAWM_ACTION_SET_LAYOUT);
-  cfg->buttons[cfg->button_count - 1].binding.has_layout = true;
-  cfg->buttons[cfg->button_count - 1].binding.layout = RAWM_LAYOUT_MONOCLE;
-  append_button(cfg, RAWM_CLICK_LAYOUT, 0, 4, RAWM_ACTION_CYCLE_LAYOUT);
-  cfg->buttons[cfg->button_count - 1].binding.has_number = true;
-  cfg->buttons[cfg->button_count - 1].binding.number = -1;
-  append_button(cfg, RAWM_CLICK_LAYOUT, 0, 5, RAWM_ACTION_CYCLE_LAYOUT);
-  cfg->buttons[cfg->button_count - 1].binding.has_number = true;
-  cfg->buttons[cfg->button_count - 1].binding.number = 1;
-  append_button(cfg, RAWM_CLICK_STATUS, 0, 2, RAWM_ACTION_SPAWN);
-  cfg->buttons[cfg->button_count - 1].binding.command = xstrdup("terminal");
-  append_button(cfg, RAWM_CLICK_CLIENT, mod, 1, RAWM_ACTION_MOVE);
-  append_button(cfg, RAWM_CLICK_CLIENT, mod, 2, RAWM_ACTION_TOGGLE_FLOATING);
-  append_button(cfg, RAWM_CLICK_CLIENT, mod, 3, RAWM_ACTION_RESIZE);
-  append_button(cfg, RAWM_CLICK_TAG_BAR, 0, 1, RAWM_ACTION_VIEW);
-  append_button(cfg, RAWM_CLICK_TAG_BAR, 0, 3, RAWM_ACTION_TOGGLE_VIEW);
-  append_button(cfg, RAWM_CLICK_TAG_BAR, 0, 4, RAWM_ACTION_CYCLE_VIEW);
-  cfg->buttons[cfg->button_count - 1].binding.has_number = true;
-  cfg->buttons[cfg->button_count - 1].binding.number = -1;
-  append_button(cfg, RAWM_CLICK_TAG_BAR, 0, 5, RAWM_ACTION_CYCLE_VIEW);
-  cfg->buttons[cfg->button_count - 1].binding.has_number = true;
-  cfg->buttons[cfg->button_count - 1].binding.number = 1;
-  append_button(cfg, RAWM_CLICK_TAG_BAR, mod, 1, RAWM_ACTION_TAG);
-  append_button(cfg, RAWM_CLICK_TAG_BAR, mod, 3, RAWM_ACTION_TOGGLE_TAG);
+  append_pointer_binding(cfg, RAWM_MOD_4, 1, RAWM_POINTER_MOVE);
+  append_pointer_binding(cfg, RAWM_MOD_4, 2, RAWM_POINTER_TOGGLE_FLOATING);
+  append_pointer_binding(cfg, RAWM_MOD_4, 3, RAWM_POINTER_RESIZE);
 }
 
 void
@@ -551,9 +331,7 @@ rawm_config_destroy(RawmConfig *cfg)
   free_tags(cfg->tags, cfg->tag_count);
   free_monitor_tags(cfg->monitor_tags, cfg->monitor_tag_count);
   free_rules(cfg->rules, cfg->rule_count);
-  free_commands(cfg->commands, cfg->command_count);
-  free_keys(cfg->keys, cfg->key_count);
-  free_buttons(cfg->buttons, cfg->button_count);
+  free(cfg->pointer_bindings);
   memset(cfg, 0, sizeof(*cfg));
 }
 
@@ -1196,69 +974,6 @@ fail:
   return -1;
 }
 
-static RawmCommand *
-find_command_mutable(RawmConfig *cfg, const char *name)
-{
-  size_t i;
-  for (i = 0; i < cfg->command_count; ++i)
-    if (!strcmp(cfg->commands[i].name, name))
-      return &cfg->commands[i];
-  return NULL;
-}
-
-const RawmCommand *
-rawm_config_find_command(const RawmConfig *cfg, const char *name)
-{
-  size_t i;
-  for (i = 0; i < cfg->command_count; ++i)
-    if (!strcmp(cfg->commands[i].name, name))
-      return &cfg->commands[i];
-  return NULL;
-}
-
-static int
-parse_commands(FILE *err, RawmConfig *cfg, const config_setting_t *group)
-{
-  int i, n;
-  if (config_setting_type(group) != CONFIG_TYPE_GROUP)
-    return cfg_error(err, group, "%s must be a group", "commands");
-  n = config_setting_length(group);
-  for (i = 0; i < n; ++i) {
-    config_setting_t *entry = config_setting_get_elem(group, (unsigned int)i);
-    const char *name = config_setting_name(entry);
-    RawmCommand cmd = {0};
-    RawmCommand *old;
-    int j, argc;
-    if (config_setting_type(entry) != CONFIG_TYPE_LIST &&
-        config_setting_type(entry) != CONFIG_TYPE_ARRAY)
-      return cfg_error(err, entry, "%s must be a list of strings", name);
-    argc = config_setting_length(entry);
-    if (argc < 1)
-      return cfg_error(err, entry, "%s must not be empty", name);
-    cmd.name = xstrdup(name);
-    cmd.argv = xcalloc((size_t)argc + 1, sizeof(*cmd.argv));
-    cmd.argc = (size_t)argc;
-    for (j = 0; j < argc; ++j) {
-      config_setting_t *arg = config_setting_get_elem(entry, (unsigned int)j);
-      if (config_setting_type(arg) != CONFIG_TYPE_STRING) {
-        free_command(&cmd);
-        return cfg_error(err, arg, "%s arguments must be strings", name);
-      }
-      cmd.argv[j] = xstrdup(config_setting_get_string(arg));
-    }
-    old = find_command_mutable(cfg, name);
-    if (old) {
-      free_command(old);
-      *old = cmd;
-    } else {
-      cfg->commands = xrealloc(cfg->commands,
-          (cfg->command_count + 1) * sizeof(*cfg->commands));
-      cfg->commands[cfg->command_count++] = cmd;
-    }
-  }
-  return 0;
-}
-
 static int
 parse_modifier(FILE *err, const config_setting_t *s, unsigned int *mask)
 {
@@ -1301,24 +1016,18 @@ parse_modifiers(FILE *err, const config_setting_t *entry, unsigned int *mask)
 }
 
 static int
-parse_action_name(const char *name, RawmAction *action)
+parse_pointer_action(const char *name, RawmPointerAction *action)
 {
-  static const struct { const char *name; RawmAction action; } names[] = {
-    { "spawn", RAWM_ACTION_SPAWN }, { "toggle_bar", RAWM_ACTION_TOGGLE_BAR },
-    { "rename_tag", RAWM_ACTION_RENAME_TAG }, { "focus_stack", RAWM_ACTION_FOCUS_STACK },
-    { "focus_index", RAWM_ACTION_FOCUS_INDEX }, { "inc_master", RAWM_ACTION_INC_MASTER },
-    { "set_master_factor", RAWM_ACTION_SET_MASTER_FACTOR }, { "zoom", RAWM_ACTION_ZOOM },
-    { "view", RAWM_ACTION_VIEW }, { "toggle_view", RAWM_ACTION_TOGGLE_VIEW },
-    { "cycle_view", RAWM_ACTION_CYCLE_VIEW },
-    { "kill_client", RAWM_ACTION_KILL_CLIENT }, { "set_layout", RAWM_ACTION_SET_LAYOUT },
-    { "cycle_layout", RAWM_ACTION_CYCLE_LAYOUT },
-    { "toggle_floating", RAWM_ACTION_TOGGLE_FLOATING }, { "tag", RAWM_ACTION_TAG },
-    { "toggle_tag", RAWM_ACTION_TOGGLE_TAG }, { "window_view", RAWM_ACTION_WINDOW_VIEW },
-    { "toggle_fullscreen", RAWM_ACTION_TOGGLE_FULLSCREEN },
-    { "focus_monitor", RAWM_ACTION_FOCUS_MONITOR }, { "tag_monitor", RAWM_ACTION_TAG_MONITOR },
-    { "quit", RAWM_ACTION_QUIT }, { "move", RAWM_ACTION_MOVE }, { "resize", RAWM_ACTION_RESIZE }
+  static const struct {
+    const char *name;
+    RawmPointerAction action;
+  } names[] = {
+    { "move", RAWM_POINTER_MOVE },
+    { "toggle_floating", RAWM_POINTER_TOGGLE_FLOATING },
+    { "resize", RAWM_POINTER_RESIZE }
   };
   size_t i;
+
   for (i = 0; i < sizeof(names) / sizeof(names[0]); ++i) {
     if (!strcmp(name, names[i].name)) {
       *action = names[i].action;
@@ -1329,231 +1038,79 @@ parse_action_name(const char *name, RawmAction *action)
 }
 
 static int
-parse_binding(FILE *err, const config_setting_t *entry, RawmBinding *binding)
+parse_pointer_bindings(FILE *err, RawmConfig *cfg, const config_setting_t *list)
 {
-  config_setting_t *s;
-  const char *value;
-
-  memset(binding, 0, sizeof(*binding));
-  s = config_setting_get_member(entry, "action");
-  if (!s || config_setting_type(s) != CONFIG_TYPE_STRING)
-    return cfg_error(err, entry, "%s requires string member 'action'", "binding");
-  value = config_setting_get_string(s);
-  if (parse_action_name(value, &binding->action) < 0)
-    return cfg_error(err, s, "unknown action '%s'", value);
-
-  s = config_setting_get_member(entry, "command");
-  if (s) {
-    if (config_setting_type(s) != CONFIG_TYPE_STRING)
-      return cfg_error(err, s, "%s must be a string", "command");
-    binding->command = xstrdup(config_setting_get_string(s));
-  }
-  s = config_setting_get_member(entry, "layout");
-  if (s) {
-    if (config_setting_type(s) != CONFIG_TYPE_STRING)
-      return cfg_error(err, s, "%s must be a string", "layout");
-    value = config_setting_get_string(s);
-    if (parse_layout_name(value, &binding->layout) < 0)
-      return cfg_error(err, s, "unknown layout '%s'", value);
-    binding->has_layout = true;
-  }
-  s = config_setting_get_member(entry, "number");
-  if (s) {
-    if (config_setting_type(s) != CONFIG_TYPE_INT)
-      return cfg_error(err, s, "%s must be an integer", "number");
-    binding->has_number = true;
-    binding->number = config_setting_get_int(s);
-  }
-  s = config_setting_get_member(entry, "factor");
-  if (s) {
-    if (config_setting_type(s) == CONFIG_TYPE_FLOAT)
-      binding->factor = config_setting_get_float(s);
-    else if (config_setting_type(s) == CONFIG_TYPE_INT)
-      binding->factor = config_setting_get_int(s);
-    else
-      return cfg_error(err, s, "%s must be numeric", "factor");
-    binding->has_factor = true;
-    binding->factor_absolute = true;
-  }
-  s = config_setting_get_member(entry, "delta");
-  if (s) {
-    if (binding->has_factor)
-      return cfg_error(err, s, "%s cannot be used with factor", "delta");
-    if (config_setting_type(s) == CONFIG_TYPE_FLOAT)
-      binding->factor = config_setting_get_float(s);
-    else if (config_setting_type(s) == CONFIG_TYPE_INT)
-      binding->factor = config_setting_get_int(s);
-    else
-      return cfg_error(err, s, "%s must be numeric", "delta");
-    binding->has_factor = true;
-    binding->factor_absolute = false;
-  }
-  s = config_setting_get_member(entry, "tag");
-  if (s) {
-    binding->has_tag = true;
-    if (config_setting_type(s) == CONFIG_TYPE_INT) {
-      int tag = config_setting_get_int(s);
-      if (tag < 1 || tag > RAWM_MAX_TAGS)
-        return cfg_error(err, s, "%s is out of range", "tag");
-      binding->tag = (unsigned int)tag;
-    } else if (config_setting_type(s) == CONFIG_TYPE_STRING &&
-               !strcmp(config_setting_get_string(s), "all")) {
-      binding->all_tags = true;
-    } else {
-      return cfg_error(err, s, "%s must be a tag number or 'all'", "tag");
-    }
-  }
-  s = config_setting_get_member(entry, "restart");
-  if (s) {
-    if (config_setting_type(s) != CONFIG_TYPE_BOOL)
-      return cfg_error(err, s, "%s must be boolean", "restart");
-    binding->restart = config_setting_get_bool(s) != 0;
-  }
-  return 0;
-}
-
-static int
-parse_keys(FILE *err, RawmConfig *cfg, const config_setting_t *list)
-{
-  static const char *const allowed[] = {
-    "modifiers", "key", "action", "command", "layout", "number",
-    "factor", "delta", "tag", "restart"
-  };
-  RawmKeyBinding *keys;
+  static const char *const allowed[] = { "modifiers", "button", "action" };
+  RawmPointerBinding *bindings;
   int i, n;
+
   if (config_setting_type(list) != CONFIG_TYPE_LIST &&
       config_setting_type(list) != CONFIG_TYPE_ARRAY)
-    return cfg_error(err, list, "%s must be a list", "input.keys");
+    return cfg_error(err, list, "%s must be a list", "pointer.bindings");
+
   n = config_setting_length(list);
-  keys = xcalloc((size_t)n, sizeof(*keys));
+  bindings = xcalloc((size_t)n, sizeof(*bindings));
   for (i = 0; i < n; ++i) {
     config_setting_t *entry = config_setting_get_elem(list, (unsigned int)i);
-    config_setting_t *key;
-    if (config_setting_type(entry) != CONFIG_TYPE_GROUP) {
-      cfg_error(err, entry, "%s entries must be groups", "input.keys");
-      goto fail;
-    }
-    if (validate_members(err, entry, allowed, 10) < 0 ||
-        parse_modifiers(err, entry, &keys[i].modifiers) < 0 ||
-        parse_binding(err, entry, &keys[i].binding) < 0)
-      goto fail;
-    key = config_setting_get_member(entry, "key");
-    if (!key || config_setting_type(key) != CONFIG_TYPE_STRING) {
-      cfg_error(err, entry, "%s requires string member 'key'", "key binding");
-      goto fail;
-    }
-    keys[i].key = xstrdup(config_setting_get_string(key));
-  }
-  free_keys(cfg->keys, cfg->key_count);
-  cfg->keys = keys;
-  cfg->key_count = (size_t)n;
-  return 0;
-fail:
-  free_keys(keys, (size_t)n);
-  return -1;
-}
+    config_setting_t *button;
+    config_setting_t *action;
+    const char *action_name;
+    int button_number;
 
-static int
-parse_click_name(const char *name, RawmClick *click)
-{
-  static const struct { const char *name; RawmClick click; } names[] = {
-    { "tag_bar", RAWM_CLICK_TAG_BAR }, { "layout", RAWM_CLICK_LAYOUT },
-    { "status", RAWM_CLICK_STATUS }, { "title", RAWM_CLICK_TITLE },
-    { "client", RAWM_CLICK_CLIENT }, { "root", RAWM_CLICK_ROOT }
-  };
-  size_t i;
-  for (i = 0; i < sizeof(names) / sizeof(names[0]); ++i)
-    if (!strcmp(name, names[i].name)) {
-      *click = names[i].click;
-      return 0;
-    }
-  return -1;
-}
-
-static int
-parse_buttons(FILE *err, RawmConfig *cfg, const config_setting_t *list)
-{
-  static const char *const allowed[] = {
-    "modifiers", "click", "button", "status_id", "action", "command",
-    "layout", "number", "factor", "delta", "tag", "restart"
-  };
-  RawmButtonBinding *buttons;
-  int i, n;
-  if (config_setting_type(list) != CONFIG_TYPE_LIST &&
-      config_setting_type(list) != CONFIG_TYPE_ARRAY)
-    return cfg_error(err, list, "%s must be a list", "input.buttons");
-  n = config_setting_length(list);
-  buttons = xcalloc((size_t)n, sizeof(*buttons));
-  for (i = 0; i < n; ++i) {
-    config_setting_t *entry = config_setting_get_elem(list, (unsigned int)i);
-    config_setting_t *click, *button, *status_id;
-    const char *click_name;
     if (config_setting_type(entry) != CONFIG_TYPE_GROUP) {
-      cfg_error(err, entry, "%s entries must be groups", "input.buttons");
+      cfg_error(err, entry, "%s entries must be groups", "pointer.bindings");
       goto fail;
     }
-    if (validate_members(err, entry, allowed, 12) < 0 ||
-        parse_modifiers(err, entry, &buttons[i].modifiers) < 0 ||
-        parse_binding(err, entry, &buttons[i].binding) < 0)
+    if (validate_members(err, entry, allowed, 3) < 0 ||
+        parse_modifiers(err, entry, &bindings[i].modifiers) < 0)
       goto fail;
-    click = config_setting_get_member(entry, "click");
+
     button = config_setting_get_member(entry, "button");
-    if (!click || config_setting_type(click) != CONFIG_TYPE_STRING) {
-      cfg_error(err, entry, "%s requires string member 'click'", "button binding");
-      goto fail;
-    }
-    click_name = config_setting_get_string(click);
-    if (parse_click_name(click_name, &buttons[i].click) < 0) {
-      cfg_error(err, click, "unknown click area '%s'", click_name);
-      goto fail;
-    }
-    status_id = config_setting_get_member(entry, "status_id");
-    if (status_id) {
-      const char *value;
-
-      if (config_setting_type(status_id) != CONFIG_TYPE_STRING) {
-        cfg_error(err, status_id, "%s must be a string", "status_id");
-        goto fail;
-      }
-      value = config_setting_get_string(status_id);
-      if (!rawm_status_id_valid((const unsigned char *)value, strlen(value))) {
-        cfg_error(err, status_id, "%s is not a valid status segment id",
-                  "status_id");
-        goto fail;
-      }
-      buttons[i].status_id = xstrdup(value);
-    }
     if (!button || config_setting_type(button) != CONFIG_TYPE_INT) {
-      cfg_error(err, entry, "%s requires integer member 'button'", "button binding");
+      cfg_error(err, entry, "%s requires integer member 'button'",
+                "pointer binding");
       goto fail;
     }
-    buttons[i].button = (unsigned int)config_setting_get_int(button);
-    if (buttons[i].button < 1 || buttons[i].button > 9) {
+    button_number = config_setting_get_int(button);
+    if (button_number < 1 || button_number > 9) {
       cfg_error(err, button, "%s is out of range", "button");
       goto fail;
     }
+    bindings[i].button = (unsigned int)button_number;
+
+    action = config_setting_get_member(entry, "action");
+    if (!action || config_setting_type(action) != CONFIG_TYPE_STRING) {
+      cfg_error(err, entry, "%s requires string member 'action'",
+                "pointer binding");
+      goto fail;
+    }
+    action_name = config_setting_get_string(action);
+    if (parse_pointer_action(action_name, &bindings[i].action) < 0) {
+      cfg_error(err, action, "unknown pointer action '%s'", action_name);
+      goto fail;
+    }
   }
-  free_buttons(cfg->buttons, cfg->button_count);
-  cfg->buttons = buttons;
-  cfg->button_count = (size_t)n;
+
+  free(cfg->pointer_bindings);
+  cfg->pointer_bindings = bindings;
+  cfg->pointer_binding_count = (size_t)n;
   return 0;
+
 fail:
-  free_buttons(buttons, (size_t)n);
+  free(bindings);
   return -1;
 }
 
 static int
-parse_input(FILE *err, RawmConfig *cfg, const config_setting_t *group)
+parse_pointer(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
-  static const char *const allowed[] = { "keys", "buttons" };
+  static const char *const allowed[] = { "bindings" };
   config_setting_t *setting;
-  if (validate_members(err, group, allowed, 2) < 0)
+
+  if (validate_members(err, group, allowed, 1) < 0)
     return -1;
-  setting = config_setting_get_member(group, "keys");
-  if (setting && parse_keys(err, cfg, setting) < 0)
-    return -1;
-  setting = config_setting_get_member(group, "buttons");
-  if (setting && parse_buttons(err, cfg, setting) < 0)
+  setting = config_setting_get_member(group, "bindings");
+  if (setting && parse_pointer_bindings(err, cfg, setting) < 0)
     return -1;
   return 0;
 }
@@ -1562,12 +1119,12 @@ static int
 parse_layer(FILE *err, RawmConfig *cfg, config_t *source)
 {
   static const char *const allowed[] = {
-    "ui", "behavior", "layout", "tags", "rules", "commands", "input"
+    "ui", "behavior", "layout", "tags", "rules", "pointer"
   };
   config_setting_t *root = config_root_setting(source);
   config_setting_t *setting;
 
-  if (validate_members(err, root, allowed, 7) < 0)
+  if (validate_members(err, root, allowed, 6) < 0)
     return -1;
   setting = config_setting_get_member(root, "ui");
   if (setting && parse_ui(err, cfg, setting) < 0)
@@ -1584,11 +1141,8 @@ parse_layer(FILE *err, RawmConfig *cfg, config_t *source)
   setting = config_setting_get_member(root, "rules");
   if (setting && parse_rules(err, cfg, setting) < 0)
     return -1;
-  setting = config_setting_get_member(root, "commands");
-  if (setting && parse_commands(err, cfg, setting) < 0)
-    return -1;
-  setting = config_setting_get_member(root, "input");
-  if (setting && parse_input(err, cfg, setting) < 0)
+  setting = config_setting_get_member(root, "pointer");
+  if (setting && parse_pointer(err, cfg, setting) < 0)
     return -1;
   return 0;
 }
@@ -1962,19 +1516,6 @@ resolve_config_references(RawmConfig *cfg, FILE *err)
     if (resolve_string_reference(&resolver, (int)i) < 0)
       return -1;
 
-  for (i = 0; i < cfg->command_count; ++i) {
-    for (j = 0; j < cfg->commands[i].argc; ++j) {
-      char context[256];
-      char *expanded;
-      snprintf(context, sizeof(context), "commands.%s[%zu]",
-               cfg->commands[i].name, j);
-      if (expand_references(&resolver, cfg->commands[i].argv[j], context,
-                            &expanded) < 0)
-        return -1;
-      free(cfg->commands[i].argv[j]);
-      cfg->commands[i].argv[j] = expanded;
-    }
-  }
   return 0;
 }
 
@@ -2028,154 +1569,6 @@ rawm_config_load(RawmConfig *cfg, const char *explicit_path, FILE *err)
   return rawm_config_validate(cfg, err);
 }
 
-static int
-binding_has_extra(const RawmBinding *b, bool command, bool layout,
-                  bool number, bool factor, bool tag, bool restart)
-{
-  return (!command && b->command) ||
-         (!layout && b->has_layout) ||
-         (!number && b->has_number) ||
-         (!factor && b->has_factor) ||
-         (!tag && b->has_tag) ||
-         (!restart && b->restart);
-}
-
-static int
-validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
-                 RawmClick click, FILE *err)
-{
-  bool dynamic_tag = mouse && click == RAWM_CLICK_TAG_BAR;
-
-  switch (b->action) {
-  case RAWM_ACTION_SPAWN:
-    if (binding_has_extra(b, true, false, false, false, false, false))
-      goto extra;
-    if (!b->command || !rawm_config_find_command(cfg, b->command)) {
-      fprintf(err, "rawm: configuration error: spawn binding references unknown command '%s'\n",
-              b->command ? b->command : "");
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_RENAME_TAG:
-    if (binding_has_extra(b, true, false, false, false, false, false))
-      goto extra;
-    if (!b->command || !rawm_config_find_command(cfg, b->command)) {
-      fprintf(err, "rawm: configuration error: rename_tag binding references unknown command '%s'\n",
-              b->command ? b->command : "");
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_FOCUS_STACK:
-    if (binding_has_extra(b, false, false, true, false, false, false))
-      goto extra;
-    if (!b->has_number || !b->number) {
-      fputs("rawm: configuration error: focus_stack requires non-zero 'number'\n", err);
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_FOCUS_INDEX:
-    if (binding_has_extra(b, false, false, true, false, false, false))
-      goto extra;
-    if (!b->has_number || b->number < 1) {
-      fputs("rawm: configuration error: focus_index requires positive 'number'\n", err);
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_INC_MASTER:
-    if (binding_has_extra(b, false, false, true, false, false, false))
-      goto extra;
-    if (!b->has_number) {
-      fputs("rawm: configuration error: inc_master requires 'number'\n", err);
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_FOCUS_MONITOR:
-  case RAWM_ACTION_TAG_MONITOR:
-    if (binding_has_extra(b, false, false, true, false, false, false))
-      goto extra;
-    if (!b->has_number || !b->number) {
-      fputs("rawm: configuration error: monitor action requires non-zero 'number'\n", err);
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_SET_MASTER_FACTOR:
-    if (binding_has_extra(b, false, false, false, true, false, false))
-      goto extra;
-    if (!b->has_factor ||
-        (b->factor_absolute && (b->factor < 0.1 || b->factor > 0.9)) ||
-        (!b->factor_absolute && (b->factor <= -0.9 || b->factor >= 0.9))) {
-      fputs("rawm: configuration error: set_master_factor requires factor 0.1..0.9 or delta -0.9..0.9\n", err);
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_VIEW:
-    if (binding_has_extra(b, false, false, false, false, true, false))
-      goto extra;
-    if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count)
-      goto bad_tag;
-    break;
-  case RAWM_ACTION_TOGGLE_VIEW:
-    if (binding_has_extra(b, false, false, false, false, true, false))
-      goto extra;
-    if (!b->has_tag && !dynamic_tag) {
-      fputs("rawm: configuration error: toggle_view requires 'tag' outside tag-bar mouse bindings\n", err);
-      return -1;
-    }
-    if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count)
-      goto bad_tag;
-    break;
-  case RAWM_ACTION_CYCLE_VIEW:
-    if (binding_has_extra(b, false, false, true, false, false, false))
-      goto extra;
-    if (!b->has_number || (b->number != -1 && b->number != 1)) {
-      fputs("rawm: configuration error: cycle_view requires 'number' -1 or 1\n",
-            err);
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_TAG:
-  case RAWM_ACTION_TOGGLE_TAG:
-    if (binding_has_extra(b, false, false, false, false, true, false))
-      goto extra;
-    if (!b->has_tag && !dynamic_tag) {
-      fputs("rawm: configuration error: tag action requires 'tag' outside tag-bar mouse bindings\n", err);
-      return -1;
-    }
-    if (b->has_tag && !b->all_tags && b->tag > cfg->tag_count)
-      goto bad_tag;
-    break;
-  case RAWM_ACTION_SET_LAYOUT:
-    if (binding_has_extra(b, false, true, false, false, false, false))
-      goto extra;
-    break;
-  case RAWM_ACTION_CYCLE_LAYOUT:
-    if (binding_has_extra(b, false, false, true, false, false, false))
-      goto extra;
-    if (!b->has_number || (b->number != -1 && b->number != 1)) {
-      fputs("rawm: configuration error: cycle_layout requires 'number' -1 or 1\n",
-            err);
-      return -1;
-    }
-    break;
-  case RAWM_ACTION_QUIT:
-    if (binding_has_extra(b, false, false, false, false, false, true))
-      goto extra;
-    break;
-  default:
-    if (binding_has_extra(b, false, false, false, false, false, false))
-      goto extra;
-    break;
-  }
-  return 0;
-
-bad_tag:
-  fputs("rawm: configuration error: binding refers to a tag that does not exist\n", err);
-  return -1;
-extra:
-  fputs("rawm: configuration error: binding contains arguments not used by its action\n", err);
-  return -1;
-}
-
 int
 rawm_config_validate(const RawmConfig *cfg, FILE *err)
 {
@@ -2223,43 +1616,12 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
       return -1;
     }
   }
-  for (i = 0; i < cfg->key_count; ++i) {
-    if (!cfg->keys[i].key || !*cfg->keys[i].key) {
-      fputs("rawm: configuration error: key name must not be empty\n", err);
-      return -1;
-    }
-    if (validate_binding(cfg, &cfg->keys[i].binding, false, RAWM_CLICK_ROOT, err) < 0)
-      return -1;
+  for (i = 0; i < cfg->pointer_binding_count; ++i) {
     for (j = 0; j < i; ++j) {
-      if (cfg->keys[j].modifiers == cfg->keys[i].modifiers &&
-          !strcmp(cfg->keys[j].key, cfg->keys[i].key)) {
-        fprintf(err, "rawm: configuration error: duplicate key binding for '%s'\n",
-                cfg->keys[i].key);
-        return -1;
-      }
-    }
-  }
-  for (i = 0; i < cfg->button_count; ++i) {
-    if (cfg->buttons[i].status_id &&
-        cfg->buttons[i].click != RAWM_CLICK_STATUS) {
-      fputs("rawm: configuration error: status_id is only valid for status click bindings\n",
-            err);
-      return -1;
-    }
-    if (validate_binding(cfg, &cfg->buttons[i].binding, true,
-                         cfg->buttons[i].click, err) < 0)
-      return -1;
-    for (j = 0; j < i; ++j) {
-      bool same_status_id =
-          (!cfg->buttons[j].status_id && !cfg->buttons[i].status_id) ||
-          (cfg->buttons[j].status_id && cfg->buttons[i].status_id &&
-           !strcmp(cfg->buttons[j].status_id, cfg->buttons[i].status_id));
-
-      if (cfg->buttons[j].click == cfg->buttons[i].click &&
-          cfg->buttons[j].modifiers == cfg->buttons[i].modifiers &&
-          cfg->buttons[j].button == cfg->buttons[i].button &&
-          same_status_id) {
-        fputs("rawm: configuration error: duplicate mouse binding\n", err);
+      if (cfg->pointer_bindings[j].modifiers ==
+              cfg->pointer_bindings[i].modifiers &&
+          cfg->pointer_bindings[j].button == cfg->pointer_bindings[i].button) {
+        fputs("rawm: configuration error: duplicate pointer binding\n", err);
         return -1;
       }
     }

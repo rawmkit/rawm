@@ -49,40 +49,10 @@ typedef enum {
 } RawmLayoutId;
 
 typedef enum {
-  RAWM_ACTION_SPAWN,
-  RAWM_ACTION_TOGGLE_BAR,
-  RAWM_ACTION_RENAME_TAG,
-  RAWM_ACTION_FOCUS_STACK,
-  RAWM_ACTION_FOCUS_INDEX,
-  RAWM_ACTION_INC_MASTER,
-  RAWM_ACTION_SET_MASTER_FACTOR,
-  RAWM_ACTION_ZOOM,
-  RAWM_ACTION_VIEW,
-  RAWM_ACTION_TOGGLE_VIEW,
-  RAWM_ACTION_CYCLE_VIEW,
-  RAWM_ACTION_KILL_CLIENT,
-  RAWM_ACTION_SET_LAYOUT,
-  RAWM_ACTION_CYCLE_LAYOUT,
-  RAWM_ACTION_TOGGLE_FLOATING,
-  RAWM_ACTION_TAG,
-  RAWM_ACTION_TOGGLE_TAG,
-  RAWM_ACTION_WINDOW_VIEW,
-  RAWM_ACTION_TOGGLE_FULLSCREEN,
-  RAWM_ACTION_FOCUS_MONITOR,
-  RAWM_ACTION_TAG_MONITOR,
-  RAWM_ACTION_QUIT,
-  RAWM_ACTION_MOVE,
-  RAWM_ACTION_RESIZE
-} RawmAction;
-
-typedef enum {
-  RAWM_CLICK_TAG_BAR,
-  RAWM_CLICK_LAYOUT,
-  RAWM_CLICK_STATUS,
-  RAWM_CLICK_TITLE,
-  RAWM_CLICK_CLIENT,
-  RAWM_CLICK_ROOT
-} RawmClick;
+  RAWM_POINTER_MOVE,
+  RAWM_POINTER_TOGGLE_FLOATING,
+  RAWM_POINTER_RESIZE
+} RawmPointerAction;
 
 enum {
   RAWM_MOD_SHIFT   = 1u << 0,
@@ -122,40 +92,10 @@ typedef struct {
 } RawmRule;
 
 typedef struct {
-  char *name;
-  char **argv;
-  size_t argc;
-} RawmCommand;
-
-typedef struct {
-  RawmAction action;
-  char *command;
-  bool has_layout;
-  RawmLayoutId layout;
-  bool has_number;
-  int number;
-  bool has_factor;
-  bool factor_absolute;
-  double factor;
-  bool has_tag;
-  bool all_tags;
-  unsigned int tag;
-  bool restart;
-} RawmBinding;
-
-typedef struct {
-  unsigned int modifiers;
-  char *key;
-  RawmBinding binding;
-} RawmKeyBinding;
-
-typedef struct {
-  RawmClick click;
   unsigned int modifiers;
   unsigned int button;
-  char *status_id;
-  RawmBinding binding;
-} RawmButtonBinding;
+  RawmPointerAction action;
+} RawmPointerBinding;
 
 typedef struct {
   char *font;
@@ -203,20 +143,14 @@ typedef struct {
 
   RawmRule *rules;
   size_t rule_count;
-  RawmCommand *commands;
-  size_t command_count;
-  RawmKeyBinding *keys;
-  size_t key_count;
-  RawmButtonBinding *buttons;
-  size_t button_count;
+  RawmPointerBinding *pointer_bindings;
+  size_t pointer_binding_count;
 } RawmConfig;
 
 void rawm_config_init(RawmConfig *cfg);
 void rawm_config_destroy(RawmConfig *cfg);
 int rawm_config_load(RawmConfig *cfg, const char *explicit_path, FILE *err);
 int rawm_config_validate(const RawmConfig *cfg, FILE *err);
-const RawmCommand *rawm_config_find_command(const RawmConfig *cfg,
-                                             const char *name);
 const RawmTagConfig *rawm_config_tags_for_monitor(const RawmConfig *cfg,
                                                    int monitor);
 const char *rawm_layout_name(RawmLayoutId layout);
