@@ -5,6 +5,14 @@
 rawm 7.0.0 — unreleased
 ======================
 
+
+Input authority cutover
+-----------------------
+
+* The legacy compiled per-window XKB path is now opt-in. Standalone rawkeys is
+  the default owner for global keyboard grabs and per-window keyboard-group
+  policy; rawm keeps only pointer-driven client manipulation.
+
 Window-manager authority membrane
 ---------------------------------
 

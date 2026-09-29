@@ -17,26 +17,30 @@ or the X window tree.
 The current tree still contains transitional responsibilities that are planned
 for extraction rather than further integration:
 
-* `rawmctl` currently mixes EWMH window operations, rawmenu composition, and XKB
-  keyboard control. It is not the authority or specification for the new rawm
-  membrane and must not be extracted verbatim. A future standalone `rawmctl`
-  repository will be implemented against the rawm control/state contract only.
+* the legacy in-tree `rawmctl` still mixes EWMH window operations and XKB
+  keyboard control. It is not the authority or specification for the rawm
+  membrane. The standalone `rawctl` repository already consumes that membrane
+  without reconstruction, and `rawwin` composes client selection through
+  `rawctl` plus `rawmenu`. The in-tree legacy utility remains only until its
+  obsolete implementation is deleted.
 * session lifecycle has been extracted to the standalone `rawsession`
   repository; rawm no longer builds, installs, tests, or configures it.
-* the built-in bar, systray, OSD, status providers, and ALSA control are future
-  `rawpanel` authority. Their current residence in rawm is transitional. rawm
-  now honors standard EWMH dock struts independently of those built-in
-  surfaces, so a future panel reserves work area as an ordinary dock rather
-  than through a rawm-specific geometry command.
-* global keyboard grabs, command dispatch, and per-window XKB policy are future
-  `rawkeys` authority. Pointer-driven move/resize remains in rawm because that
-  mechanism depends directly on admitted client geometry and pointer grabs.
+* the standalone `rawpanel` repository now owns the persistent dock, systray,
+  status providers, ALSA state/control, and panel pointer policy. The equivalent
+  built-in rawm implementations remain temporarily in this tree only for the
+  controlled live cutover and are disabled by integration policy before
+  deletion. OSD remains a separate unresolved presentation boundary and is not
+  assigned to rawpanel merely because both draw X11 surfaces.
+* global keyboard grabs, command dispatch, and per-window XKB policy belong to
+  the standalone `rawkeys` authority. The legacy compiled per-window XKB path is
+  now opt-in rather than a rawm default. Pointer-driven move/resize remains in
+  rawm because that mechanism depends directly on admitted client geometry and
+  pointer grabs.
 
-Status collection remains process-isolated while it is still resident in rawm.
-The private worker is fault containment for the current implementation, not a
-reason for status acquisition to remain part of the window-manager repository.
-When `rawpanel` is extracted, the native status provider implementation moves
-with it and is deleted from rawm.
+The standalone rawpanel implementation contains the native status worker and
+providers. The duplicate rawm status implementation is transitional dead weight
+once the external panel cutover is proven; it must be deleted rather than kept
+as a compatibility fallback.
 
 Session supervision is outside both rawm's runtime and repository authority.
 The standalone `rawsession` process supervises desktop process topology; rawm
@@ -102,10 +106,11 @@ owner is `rawkeys`. Neither rawm nor rawsession absorbs rawlock authentication
 or long-lived lifecycle authority.
 
 `rawin` and `rawkb` are migration sources, not long-term architecture. The
-current in-tree `rawmctl` absorbed parts of both, but that mixed boundary is now
-explicitly transitional: future `rawmctl` speaks only the rawm membrane, while
-XKB/global-key authority belongs to `rawkeys`. Historical repositories should
-remain provenance rather than compatibility ghosts.
+legacy in-tree `rawmctl` absorbed parts of both, but the replacement boundaries
+are now explicit: standalone `rawctl` speaks only the rawm membrane,
+`rawkeys` owns XKB/global-key policy, and `rawwin` owns the stateless interactive
+window-selection composition. Historical repositories remain provenance rather
+than compatibility ghosts.
 
 ## History and licensing
 
