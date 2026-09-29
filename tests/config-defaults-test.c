@@ -22,23 +22,17 @@ expect_string(const char *what, const char *a, const char *b)
 static void
 compare_config(const RawmConfig *a, const RawmConfig *b)
 {
-  size_t i, j;
+  size_t i;
 #define SAME(field) do { if ((a)->field != (b)->field) fail(#field " differs"); } while (0)
 
-  expect_string("font differs", a->font, b->font);
   for (i = 0; i < RAWM_COLOR_SCHEMES; ++i)
-    for (j = 0; j < RAWM_COLOR_COMPONENTS; ++j)
-      expect_string("color differs", a->colors[i][j], b->colors[i][j]);
+    expect_string("color differs", a->colors[i], b->colors[i]);
 
   SAME(border_width); SAME(snap); SAME(opacity);
-  SAME(show_osd); SAME(osd_top); SAME(osd_geometry); SAME(osd_duration_ms);
-  SAME(osd_padding); SAME(osd_offset); SAME(osd_min_width);
   SAME(dialog_center); SAME(size_hints); SAME(floating_placement);
   SAME(cascade_step); SAME(master_factor); SAME(master_count);
   SAME(gap_inner); SAME(gap_outer); SAME(smart_gaps);
 
-  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
-    expect_string("layout symbol differs", a->layout_symbols[i], b->layout_symbols[i]);
 
   SAME(tag_count);
   for (i = 0; i < a->tag_count; ++i) {

@@ -34,19 +34,14 @@ main(void)
     "behavior = { dialog_center = \"parent\"; size_hints = \"always\"; "
     "floating_placement = \"client\"; cascade_step = 48; };\n"
     "ui = {\n"
-    "  font = \"face-${ui.colors.selected.foreground}-${ui.opacity}\";\n"
     "  opacity = 0.85;\n"
     "  colors = {\n"
-    "    normal = { foreground = \"#111111\"; background = \"#222222\"; };\n"
-    "    selected = {\n"
-    "      border = \"#aabbcc\";\n"
-    "      foreground = \"${ui.colors.normal.foreground}\";\n"
-    "      background = \"${ui.colors.normal.background}\";\n"
-    "    };\n"
+    "    normal = \"#111111\";\n"
+    "    selected = \"${ui.colors.normal}\";\n"
+    "    floating = \"${ui.colors.selected}\";\n"
     "  };\n"
     "};\n"
-    "layout = { gaps = { inner = 7; outer = 11; smart = true; }; "
-    "symbols = { tile = \"g${layout.gaps.inner}-${layout.gaps.smart}\"; }; };\n";
+    "layout = { gaps = { inner = 7; outer = 11; smart = true; }; };\n";
   char path[] = "/tmp/rawm-config-reference.XXXXXX";
   RawmConfig cfg;
   int fd;
@@ -68,15 +63,10 @@ main(void)
   }
   unlink(path);
 
-  if (strcmp(cfg.font, "face-#111111-0.85"))
-    fail("recursive/scalar string reference did not resolve");
-  if (strcmp(cfg.colors[1][2], "#222222"))
-    fail("color alias did not resolve");
-  if (strcmp(cfg.colors[3][0], "#aabbcc"))
-    fail("floating color did not inherit selected border");
-  if (strcmp(cfg.layout_symbols[RAWM_LAYOUT_TILE], "g7-true"))
-    fail("layout scalar references did not resolve");
-
+  if (strcmp(cfg.colors[1], "#111111"))
+    fail("selected color alias did not resolve");
+  if (strcmp(cfg.colors[3], "#111111"))
+    fail("recursive color alias did not resolve");
   rawm_config_destroy(&cfg);
   return EXIT_SUCCESS;
 }

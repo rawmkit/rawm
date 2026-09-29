@@ -60,7 +60,6 @@ test_xvfb_start "$tmp" "800x600x24" "640x480x24" ||
 
 cat >"$tmp/rawm.conf" <<'EOC'
 ui = {
-  osd = { show = false; };
 };
 tags = {
   default = (

@@ -47,11 +47,10 @@ run_case()
 
   cat >"$tmp/rawm.conf" <<EOC
 ui = {
-  font = "monospace:size=9";
   colors = {
-    normal = { border = "#111111"; foreground = "#aaaaaa"; background = "#000000"; };
-    selected = { border = "#222222"; foreground = "#ffffff"; background = "#000000"; };
-    urgent = { border = "#ffff00"; foreground = "#ffff00"; background = "#000000"; };
+    normal = "#111111";
+    selected = "#222222";
+    urgent = "#ffff00";
   };
 };
 tags = { default = ({ name = "one"; }, { name = "video"; }); };

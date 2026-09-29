@@ -145,8 +145,6 @@
  * Runtime layout label capacity:
  * configured symbol plus rawm-owned dynamic counter suffixes.
  */
-#define MAX_LAYOUTLABEL (RAWM_LAYOUT_SYMBOL_MAX + 32u)
-
 /*********************************************************************
  * Enums & Typedefs.
  */
@@ -161,10 +159,8 @@ enum {
 
 /** Color definitions for drawing. */
 enum {
-  ColBorder, /**< Border color. */
-  ColFG,     /**< Foreground color. */
-  ColBG,     /**< Background color. */
-  ColLast    /**< Sentinel value for the last color type. */
+  ColBorder,
+  ColLast
 };
 
 /** Configured color schemes. */
@@ -288,7 +284,6 @@ typedef struct {
  * Defines a layout symbol and the corresponding arrangement function.
  */
 typedef struct {
-  const char *symbol; /**< Layout symbol (e.g., "[]="). */
   void (*arrange)(Monitor *); /**< Function to arrange clients on a monitor (e.g., tile, monocle). NULL means floating. */
 } Layout;
 
@@ -299,7 +294,6 @@ typedef struct Pertag Pertag;
  * @brief Monitor structure to manage screens.
  */
 struct Monitor {
-  char ltsymbol[MAX_LAYOUTLABEL]; /**< Dynamic layout label. */
   char tag_names[RAWM_MAX_TAGS][MAX_TAGLEN]; /**< Runtime tag labels. */
   float mfact;            /**< Master area factor [0.05..0.95] (per tag). */
   int nmaster;            /**< Number of clients in master area (per tag). */
@@ -505,12 +499,12 @@ static Window         root;
 
 static RawmConfig     config;
 static Layout         layouts[RAWM_LAYOUT_COUNT] = {
-  { NULL, tile },
-  { NULL, NULL },
-  { NULL, monocle },
-  { NULL, bstack },
-  { NULL, bstackhoriz },
-  { NULL, grid },
+  { tile },
+  { NULL },
+  { monocle },
+  { bstack },
+  { bstackhoriz },
+  { grid },
 };
 static Button        *buttons = NULL;
 static size_t         button_count = 0;
@@ -560,9 +554,6 @@ static int
 initruntimeconfig(FILE *err)
 {
   size_t i;
-
-  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
-    layouts[i].symbol = config.layout_symbols[i];
 
   buttons = calloc(config.pointer_binding_count, sizeof(*buttons));
   if (config.pointer_binding_count && !buttons)
@@ -816,9 +807,6 @@ arrangemon(Monitor *m)
   unsigned int n = 0;
   Client *c;
   unsigned int border;
-
-  snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s",
-           m->lt[m->sellt]->symbol);
 
   for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
     n++;
@@ -1084,7 +1072,7 @@ static void
 cleanup(void)
 {
   Arg a = { .ui = ~0 };
-  Layout foo = { "", NULL };
+  Layout foo = { NULL };
   Monitor *m;
 
   view(&a);
@@ -1680,7 +1668,6 @@ createmon(int idx)
   for (i = 0; i < config.tag_count; ++i)
     snprintf(m->tag_names[i], sizeof m->tag_names[i], "%s", tagcfg[i].name);
 
-  snprintf(m->ltsymbol, sizeof m->ltsymbol, "%s", m->lt[0]->symbol);
 
   if (!(m->pertag = (Pertag *)calloc(1, sizeof(Pertag))))
     die("fatal: could not malloc() %u bytes\n", sizeof(Pertag));
@@ -1946,6 +1933,7 @@ focusmon(const Arg *arg)
   unfocus(selmon->sel, true);
   selmon = m;
   focus(NULL);
+  publishcontrolstate();
   publishfeedback("monitor", selmon, selmon->num, 0);
 }
 
@@ -2867,6 +2855,7 @@ settagname(const char *name)
                "%zu", i + 1);
   }
 
+  publishcontrolstate();
   publishfeedback("view", selmon,
                   (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
 }
@@ -2941,7 +2930,7 @@ propertynotify(XEvent *e)
           if (clienturgent(c))
       {
         /* Set urgent/warning border color (from config.colors[2]) */
-        XSetWindowBorder(dpy, c->win, dc.colors[2][ColFG]);
+        XSetWindowBorder(dpy, c->win, dc.colors[SchemeUrg][ColBorder]);
       }
       break;
     default:
@@ -3494,9 +3483,6 @@ setlayout(const Arg *arg)
   selmon->lt[selmon->sellt] =
     selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
 
-  snprintf(selmon->ltsymbol, sizeof selmon->ltsymbol, "%s",
-           selmon->lt[selmon->sellt]->symbol);
-
   if (selmon->sel)
     arrange(selmon);
 
@@ -3579,11 +3565,7 @@ setup(void)
   cursor[CurMove] = XCreateFontCursor(dpy, XC_fleur);
 
   for (int i = 0; i < RAWM_COLOR_SCHEMES; ++i)
-  {
-    dc.colors[i][ColBorder] = getcolor(config.colors[i][ColBorder]);
-    dc.colors[i][ColFG] = getcolor(config.colors[i][ColFG]);
-    dc.colors[i][ColBG] = getcolor(config.colors[i][ColBG]);
-  }
+    dc.colors[i][ColBorder] = getcolor(config.colors[i]);
 
   dc.gc = XCreateGC(dpy, root, 0, NULL);
   XSetLineAttributes(dpy, dc.gc, 1, LineSolid, CapButt, JoinMiter);
@@ -3692,6 +3674,7 @@ tag(const Arg *arg)
     selmon->sel->tags = tags;
     focus(NULL);
     arrange(selmon);
+    publishcontrolstate();
     publishfeedback("tag", selmon, (int32_t)tags, 0);
   }
 }
@@ -3828,6 +3811,7 @@ toggletag(const Arg *arg)
     selmon->sel->tags = newtags;
     focus(NULL);
     arrange(selmon);
+    publishcontrolstate();
     publishfeedback("toggle-tag", selmon, (int32_t)newtags, 0);
   }
 }
@@ -3874,6 +3858,7 @@ toggleview(const Arg *arg)
 
   focus(NULL);
   arrange(selmon);
+  publishcontrolstate();
   publishfeedback("view", selmon,
                   (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
 }
@@ -4379,6 +4364,7 @@ view(const Arg *arg)
 
   focus(NULL);
   arrange(selmon);
+  publishcontrolstate();
   publishfeedback("view", selmon,
                   (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
 }

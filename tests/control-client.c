@@ -147,6 +147,32 @@ print_clients(Display *display, Window root)
 }
 
 static int
+print_feedback(Display *display, Window root)
+{
+  Window owner = control_window(display);
+  Atom property = XInternAtom(display, "_RAWM_FEEDBACK", True);
+  Atom utf8 = XInternAtom(display, "UTF8_STRING", True);
+  unsigned long count = 0;
+  int format = 0;
+  unsigned char *data;
+
+  (void)root;
+  if (owner == None || property == None || utf8 == None)
+    return EXIT_FAILURE;
+  data = get_property(display, owner, property, utf8, &format, &count);
+  if (!data || format != 8)
+  {
+    if (data)
+      XFree(data);
+    return EXIT_FAILURE;
+  }
+  if (count && fwrite(data, 1, count, stdout) != count)
+    fail("cannot write transient feedback");
+  XFree(data);
+  return EXIT_SUCCESS;
+}
+
+static int
 window_client(Display *display, Window root, const char *class_name,
               const char *title)
 {
@@ -298,6 +324,8 @@ main(int argc, char **argv)
     result = print_state(display, root);
   else if (argc == 2 && !strcmp(argv[1], "--clients"))
     result = print_clients(display, root);
+  else if (argc == 2 && !strcmp(argv[1], "--feedback"))
+    result = print_feedback(display, root);
   else if (argc == 4 && !strcmp(argv[1], "--window"))
     result = window_client(display, root, argv[2], argv[3]);
   else if (argc == 3 && !strcmp(argv[1], "--supports"))
@@ -311,7 +339,7 @@ main(int argc, char **argv)
     result = send_command(display, root, argv[2], arg0, arg1, text);
   }
   else
-    fail("usage: control-client --version | --state | --clients | "
+    fail("usage: control-client --version | --state | --clients | --feedback | "
          "--window CLASS TITLE | --supports ATOM | "
          "--send ATOM [ARG0 [ARG1 [TEXT]]]");
 

@@ -51,7 +51,6 @@ write_valid_config()
 {
   cat >"$tmp/rawm.conf" <<'EOC'
 ui = {
-  font = "monospace:size=9";
 };
 EOC
 }

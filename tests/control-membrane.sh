@@ -51,7 +51,6 @@ tab=$(printf '\t')
 
 cat >"$tmp/rawm.conf" <<'EOC'
 ui = {
-  osd = { show = false; };
 };
 tags = {
   default = (

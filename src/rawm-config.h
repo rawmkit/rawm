@@ -7,9 +7,7 @@
 
 #define RAWM_MAX_TAGS 31
 #define RAWM_TAG_NAME_MAX 22u
-#define RAWM_LAYOUT_SYMBOL_MAX 32u
 #define RAWM_COLOR_SCHEMES 4
-#define RAWM_COLOR_COMPONENTS 3
 
 typedef enum {
   RAWM_CENTER_NONE,
@@ -93,19 +91,10 @@ typedef struct {
 } RawmPointerBinding;
 
 typedef struct {
-  char *font;
-  char *colors[RAWM_COLOR_SCHEMES][RAWM_COLOR_COMPONENTS];
+  char *colors[RAWM_COLOR_SCHEMES];
   unsigned int border_width;
   unsigned int snap;
   double opacity;
-  bool show_osd;
-  bool osd_top;
-  bool osd_geometry;
-  unsigned int osd_duration_ms;
-  unsigned int osd_padding;
-  unsigned int osd_offset;
-  unsigned int osd_min_width;
-
 
   RawmCenterMode dialog_center;
   RawmSizeHintsMode size_hints;
@@ -117,7 +106,6 @@ typedef struct {
   unsigned int gap_inner;
   unsigned int gap_outer;
   bool smart_gaps;
-  char *layout_symbols[RAWM_LAYOUT_COUNT];
 
   RawmTagConfig *tags;
   size_t tag_count;

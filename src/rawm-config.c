@@ -11,7 +11,6 @@
 #define SYSCONFDIR "/etc"
 #endif
 
-enum { COLOR_BORDER, COLOR_FOREGROUND, COLOR_BACKGROUND };
 
 static void *
 xcalloc(size_t n, size_t size)
@@ -222,31 +221,15 @@ append_pointer_binding(RawmConfig *cfg, unsigned int modifiers,
 void
 rawm_config_init(RawmConfig *cfg)
 {
-  static const char *scheme_defaults[RAWM_COLOR_SCHEMES][3] = {
-    { "#cccccc", "#000000", "#cccccc" },
-    { "#0066ff", "#ffffff", "#0066ff" },
-    { "#0066ff", "#0066ff", "#ffffff" },
-    { "${ui.colors.selected.border}",
-      "${ui.colors.selected.foreground}",
-      "${ui.colors.selected.background}" }
+  static const char *scheme_defaults[RAWM_COLOR_SCHEMES] = {
+    "#cccccc", "#0066ff", "#0066ff", "${ui.colors.selected}"
   };
-  static const char *symbols[RAWM_LAYOUT_COUNT] = {
-    "[]=", "<1/1>", "[1/1]", "TTT", "===", "###"
-  };
-  size_t i, j;
+  size_t i;
 
   memset(cfg, 0, sizeof(*cfg));
-  cfg->font = xstrdup("monospace:size=9");
   cfg->border_width = 2;
   cfg->snap = 32;
   cfg->opacity = 1.0;
-  cfg->show_osd = false;
-  cfg->osd_top = false;
-  cfg->osd_geometry = false;
-  cfg->osd_duration_ms = 800;
-  cfg->osd_padding = 10;
-  cfg->osd_offset = 24;
-  cfg->osd_min_width = 0;
   cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->size_hints = RAWM_SIZE_HINTS_FLOATING;
   cfg->floating_placement = RAWM_FLOATING_PLACEMENT_CASCADE;
@@ -258,10 +241,7 @@ rawm_config_init(RawmConfig *cfg)
   cfg->smart_gaps = false;
 
   for (i = 0; i < RAWM_COLOR_SCHEMES; ++i)
-    for (j = 0; j < 3; ++j)
-      cfg->colors[i][j] = xstrdup(scheme_defaults[i][j]);
-  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
-    cfg->layout_symbols[i] = xstrdup(symbols[i]);
+    cfg->colors[i] = xstrdup(scheme_defaults[i]);
 
   cfg->tag_count = 9;
   cfg->tags = xcalloc(cfg->tag_count, sizeof(*cfg->tags));
@@ -280,13 +260,9 @@ rawm_config_init(RawmConfig *cfg)
 void
 rawm_config_destroy(RawmConfig *cfg)
 {
-  size_t i, j;
-  free(cfg->font);
+  size_t i;
   for (i = 0; i < RAWM_COLOR_SCHEMES; ++i)
-    for (j = 0; j < RAWM_COLOR_COMPONENTS; ++j)
-      free(cfg->colors[i][j]);
-  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
-    free(cfg->layout_symbols[i]);
+    free(cfg->colors[i]);
   free_tags(cfg->tags, cfg->tag_count);
   free_monitor_tags(cfg->monitor_tags, cfg->monitor_tag_count);
   free_rules(cfg->rules, cfg->rule_count);
@@ -430,74 +406,26 @@ static int
 parse_color_scheme(FILE *err, RawmConfig *cfg, const config_setting_t *colors,
                    const char *name, size_t index)
 {
-  static const char *const allowed[] = { "border", "foreground", "background" };
-  config_setting_t *group = config_setting_get_member(colors, name);
-  if (!group)
-    return 0;
-  if (validate_members(err, group, allowed, 3) < 0)
-    return -1;
-  if (read_string(err, group, "border", &cfg->colors[index][COLOR_BORDER]) < 0 ||
-      read_string(err, group, "foreground", &cfg->colors[index][COLOR_FOREGROUND]) < 0 ||
-      read_string(err, group, "background", &cfg->colors[index][COLOR_BACKGROUND]) < 0)
-    return -1;
-  return 0;
+  return read_string(err, colors, name, &cfg->colors[index]);
 }
 
 static int
 parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 {
   static const char *const allowed[] = {
-    "font", "border_width", "snap", "opacity", "osd", "colors"
+    "border_width", "snap", "opacity", "colors"
   };
   static const char *const color_allowed[] = {
     "normal", "selected", "urgent", "floating"
   };
   config_setting_t *group;
 
-  if (validate_members(err, ui, allowed, 6) < 0)
+  if (validate_members(err, ui, allowed, 4) < 0)
     return -1;
-  if (read_string(err, ui, "font", &cfg->font) < 0 ||
-      read_uint_range(err, ui, "border_width", 0, 64, &cfg->border_width) < 0 ||
+  if (read_uint_range(err, ui, "border_width", 0, 64, &cfg->border_width) < 0 ||
       read_uint_range(err, ui, "snap", 0, 4096, &cfg->snap) < 0 ||
       read_double_range(err, ui, "opacity", 0.0, 1.0, &cfg->opacity) < 0)
     return -1;
-
-  group = config_setting_get_member(ui, "osd");
-  if (group) {
-    static const char *const osd_allowed[] = {
-      "show", "position", "geometry", "duration_ms", "padding", "offset",
-      "min_width"
-    };
-    config_setting_t *position;
-    const char *value;
-
-    if (validate_members(err, group, osd_allowed, 7) < 0 ||
-        read_bool(err, group, "show", &cfg->show_osd) < 0 ||
-        read_bool(err, group, "geometry", &cfg->osd_geometry) < 0 ||
-        read_uint_range(err, group, "duration_ms", 100, 5000,
-                        &cfg->osd_duration_ms) < 0 ||
-        read_uint_range(err, group, "padding", 0, 64,
-                        &cfg->osd_padding) < 0 ||
-        read_uint_range(err, group, "offset", 0, 512,
-                        &cfg->osd_offset) < 0 ||
-        read_uint_range(err, group, "min_width", 0, 4096,
-                        &cfg->osd_min_width) < 0)
-      return -1;
-
-    position = config_setting_get_member(group, "position");
-    if (position) {
-      if (config_setting_type(position) != CONFIG_TYPE_STRING)
-        return cfg_error(err, position, "osd.position must be a string",
-                         "osd.position");
-      value = config_setting_get_string(position);
-      if (!strcmp(value, "top"))
-        cfg->osd_top = true;
-      else if (!strcmp(value, "bottom"))
-        cfg->osd_top = false;
-      else
-        return cfg_error(err, position, "invalid osd position '%s'", value);
-    }
-  }
 
   group = config_setting_get_member(ui, "colors");
   if (group) {
@@ -561,20 +489,15 @@ static int
 parse_layout(FILE *err, RawmConfig *cfg, const config_setting_t *group)
 {
   static const char *const allowed[] = {
-    "master_factor", "master_count", "gaps", "symbols"
+    "master_factor", "master_count", "gaps"
   };
   static const char *const gap_allowed[] = { "inner", "outer", "smart" };
-  static const char *const symbol_allowed[] = {
-    "tile", "floating", "monocle", "bstack", "bstack_horizontal", "grid"
-  };
   config_setting_t *gaps;
-  config_setting_t *symbols;
   int inner = (int)cfg->gap_inner;
   int outer = (int)cfg->gap_outer;
   int count = cfg->master_count;
-  int i;
 
-  if (validate_members(err, group, allowed, 4) < 0 ||
+  if (validate_members(err, group, allowed, 3) < 0 ||
       read_double_range(err, group, "master_factor", 0.05, 0.95,
                         &cfg->master_factor) < 0 ||
       read_int_range(err, group, "master_count", 0, 64, &count) < 0)
@@ -593,16 +516,6 @@ parse_layout(FILE *err, RawmConfig *cfg, const config_setting_t *group)
     cfg->gap_inner = (unsigned int)inner;
     cfg->gap_outer = (unsigned int)outer;
   }
-
-  symbols = config_setting_get_member(group, "symbols");
-  if (!symbols)
-    return 0;
-  if (validate_members(err, symbols, symbol_allowed, RAWM_LAYOUT_COUNT) < 0)
-    return -1;
-  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
-    if (read_string(err, symbols, rawm_layout_name((RawmLayoutId)i),
-                    &cfg->layout_symbols[i]) < 0)
-      return -1;
   return 0;
 }
 
@@ -1161,20 +1074,6 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%u", cfg->snap);
   else if (!strcmp(path, "ui.opacity"))
     snprintf(buf, buflen, "%.15g", cfg->opacity);
-  else if (!strcmp(path, "ui.osd.show"))
-    snprintf(buf, buflen, "%s", cfg->show_osd ? "true" : "false");
-  else if (!strcmp(path, "ui.osd.position"))
-    snprintf(buf, buflen, "%s", cfg->osd_top ? "top" : "bottom");
-  else if (!strcmp(path, "ui.osd.geometry"))
-    snprintf(buf, buflen, "%s", cfg->osd_geometry ? "true" : "false");
-  else if (!strcmp(path, "ui.osd.duration_ms"))
-    snprintf(buf, buflen, "%u", cfg->osd_duration_ms);
-  else if (!strcmp(path, "ui.osd.padding"))
-    snprintf(buf, buflen, "%u", cfg->osd_padding);
-  else if (!strcmp(path, "ui.osd.offset"))
-    snprintf(buf, buflen, "%u", cfg->osd_offset);
-  else if (!strcmp(path, "ui.osd.min_width"))
-    snprintf(buf, buflen, "%u", cfg->osd_min_width);
   else if (!strcmp(path, "behavior.dialog_center"))
     snprintf(buf, buflen, "%s", center_mode_name(cfg->dialog_center));
   else if (!strcmp(path, "behavior.size_hints"))
@@ -1338,35 +1237,20 @@ resolve_config_references(RawmConfig *cfg, FILE *err)
   static const char *const color_names[] = {
     "normal", "selected", "urgent", "floating"
   };
-  static const char *const component_names[] = {
-    "border", "foreground", "background"
-  };
-  RawmStringReference strings[1 + RAWM_COLOR_SCHEMES * RAWM_COLOR_COMPONENTS +
-                              RAWM_LAYOUT_COUNT];
-  char color_paths[RAWM_COLOR_SCHEMES][RAWM_COLOR_COMPONENTS][64];
-  char layout_paths[RAWM_LAYOUT_COUNT][64];
+  RawmStringReference strings[RAWM_COLOR_SCHEMES];
+  char color_paths[RAWM_COLOR_SCHEMES][64];
   RawmReferenceResolver resolver;
-  size_t n = 0, i, j;
+  size_t n = 0, i;
 
   memset(&resolver, 0, sizeof(resolver));
   resolver.cfg = cfg;
   resolver.strings = strings;
   resolver.err = err;
 
-  strings[n++] = (RawmStringReference){ "ui.font", &cfg->font, 0 };
   for (i = 0; i < RAWM_COLOR_SCHEMES; ++i) {
-    for (j = 0; j < RAWM_COLOR_COMPONENTS; ++j) {
-      snprintf(color_paths[i][j], sizeof(color_paths[i][j]),
-               "ui.colors.%s.%s", color_names[i], component_names[j]);
-      strings[n++] = (RawmStringReference){ color_paths[i][j],
-                                            &cfg->colors[i][j], 0 };
-    }
-  }
-  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i) {
-    snprintf(layout_paths[i], sizeof(layout_paths[i]), "layout.symbols.%s",
-             rawm_layout_name((RawmLayoutId)i));
-    strings[n++] = (RawmStringReference){ layout_paths[i],
-                                          &cfg->layout_symbols[i], 0 };
+    snprintf(color_paths[i], sizeof(color_paths[i]),
+             "ui.colors.%s", color_names[i]);
+    strings[n++] = (RawmStringReference){ color_paths[i], &cfg->colors[i], 0 };
   }
   resolver.string_count = n;
 
@@ -1435,10 +1319,6 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
                           ? 0x7fffffffu
                           : ((1u << cfg->tag_count) - 1u);
 
-  if (!cfg->font || !*cfg->font) {
-    fputs("rawm: configuration error: ui.font must not be empty\n", err);
-    return -1;
-  }
   if (!size_hints_mode_name(cfg->size_hints)) {
     fputs("rawm: configuration error: invalid size-hint policy\n", err);
     return -1;
@@ -1446,15 +1326,6 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
   if (!floating_placement_name(cfg->floating_placement)) {
     fputs("rawm: configuration error: invalid floating-placement policy\n", err);
     return -1;
-  }
-  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i) {
-    if (!cfg->layout_symbols[i] ||
-        strlen(cfg->layout_symbols[i]) > RAWM_LAYOUT_SYMBOL_MAX) {
-      fprintf(err,
-              "rawm: configuration error: layout symbol '%s' exceeds %u bytes\n",
-              rawm_layout_name((RawmLayoutId)i), RAWM_LAYOUT_SYMBOL_MAX);
-      return -1;
-    }
   }
   for (i = 0; i < cfg->monitor_tag_count; ++i) {
     if (cfg->monitor_tags[i].tag_count != cfg->tag_count) {

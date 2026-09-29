@@ -30,10 +30,7 @@ expect_fail()
 expect_ok config/rawm.conf
 
 cat >"$tmp/valid.conf" <<'EOC'
-ui = {
-  font = "monospace:size=11";
-  osd = { show = true; geometry = true; duration_ms = 650; };
-};
+ui = { border_width = 3; snap = 48; opacity = 0.9; };
 behavior = { dialog_center = "parent"; size_hints = "always"; floating_placement = "client"; };
 layout = { master_factor = 0.60; gaps = { inner = 8; outer = 12; smart = true; }; };
 tags = { default = (
@@ -122,7 +119,6 @@ EOC
 expect_fail "$tmp/rule-tag.conf"
 
 cat >"$tmp/label-limits.conf" <<'EOC'
-layout = { symbols = { tile = "12345678901234567890123456789012"; }; };
 tags = { default = ({ name = "abcdefghijklmnopqrstuv"; layout = "tile"; }); };
 EOC
 expect_ok "$tmp/label-limits.conf"
@@ -134,65 +130,41 @@ expect_fail "$tmp/tag-name-too-long.conf"
 grep -q "tag name is too long (maximum 22 bytes)" "$tmp/stderr" ||
   fail "tag-name byte-limit diagnostic missing"
 
-cat >"$tmp/layout-symbol-too-long.conf" <<'EOC'
-layout = { symbols = { tile = "123456789012345678901234567890123"; }; };
+for removed in font osd; do
+  cat >"$tmp/removed-ui.conf" <<EOC
+ui = { $removed = "removed"; };
 EOC
-expect_fail "$tmp/layout-symbol-too-long.conf"
-grep -q "layout symbol 'tile' exceeds 32 bytes" "$tmp/stderr" ||
-  fail "layout-symbol byte-limit diagnostic missing"
+  expect_fail "$tmp/removed-ui.conf"
+  grep -q "unknown setting '$removed'" "$tmp/stderr" ||
+    fail "ui.$removed presentation authority was not rejected"
+done
 
-cat >"$tmp/layout-symbol-reference-too-long.conf" <<'EOC'
-ui = { font = "123456789012345678901234567890123"; };
-layout = { symbols = { tile = "${ui.font}"; }; };
+cat >"$tmp/layout-symbols.conf" <<'EOC'
+layout = { symbols = {}; };
 EOC
-expect_fail "$tmp/layout-symbol-reference-too-long.conf"
-grep -q "layout symbol 'tile' exceeds 32 bytes" "$tmp/stderr" ||
-  fail "expanded layout-symbol byte-limit diagnostic missing"
+expect_fail "$tmp/layout-symbols.conf"
+grep -q "unknown setting 'symbols'" "$tmp/stderr" ||
+  fail "layout symbol presentation authority was not rejected"
 
 cat >"$tmp/ui-range.conf" <<'EOC'
 ui = { border_width = 65; };
 EOC
 expect_fail "$tmp/ui-range.conf"
-
 grep -q "border_width" "$tmp/stderr" || fail "border-width range diagnostic missing"
 
 cat >"$tmp/ui-opacity.conf" <<'EOC'
 ui = { opacity = 1.1; };
 EOC
 expect_fail "$tmp/ui-opacity.conf"
-
 grep -q "opacity" "$tmp/stderr" || fail "opacity range diagnostic missing"
 
-cat >"$tmp/ui-font.conf" <<'EOC'
-ui = { font = ""; };
+cat >"$tmp/color-type.conf" <<'EOC'
+ui = { colors = { normal = { border = "#ffffff"; }; }; };
 EOC
-expect_fail "$tmp/ui-font.conf"
-grep -q "ui.font must not be empty" "$tmp/stderr" || fail "empty-font diagnostic missing"
-
-cat >"$tmp/osd-type.conf" <<'EOC'
-ui = { osd = { geometry = "yes"; }; };
-EOC
-expect_fail "$tmp/osd-type.conf"
-grep -q "geometry" "$tmp/stderr" || fail "osd geometry type diagnostic missing"
-
-cat >"$tmp/osd-position.conf" <<'EOC'
-ui = { osd = { position = "middle"; }; };
-EOC
-expect_fail "$tmp/osd-position.conf"
-grep -q "invalid osd position" "$tmp/stderr" || fail "osd position diagnostic missing"
-
-for spec in duration_ms:99 padding:65 offset:513 min_width:4097; do
-  name=${spec%%:*}
-  value=${spec#*:}
-  cat >"$tmp/osd-range.conf" <<EOC
-ui = { osd = { $name = $value; }; };
-EOC
-  expect_fail "$tmp/osd-range.conf"
-  grep -q "$name" "$tmp/stderr" || fail "osd $name range diagnostic missing"
-done
+expect_fail "$tmp/color-type.conf"
 
 cat >"$tmp/color-error.conf" <<'EOC'
-ui = { colors = { error = { border = "#ff0000"; }; }; };
+ui = { colors = { error = "#ff0000"; }; };
 EOC
 expect_fail "$tmp/color-error.conf"
 grep -q "unknown setting 'error'" "$tmp/stderr" || fail "obsolete error color was accepted"
@@ -328,40 +300,37 @@ expect_fail "$tmp/unknown.conf"
 grep -q "unknown setting 'border_wdith'" "$tmp/stderr" || fail "unknown ui member diagnostic missing"
 
 cat >"$tmp/reference.conf" <<'EOC'
-ui = {
-  font = "${ui.colors.normal.foreground}";
-  colors = {
-    normal = { foreground = "monospace:size=12"; };
-    selected = { background = "${ui.colors.normal.background}"; };
-  };
-};
-layout = { symbols = { tile = "g${layout.gaps.inner}"; }; };
+ui = { colors = {
+  normal = "#112233";
+  selected = "${ui.colors.normal}";
+  floating = "${ui.colors.selected}";
+}; };
 EOC
 expect_ok "$tmp/reference.conf"
 
 cat >"$tmp/reference-unknown.conf" <<'EOC'
-ui = { font = "${ui.does_not_exist}"; };
+ui = { colors = { selected = "${ui.colors.does_not_exist}"; }; };
 EOC
 expect_fail "$tmp/reference-unknown.conf"
 grep -q "unknown reference" "$tmp/stderr" || fail "unknown reference diagnostic missing"
 
 cat >"$tmp/reference-cycle.conf" <<'EOC'
 ui = { colors = {
-  normal = { foreground = "${ui.colors.selected.foreground}"; };
-  selected = { foreground = "${ui.colors.normal.foreground}"; };
+  normal = "${ui.colors.selected}";
+  selected = "${ui.colors.normal}";
 }; };
 EOC
 expect_fail "$tmp/reference-cycle.conf"
 grep -q "cyclic reference" "$tmp/stderr" || fail "reference cycle diagnostic missing"
 
 cat >"$tmp/reference-unclosed.conf" <<'EOC'
-ui = { font = "${ui.colors.normal.foreground"; };
+ui = { colors = { normal = "${ui.colors.selected"; }; };
 EOC
 expect_fail "$tmp/reference-unclosed.conf"
 grep -q "unterminated reference" "$tmp/stderr" || fail "unterminated reference diagnostic missing"
 
 cat >"$tmp/include-body.conf" <<'EOC'
-ui = { font = "monospace:size=10"; };
+ui = { snap = 64; };
 EOC
 cat >"$tmp/include.conf" <<'EOC'
 @include "include-body.conf"
