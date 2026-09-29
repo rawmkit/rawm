@@ -15,7 +15,7 @@ option(
 option(
   'per_window_keyboard_layout',
   type: 'boolean',
-  value: true,
+  value: false,
   description: 'Enable per-window XKB keyboard layout tracking',
 )
 
