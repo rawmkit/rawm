@@ -384,6 +384,8 @@ static void           handlecontrolcommand(const RawmControlRequest *request);
 static int            layoutid(const Layout *layout);
 static RawmTagState   monitortagstate(const Monitor *m);
 static void           publishcontrolstate(void);
+static void           publishfeedback(const char *event, const Monitor *m,
+                                      int32_t arg0, int32_t arg1);
 static void           publishcontrolclients(void);
 static void           configure(Client *c);
 static void           configurenotify(XEvent *e);
@@ -1297,6 +1299,30 @@ monitortagstate(const Monitor *m)
 }
 
 static void
+publishfeedback(const char *event, const Monitor *m,
+                int32_t arg0, int32_t arg1)
+{
+  char record[192];
+  int length;
+
+  if (!control.display || !event || !*event || !m)
+    return;
+
+  feedback_serial++;
+  length = snprintf(record, sizeof record,
+                    "rawm-feedback-v1\t%llu\t%s\t%d\t%d\t%d\n",
+                    (unsigned long long)feedback_serial, event, m->num,
+                    arg0, arg1);
+  if (length < 0 || (size_t)length >= sizeof record)
+  {
+    fputs("rawm: transient feedback record is too long\n", stderr);
+    return;
+  }
+
+  (void)rawm_control_publish_feedback(&control, record, (size_t)length, stderr);
+}
+
+static void
 publishcontrolstate(void)
 {
   char *snapshot = NULL;
@@ -2187,6 +2213,7 @@ focusmon(const Arg *arg)
   unfocus(selmon->sel, true);
   selmon = m;
   focus(NULL);
+  publishfeedback("monitor", selmon, selmon->num, 0);
   osdshowmonitor(selmon);
 }
 
@@ -2728,6 +2755,7 @@ incnmaster(const Arg *arg)
       MAX(selmon->nmaster + arg->i, 0);
 
   arrange(selmon);
+  publishfeedback("master-count", selmon, selmon->nmaster, 0);
   osdshowf(selmon, SchemeSel, "master %d", selmon->nmaster);
 }
 
@@ -3123,6 +3151,8 @@ movemouse(__attribute__((unused)) const Arg *arg)
         if (c->x != oldx || c->y != oldy)
         {
           moved = true;
+          publishfeedback("move", c->mon, c->x - c->mon->wx,
+                          c->y - c->mon->wy);
           osdshowgeometry(c, false, false);
         }
       }
@@ -3141,6 +3171,8 @@ movemouse(__attribute__((unused)) const Arg *arg)
   }
 
   if (moved)
+    publishfeedback("move", c->mon, c->x - c->mon->wx,
+                    c->y - c->mon->wy);
     osdshowgeometry(c, false, true);
 }
 
@@ -3170,6 +3202,8 @@ settagname(const char *name)
                "%zu", i + 1);
   }
 
+  publishfeedback("view", selmon,
+                  (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
   osdshowview(selmon);
 }
 
@@ -3780,6 +3814,7 @@ resizemouse(__attribute__((unused)) const Arg *arg)
         if (c->w != oldw || c->h != oldh)
         {
           resized = true;
+          publishfeedback("resize", c->mon, c->w, c->h);
           osdshowgeometry(c, true, false);
         }
       }
@@ -3811,6 +3846,7 @@ resizemouse(__attribute__((unused)) const Arg *arg)
   }
 
   if (resized)
+    publishfeedback("resize", c->mon, c->w, c->h);
     osdshowgeometry(c, true, true);
 }
 
@@ -4077,6 +4113,7 @@ setlayout(const Arg *arg)
   if (selmon->sel)
     arrange(selmon);
 
+  publishfeedback("layout", selmon, layoutid(selmon->lt[selmon->sellt]), 0);
   osdshowf(selmon, SchemeSel, "%s", selmon->lt[selmon->sellt]->symbol);
 }
 
@@ -4098,6 +4135,8 @@ setmfact(const Arg *arg)
 
   selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag] = f;
   arrange(selmon);
+  publishfeedback("master-factor", selmon,
+                  (int32_t)(selmon->mfact * RAWM_CONTROL_FACTOR_SCALE), 0);
   osdshowf(selmon, SchemeSel, "master %d%%", (int)(selmon->mfact * 100.0f + 0.5f));
 }
 
@@ -4270,6 +4309,7 @@ tag(const Arg *arg)
     selmon->sel->tags = tags;
     focus(NULL);
     arrange(selmon);
+    publishfeedback("tag", selmon, (int32_t)tags, 0);
     osdshowtags(selmon, "send", tags);
   }
 }
@@ -4289,6 +4329,7 @@ tagmon(const Arg *arg)
     return;
 
   sendmon(c, target);
+  publishfeedback("tag-monitor", target, target->num, 0);
   osdshowf(target, SchemeSel, "send  ·  monitor %d", target->num);
 }
 
@@ -4415,6 +4456,7 @@ togglefloating(const Arg *arg)
   arrange(c->mon);
 
   if (arg)
+    publishfeedback("floating", c->mon, clientiselevated(c) ? 1 : 0, 0);
     osdshowf(c->mon,
              clientiselevated(c) ? SchemeFloating : SchemeSel,
              "%s", clientiselevated(c) ? "float" : "tile");
@@ -4428,6 +4470,7 @@ togglefullscr(__attribute__((unused)) const Arg *arg)
     Client *c = selmon->sel;
 
     setfullscreen(c, !c->isfullscreen);
+    publishfeedback("fullscreen", c->mon, c->isfullscreen ? 1 : 0, 0);
     osdshowf(c->mon, SchemeSel, "%s",
              c->isfullscreen ? "fullscreen" : "windowed");
   }
@@ -4446,6 +4489,7 @@ toggletag(const Arg *arg)
     selmon->sel->tags = newtags;
     focus(NULL);
     arrange(selmon);
+    publishfeedback("toggle-tag", selmon, (int32_t)newtags, 0);
     osdshowtags(selmon, "tags", newtags);
   }
 }
@@ -4492,6 +4536,8 @@ toggleview(const Arg *arg)
 
   focus(NULL);
   arrange(selmon);
+  publishfeedback("view", selmon,
+                  (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
   osdshowview(selmon);
 }
 
@@ -4996,6 +5042,8 @@ view(const Arg *arg)
 
   focus(NULL);
   arrange(selmon);
+  publishfeedback("view", selmon,
+                  (int32_t)(selmon->tagset[selmon->seltags] & TAGMASK), 0);
   osdshowview(selmon);
 }
 
