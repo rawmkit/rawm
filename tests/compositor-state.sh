@@ -192,7 +192,7 @@ case "$(state "$b_win")" in
   *) fail "second forward layout cycle did not select monocle: $(state "$b_win")" ;;
 esac
 
-command _RAWM_CMD_TOGGLE_FLOATING0
+command _RAWM_CMD_CYCLE_LAYOUT -1
 case "$(state "$b_win")" in
   *"layout=floating "*) ;;
   *) fail "backward layout cycle did not return to floating: $(state "$b_win")" ;;
@@ -233,23 +233,23 @@ after_resize=$("$client" --client-geometry "$b_win")
   fail "interactive resize did not map geometry osd"
 
 sleep 0.35
-command _RAWM_CMD_TOGGLE_FLOATING1
+command _RAWM_CMD_CYCLE_VIEW 1
 [ "$(state "$a_win")" = "floating=0 selected=1 layout=tile monitor=0" ] ||
   fail "forward view cycle did not wrap tag two to tag one: $(state "$a_win")"
 [ "$("$client" --surface-state osd)" = "mapped" ] ||
   fail "forward view cycle did not map osd"
 
-command _RAWM_CMD_TOGGLE_FLOATING2
+command _RAWM_CMD_CYCLE_VIEW -1
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=floating monitor=0" ] ||
   fail "backward view cycle did not wrap tag one to tag two: $(state "$b_win")"
 
 command _RAWM_CMD_VIEW -1
-command _RAWM_CMD_TOGGLE_FLOATING1
+command _RAWM_CMD_CYCLE_VIEW 1
 [ "$(state "$a_win")" = "floating=0 selected=1 layout=tile monitor=0" ] ||
   fail "forward cycle from all-tags view did not select tag one: $(state "$a_win")"
 
 command _RAWM_CMD_VIEW -1
-command _RAWM_CMD_TOGGLE_FLOATING2
+command _RAWM_CMD_CYCLE_VIEW -1
 [ "$(state "$b_win")" = "floating=1 selected=1 layout=floating monitor=0" ] ||
   fail "backward cycle from all-tags view did not select final tag: $(state "$b_win")"
 

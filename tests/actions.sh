@@ -172,7 +172,7 @@ set -- $(geom "$a_win")
 set -- $(geom "$b_win")
 [ "$1" -lt 0 ] || fail "tag-one-only client B remained visible on tag two"
 
-command _RAWM_CMD_FOCUS_STACK 10
+command _RAWM_CMD_VIEW 1
 set -- $(geom "$a_win")
 [ "$1" -ge 0 ] || fail "client A did not return visibly to tag one"
 set -- $(geom "$b_win")
@@ -182,7 +182,7 @@ selected "$a_win" || fail "client A lost selection before fullscreen test"
 # Fullscreen is temporary elevation and must restore the previous tiled state
 # and rectangle.
 before_fullscreen=$(geom "$a_win")
-command _RAWM_CMD_FOCUS_STACK 11
+command _RAWM_CMD_TOGGLE_FULLSCREEN
 case "$(state "$a_win")" in
   "floating=1 selected=1 layout=tile monitor=0") ;;
   *) fail "toggle_fullscreen did not expose elevated selected state: $(state "$a_win")" ;;
@@ -192,7 +192,7 @@ set -- $(geom "$a_win")
 [ "$3" -eq 800 ] && [ "$4" -eq 600 ] ||
   fail "fullscreen geometry is not the monitor rectangle: $(geom "$a_win")"
 
-command _RAWM_CMD_FOCUS_STACK 11
+command _RAWM_CMD_TOGGLE_FULLSCREEN
 case "$(state "$a_win")" in
   "floating=0 selected=1 layout=tile monitor=0") ;;
   *) fail "leaving fullscreen did not restore tiled state: $(state "$a_win")" ;;
@@ -202,7 +202,7 @@ esac
 
 # kill_client must use the advertised WM_DELETE_WINDOW protocol. The helper
 # destroys its own window and exits cleanly; rawm then selects the survivor.
-command _RAWM_CMD_FOCUS_STACK 12
+command _RAWM_CMD_KILL_CLIENT
 n=0
 while kill -0 "$a_pid" 2>/dev/null; do
   n=$((n + 1))
