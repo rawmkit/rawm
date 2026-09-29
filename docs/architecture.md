@@ -24,7 +24,10 @@ for extraction rather than further integration:
 * session lifecycle has been extracted to the standalone `rawsession`
   repository; rawm no longer builds, installs, tests, or configures it.
 * the built-in bar, systray, OSD, status providers, and ALSA control are future
-  `rawpanel` authority. Their current residence in rawm is transitional.
+  `rawpanel` authority. Their current residence in rawm is transitional. rawm
+  now honors standard EWMH dock struts independently of those built-in
+  surfaces, so a future panel reserves work area as an ordinary dock rather
+  than through a rawm-specific geometry command.
 * global keyboard grabs, command dispatch, and per-window XKB policy are future
   `rawkeys` authority. Pointer-driven move/resize remains in rawm because that
   mechanism depends directly on admitted client geometry and pointer grabs.
@@ -38,6 +41,20 @@ with it and is deleted from rawm.
 Session supervision is outside both rawm's runtime and repository authority.
 The standalone `rawsession` process supervises desktop process topology; rawm
 does not start or restart independent desktop sidecars.
+
+## Dock/work-area boundary
+
+Usable monitor geometry is window-manager authority, but panel geometry is not.
+External desktop chrome publishes `_NET_WM_WINDOW_TYPE_DOCK` together with
+`_NET_WM_STRUT_PARTIAL` (or legacy `_NET_WM_STRUT`). rawm observes those
+standard reservations and derives its work areas from them. It does not require
+a panel-specific command, socket, PID, or configuration reference.
+
+This boundary is deliberately generic: rawm must react correctly to any
+standards-conforming dock, whether or not it is rawpanel. Mapping, unmapping,
+destroying, or changing a dock reservation recomputes work areas and rearranges
+tiled clients. Full monitor geometry remains authoritative for fullscreen
+clients.
 
 ## Private libraries
 

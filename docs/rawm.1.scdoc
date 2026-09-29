@@ -229,6 +229,22 @@ The client properties are removed when rawm releases a surviving client.
 Private rawm protocol atoms are intentionally not advertised through
 *\_NET\_SUPPORTED*, which is reserved for EWMH atoms.
 
+## External docks and work area
+
+rawm treats windows advertising *\_NET\_WM\_WINDOW\_TYPE\_DOCK* as desktop
+chrome rather than managed clients. A mapped dock that publishes
+*\_NET\_WM\_STRUT\_PARTIAL* reserves the corresponding root-screen edge;
+legacy *\_NET\_WM\_STRUT* is also accepted.
+
+Reservations are observed when docks map or unmap, when the strut or window
+type property changes, and when a dock disappears. rawm then recomputes each
+monitor's usable work area and rearranges tiled clients. Fullscreen geometry
+continues to use the complete monitor rectangle.
+
+The interface is intentionally standard EWMH rather than a rawm-specific panel
+control path. A standalone panel can therefore appear, disappear, or restart
+without becoming part of rawm's lifecycle authority.
+
 ## Keyboard commands
 
 These are the built-in bindings. An *input.keys* list in *rawm.conf*(5)
