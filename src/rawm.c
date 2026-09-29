@@ -48,6 +48,7 @@
 #include <X11/Xft/Xft.h>
 
 #include "rawm-config.h"
+#include "rawm-control.h"
 #include "status.h"
 #include "status/worker.h"
 
@@ -482,6 +483,10 @@ static int            capturecommand(char *const argv[], char *buf,
 static uint32_t       clientmessagecard32(const XClientMessageEvent *message,
                                           int index);
 static void           clientmessage(XEvent *e);
+static bool           controlargumenttag(int32_t selector, Arg *arg, bool allow_previous);
+static void           handlecontrolcommand(const RawmControlRequest *request);
+static int            layoutid(const Layout *layout);
+static void           publishcontrolstate(void);
 static void           configure(Client *c);
 static void           configurenotify(XEvent *e);
 static void           configurerequest(XEvent *e);
@@ -583,6 +588,7 @@ static void           motionnotify(XEvent *e);
 static uint64_t       monotonicms(void);
 static void           movemouse(const Arg *arg);
 static void           nametag(const Arg *arg);
+static void           settagname(const char *name);
 static void           osdcreate(void);
 static void           osddraw(void);
 static void           osdexpire(void);
@@ -683,6 +689,7 @@ static unsigned long systrayorientation = _NET_SYSTEM_TRAY_ORIENTATION_HORZ;
 #endif /* SYSTRAY */
 
 static const char     broken[] = "broken";
+static RawmControl    control = {0};
 static RawmStatusData statusdata = {0};
 static RawmStatusWorker statusworker = { .fd = -1, .pid = -1 };
 static uint64_t statusworker_started_at;
@@ -1777,6 +1784,7 @@ cleanup(void)
   XSync(dpy, false);
   XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
   XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+  rawm_control_destroy(&control);
   freestatus(&statusdata);
   if (signalpipe[0] >= 0)
     close(signalpipe[0]);
@@ -1837,11 +1845,259 @@ clientmessagecard32(const XClientMessageEvent *message, int index)
   return (uint32_t)message->data.l[index];
 }
 
+static bool
+controlargumenttag(int32_t selector, Arg *arg, bool allow_previous)
+{
+  if (!arg)
+    return false;
+
+  if (selector == -1)
+    arg->ui = ~0u;
+  else if (selector == 0 && allow_previous)
+    arg->ui = 0u;
+  else if (selector > 0 && (size_t)selector <= config.tag_count)
+    arg->ui = 1u << ((unsigned int)selector - 1u);
+  else
+    return false;
+
+  return true;
+}
+
+static int
+layoutid(const Layout *layout)
+{
+  int i;
+
+  for (i = 0; i < RAWM_LAYOUT_COUNT; ++i)
+  {
+    if (layout == &layouts[i])
+      return i;
+  }
+  return -1;
+}
+
+static void
+controlwriteescaped(FILE *stream, const char *text)
+{
+  const unsigned char *p = (const unsigned char *)text;
+
+  for (; p && *p; ++p)
+  {
+    if (*p == '%' || *p == '\t' || *p == '\n' || *p == '\r')
+      fprintf(stream, "%%%02X", *p);
+    else
+      fputc(*p, stream);
+  }
+}
+
+static void
+publishcontrolstate(void)
+{
+  char *snapshot = NULL;
+  size_t length = 0;
+  FILE *stream;
+  Monitor *m;
+
+  if (!control.display)
+    return;
+
+  stream = open_memstream(&snapshot, &length);
+  if (!stream)
+  {
+    fputs("rawm: could not allocate control-state stream\n", stderr);
+    return;
+  }
+
+  fprintf(stream, "rawm-state-v1\n");
+  fprintf(stream, "tag-count\t%zu\n", config.tag_count);
+  fprintf(stream, "selected-monitor\t%d\n", selmon ? selmon->num : -1);
+
+  for (m = mons; m; m = m->next)
+  {
+    TagBarState state = tagbarstate(m);
+    int id = layoutid(m->lt[m->sellt]);
+    const char *layout = id >= 0 ? rawm_layout_name((RawmLayoutId)id) : NULL;
+    size_t i;
+
+    fprintf(stream,
+            "monitor\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%s\t0x%lx\t%d\t%.6f\n",
+            m->num, m == selmon ? 1 : 0,
+            m->mx, m->my, m->mw, m->mh,
+            state.viewed, state.occupied, state.urgent,
+            layout ? layout : "unknown",
+            m->sel ? (unsigned long)m->sel->win : 0ul,
+            m->nmaster, (double)m->mfact);
+
+    for (i = 0; i < config.tag_count; ++i)
+    {
+      fprintf(stream, "tag\t%d\t%zu\t", m->num, i + 1u);
+      controlwriteescaped(stream, m->tag_names[i]);
+      fputc('\n', stream);
+    }
+  }
+
+  if (fclose(stream) != 0)
+  {
+    free(snapshot);
+    fputs("rawm: could not finalize control state\n", stderr);
+    return;
+  }
+
+  (void)rawm_control_publish_state(&control, snapshot, length, stderr);
+  free(snapshot);
+}
+
+static void
+handlecontrolcommand(const RawmControlRequest *request)
+{
+  Arg arg = {0};
+
+  if (!request || !selmon)
+    return;
+
+  switch (request->command)
+  {
+    case RAWM_CONTROL_FOCUS_STACK:
+      if (request->arg0 == -1 || request->arg0 == 1)
+      {
+        arg.i = request->arg0;
+        focusstack(&arg);
+      }
+      break;
+    case RAWM_CONTROL_FOCUS_INDEX:
+      if (request->arg0 > 0)
+      {
+        arg.i = request->arg0;
+        focusnstack(&arg);
+      }
+      break;
+    case RAWM_CONTROL_INC_MASTER:
+      if (request->arg0 != 0)
+      {
+        arg.i = request->arg0;
+        incnmaster(&arg);
+      }
+      break;
+    case RAWM_CONTROL_SET_MASTER_FACTOR:
+      if (request->arg1 == 0)
+      {
+        arg.f = (float)request->arg0 / (float)RAWM_CONTROL_FACTOR_SCALE;
+        setmfact(&arg);
+      }
+      else if (request->arg1 == 1 &&
+               request->arg0 >= RAWM_CONTROL_FACTOR_SCALE / 10 &&
+               request->arg0 <= RAWM_CONTROL_FACTOR_SCALE * 9 / 10)
+      {
+        arg.f = 1.0f + (float)request->arg0 /
+                         (float)RAWM_CONTROL_FACTOR_SCALE;
+        setmfact(&arg);
+      }
+      break;
+    case RAWM_CONTROL_ZOOM:
+      zoom(NULL);
+      break;
+    case RAWM_CONTROL_VIEW:
+      if (controlargumenttag(request->arg0, &arg, true))
+        view(&arg);
+      break;
+    case RAWM_CONTROL_TOGGLE_VIEW:
+      if (controlargumenttag(request->arg0, &arg, false))
+        toggleview(&arg);
+      break;
+    case RAWM_CONTROL_CYCLE_VIEW:
+      if (request->arg0 == -1 || request->arg0 == 1)
+      {
+        arg.i = request->arg0;
+        cycleview(&arg);
+      }
+      break;
+    case RAWM_CONTROL_KILL_CLIENT:
+      killclient(NULL);
+      break;
+    case RAWM_CONTROL_SET_LAYOUT:
+      if (request->arg0 == -1)
+        setlayout(NULL);
+      else if (request->arg0 >= 0 && request->arg0 < RAWM_LAYOUT_COUNT)
+      {
+        arg.v = &layouts[request->arg0];
+        setlayout(&arg);
+      }
+      break;
+    case RAWM_CONTROL_CYCLE_LAYOUT:
+      if (request->arg0 == -1 || request->arg0 == 1)
+      {
+        arg.i = request->arg0;
+        cyclelayout(&arg);
+      }
+      break;
+    case RAWM_CONTROL_TOGGLE_FLOATING:
+      togglefloating(NULL);
+      break;
+    case RAWM_CONTROL_TAG:
+      if (controlargumenttag(request->arg0, &arg, false))
+        tag(&arg);
+      break;
+    case RAWM_CONTROL_TOGGLE_TAG:
+      if (controlargumenttag(request->arg0, &arg, false))
+        toggletag(&arg);
+      break;
+    case RAWM_CONTROL_WINDOW_VIEW:
+      winview(NULL);
+      break;
+    case RAWM_CONTROL_TOGGLE_FULLSCREEN:
+      togglefullscr(NULL);
+      break;
+    case RAWM_CONTROL_FOCUS_MONITOR:
+      if (request->arg0 == -1 || request->arg0 == 1)
+      {
+        arg.i = request->arg0;
+        focusmon(&arg);
+      }
+      break;
+    case RAWM_CONTROL_TAG_MONITOR:
+      if (request->arg0 == -1 || request->arg0 == 1)
+      {
+        arg.i = request->arg0;
+        tagmon(&arg);
+      }
+      break;
+    case RAWM_CONTROL_RENAME_TAG:
+    {
+      char name[RAWM_TAG_NAME_MAX + 1u];
+      if (rawm_control_read_text(&control, request->requestor,
+                                 name, sizeof(name), stderr) >= 0)
+        settagname(name);
+      break;
+    }
+    case RAWM_CONTROL_QUIT:
+      if (request->arg0 == 0 || request->arg0 == 1)
+      {
+        arg.i = request->arg0;
+        quit(&arg);
+      }
+      break;
+    case RAWM_CONTROL_COMMAND_LAST:
+      break;
+  }
+}
+
 static void
 clientmessage(XEvent *e)
 {
   XClientMessageEvent *cme = &e->xclient;
-  Client              *c   = wintoclient(cme->window);
+  RawmControlRequest request;
+  RawmControlMessageResult control_message;
+  Client *c;
+
+  control_message = rawm_control_decode(&control, cme, &request);
+  if (control_message != RAWM_CONTROL_MESSAGE_OTHER)
+  {
+    if (control_message == RAWM_CONTROL_MESSAGE_COMMAND)
+      handlecontrolcommand(&request);
+    return;
+  }
+
+  c = wintoclient(cme->window);
 
 #ifdef SYSTRAY
   XWindowAttributes    wa;
@@ -4319,39 +4575,47 @@ movemouse(__attribute__((unused)) const Arg *arg)
 }
 
 static void
-nametag(const Arg *arg)
+settagname(const char *name)
 {
-  char buf[RAWM_TAG_NAME_MAX + 1u];
-  int result;
   size_t i;
 
-  if (!arg || !arg->v)
-    return;
-
-  result = capturecommand((char *const *)arg->v, buf, sizeof buf);
-  if (result <= 0)
+  if (!selmon || !name)
     return;
 
   for (i = 0; i < config.tag_count; i++)
   {
-    if (selmon->tagset[selmon->seltags] & (1u << i))
+    if (!(selmon->tagset[selmon->seltags] & (1u << i)))
+      continue;
+
+    if (name[0])
     {
-      if (buf[0])
-      {
-        snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i],
-                 "%zu/", i + 1);
-        strncat(selmon->tag_names[i], buf,
-                sizeof selmon->tag_names[i] -
-                strlen(selmon->tag_names[i]) - 1);
-      }
-      else
-        snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i],
-                 "%zu", i + 1);
+      snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i],
+               "%zu/", i + 1);
+      strncat(selmon->tag_names[i], name,
+              sizeof selmon->tag_names[i] -
+              strlen(selmon->tag_names[i]) - 1);
     }
+    else
+      snprintf(selmon->tag_names[i], sizeof selmon->tag_names[i],
+               "%zu", i + 1);
   }
 
   drawbar(selmon);
   osdshowview(selmon);
+}
+
+static void
+nametag(const Arg *arg)
+{
+  char buf[RAWM_TAG_NAME_MAX + 1u];
+
+  if (!arg || !arg->v)
+    return;
+
+  if (capturecommand((char *const *)arg->v, buf, sizeof buf) <= 0)
+    return;
+
+  settagname(buf);
 }
 
 static Client *
@@ -5106,6 +5370,7 @@ run(void)
     if (!running)
       break;
 
+    publishcontrolstate();
     osdexpire();
     if (config.status_enabled && statusworker.pid <= 0 &&
         statusworker.fd < 0 && statusworker_restart_at &&
@@ -5485,6 +5750,8 @@ setup(void)
   rawmatom[RawmAtomSelected]         = XInternAtom(dpy, "_RAWM_SELECTED",                false);
   rawmatom[RawmAtomLayout]           = XInternAtom(dpy, "_RAWM_LAYOUT",                  false);
   rawmatom[RawmAtomMonitor]          = XInternAtom(dpy, "_RAWM_MONITOR",                 false);
+  if (rawm_control_init(&control, dpy, root, screen, utf8atom, stderr) < 0)
+    die("fatal: could not initialize rawm control plane\n");
 #ifdef SYSTRAY
   xatom[Manager]                    = XInternAtom(dpy, "MANAGER",                      false);
   xatom[Xembed]                     = XInternAtom(dpy, "_XEMBED",                      false);
@@ -6915,6 +7182,7 @@ main(int argc, char *argv[])
   setup();
   statusworkerstart();
   scan();
+  publishcontrolstate();
   run();
   if (restart)
   {
