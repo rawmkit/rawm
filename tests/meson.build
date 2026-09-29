@@ -67,6 +67,13 @@ control_client = executable(
   build_by_default: false,
 )
 
+dock_strut_client = executable(
+  'dock-strut-client',
+  'dock-strut-client.c',
+  dependencies: x11_dep,
+  build_by_default: false,
+)
+
 tagbar_client = executable(
   'tagbar-client',
   'tagbar-client.c',
@@ -135,6 +142,7 @@ geometry_test = find_program('geometry.sh')
 compositor_state_test = find_program('compositor-state.sh')
 rawmctl_test = find_program('rawmctl.sh')
 control_membrane_test = find_program('control-membrane.sh')
+dock_strut_test = find_program('dock-strut.sh')
 focus_index_test = find_program('focus-index.sh')
 window_view_test = find_program('window-view.sh')
 actions_test = find_program('actions.sh')
@@ -429,6 +437,34 @@ else
     'control-membrane',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(control_membrane_missing))],
+  )
+endif
+
+dock_strut_missing = x11_missing
+if not awk_program.found()
+  dock_strut_missing += ['awk']
+endif
+if not sed_program.found()
+  dock_strut_missing += ['sed']
+endif
+if not grep_program.found()
+  dock_strut_missing += ['grep']
+endif
+if not wc_program.found()
+  dock_strut_missing += ['wc']
+endif
+if dock_strut_missing.length() == 0
+  test(
+    'dock-strut',
+    dock_strut_test,
+    args: [rawm, dock_strut_client, control_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'dock-strut',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(dock_strut_missing))],
   )
 endif
 
