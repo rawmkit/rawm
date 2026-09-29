@@ -1937,6 +1937,23 @@ publishcontrolstate(void)
             m->sel ? (unsigned long)m->sel->win : 0ul,
             m->nmaster, (double)m->mfact);
 
+    {
+      const Client *c;
+      unsigned int visible_count = 0;
+      unsigned int focused_index = 0;
+
+      for (c = m->clients; c; c = c->next)
+      {
+        if (!ISVISIBLE(c))
+          continue;
+        ++visible_count;
+        if (c == m->sel)
+          focused_index = visible_count;
+      }
+      fprintf(stream, "stack\t%d\t%u\t%u\n",
+              m->num, focused_index, visible_count);
+    }
+
     for (i = 0; i < config.tag_count; ++i)
     {
       fprintf(stream, "tag\t%d\t%zu\t", m->num, i + 1u);
