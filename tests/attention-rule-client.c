@@ -2,7 +2,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,56 +22,6 @@ set_class(Display *dpy, Window win, const char *name, const char *class_name)
   hint.res_name = (char *)name;
   hint.res_class = (char *)class_name;
   XSetClassHint(dpy, win, &hint);
-}
-
-static Window
-find_bar(Display *dpy, Window root)
-{
-  Window root_return, parent_return, *children = NULL;
-  unsigned int count = 0, i;
-  int screen_width = DisplayWidth(dpy, DefaultScreen(dpy));
-  Window bar = None;
-
-  if (!XQueryTree(dpy, root, &root_return, &parent_return, &children, &count))
-    return None;
-  for (i = 0; i < count; ++i) {
-    XWindowAttributes attr;
-
-    if (!XGetWindowAttributes(dpy, children[i], &attr))
-      continue;
-    if (attr.map_state == IsViewable && attr.width == screen_width &&
-        attr.height > 0 && attr.height < 128) {
-      bar = children[i];
-      break;
-    }
-  }
-  if (children)
-    XFree(children);
-  return bar;
-}
-
-static uint64_t
-checksum_window(Display *dpy, Window window)
-{
-  XWindowAttributes attr;
-  XImage *image;
-  uint64_t hash = UINT64_C(1469598103934665603);
-  int x, y;
-
-  if (!XGetWindowAttributes(dpy, window, &attr))
-    return 0;
-  image = XGetImage(dpy, window, 0, 0, (unsigned int)attr.width,
-                    (unsigned int)attr.height, AllPlanes, ZPixmap);
-  if (!image)
-    return 0;
-  for (y = 0; y < attr.height; ++y) {
-    for (x = 0; x < attr.width; ++x) {
-      hash ^= (uint64_t)XGetPixel(image, x, y);
-      hash *= UINT64_C(1099511628211);
-    }
-  }
-  XDestroyImage(image);
-  return hash;
 }
 
 static void
@@ -108,6 +57,142 @@ has_urgency(Display *dpy, Window win)
   return urgent;
 }
 
+static int
+managed(Display *dpy, Window win)
+{
+  Atom property = XInternAtom(dpy, "_RAWM_MONITOR", True);
+  Atom actual = None;
+  unsigned char *data = NULL;
+  unsigned long count = 0, after = 0;
+  int format = 0;
+  int result = 0;
+
+  if (property != None &&
+      XGetWindowProperty(dpy, win, property, 0, 1, False, XA_CARDINAL,
+                         &actual, &format, &count, &after, &data) == Success &&
+      actual == XA_CARDINAL && format == 32 && count == 1 && data)
+    result = 1;
+
+  if (data)
+    XFree(data);
+  return result;
+}
+
+static void
+wait_managed(Display *dpy, Window win)
+{
+  int tries;
+
+  for (tries = 0; tries < 50; ++tries) {
+    if (managed(dpy, win))
+      return;
+    pause_for_wm();
+  }
+
+  fputs("attention-rule-client: target was not admitted by rawm\n", stderr);
+  exit(EXIT_FAILURE);
+}
+
+static char *
+read_control_state(Display *dpy)
+{
+  char selection_name[64];
+  Atom selection, property, utf8, actual = None;
+  Window owner;
+  unsigned char *data = NULL;
+  unsigned long count = 0, after = 0;
+  int format = 0;
+  char *copy;
+
+  snprintf(selection_name, sizeof(selection_name), "_RAWM_CONTROL_S%d",
+           DefaultScreen(dpy));
+  selection = XInternAtom(dpy, selection_name, True);
+  property = XInternAtom(dpy, "_RAWM_STATE", True);
+  utf8 = XInternAtom(dpy, "UTF8_STRING", True);
+  if (selection == None || property == None || utf8 == None)
+    return NULL;
+
+  owner = XGetSelectionOwner(dpy, selection);
+  if (owner == None ||
+      XGetWindowProperty(dpy, owner, property, 0, 16384, False, utf8,
+                         &actual, &format, &count, &after, &data) != Success ||
+      actual != utf8 || format != 8 || !data || after != 0) {
+    if (data)
+      XFree(data);
+    return NULL;
+  }
+
+  copy = malloc(count + 1);
+  if (!copy) {
+    XFree(data);
+    return NULL;
+  }
+  memcpy(copy, data, count);
+  copy[count] = '\0';
+  XFree(data);
+  return copy;
+}
+
+static int
+selected_monitor_urgent(Display *dpy, unsigned int *urgent)
+{
+  char *state = read_control_state(dpy);
+  char *line;
+
+  if (!state)
+    return 0;
+
+  line = state;
+  while (*line) {
+    char *next = strchr(line, '\n');
+    int monitor, selected, mx, my, mw, mh;
+    unsigned int viewed, occupied, current_urgent;
+
+    if (next)
+      *next = '\0';
+    if (sscanf(line,
+               "monitor\t%d\t%d\t%d\t%d\t%d\t%d\t%x\t%x\t%x",
+               &monitor, &selected, &mx, &my, &mw, &mh,
+               &viewed, &occupied, &current_urgent) == 9 && selected) {
+      (void)monitor;
+      (void)mx;
+      (void)my;
+      (void)mw;
+      (void)mh;
+      (void)viewed;
+      (void)occupied;
+      *urgent = current_urgent;
+      free(state);
+      return 1;
+    }
+    if (!next)
+      break;
+    line = next + 1;
+  }
+
+  free(state);
+  return 0;
+}
+
+static void
+wait_urgent(Display *dpy, unsigned int expected, const char *what)
+{
+  int tries;
+
+  for (tries = 0; tries < 50; ++tries) {
+    unsigned int urgent = 0;
+
+    if (selected_monitor_urgent(dpy, &urgent) && urgent == expected)
+      return;
+    pause_for_wm();
+  }
+
+  fprintf(stderr,
+          "attention-rule-client: %s did not publish urgent mask %08x\n",
+          what, expected);
+  exit(EXIT_FAILURE);
+}
+
 static void
 activate(Display *dpy, Window root, Window win, Atom active)
 {
@@ -130,13 +215,13 @@ int
 main(int argc, char **argv)
 {
   Display *dpy;
-  Window root, bar = None, anchor, target;
+  Window root, anchor, target;
   Atom active;
-  uint64_t initial, after_hints, after_focus;
+  unsigned int initial_urgent;
+  unsigned int after_hints_urgent;
   int app_urgent = 0;
   int expect_wm = 0;
   int expect_none = 0;
-  int tries;
 
   if (argc != 2) {
     fprintf(stderr, "usage: %s wm|none|app\n", argv[0]);
@@ -166,18 +251,7 @@ main(int argc, char **argv)
   set_class(dpy, anchor, "rawm-attention-anchor", "RawmAttentionAnchor");
   XMapWindow(dpy, anchor);
   XFlush(dpy);
-  pause_for_wm();
-
-  for (tries = 0; tries < 50 && bar == None; ++tries) {
-    bar = find_bar(dpy, root);
-    if (bar == None)
-      pause_for_wm();
-  }
-  if (bar == None) {
-    fputs("attention-rule-client: cannot find rawm bar window\n", stderr);
-    XCloseDisplay(dpy);
-    return EXIT_FAILURE;
-  }
+  wait_managed(dpy, anchor);
 
   target = XCreateSimpleWindow(dpy, root, 80, 80, 280, 200, 0, 0, 0);
   XStoreName(dpy, target, "rawm-attention-target");
@@ -186,14 +260,10 @@ main(int argc, char **argv)
     set_urgency(dpy, target, 1);
   XMapWindow(dpy, target);
   XFlush(dpy);
-  pause_for_wm();
+  wait_managed(dpy, target);
 
-  initial = checksum_window(dpy, bar);
-  if (!initial) {
-    fputs("attention-rule-client: cannot checksum bar\n", stderr);
-    XCloseDisplay(dpy);
-    return EXIT_FAILURE;
-  }
+  initial_urgent = (expect_wm || app_urgent) ? 0x00000002u : 0u;
+  wait_urgent(dpy, initial_urgent, "initial attention state");
 
   if (expect_wm && has_urgency(dpy, target)) {
     fputs("attention-rule-client: WM attention forged XUrgencyHint\n", stderr);
@@ -202,39 +272,13 @@ main(int argc, char **argv)
   }
 
   set_urgency(dpy, target, 0);
-  pause_for_wm();
-  after_hints = checksum_window(dpy, bar);
-
-  if (expect_wm && after_hints != initial) {
-    fputs("attention-rule-client: WM_HINTS update cleared WM-owned attention\n",
-          stderr);
-    XCloseDisplay(dpy);
-    return EXIT_FAILURE;
-  }
-  if (app_urgent && after_hints == initial) {
-    fputs("attention-rule-client: clearing XUrgencyHint did not clear app urgency\n",
-          stderr);
-    XCloseDisplay(dpy);
-    return EXIT_FAILURE;
-  }
+  after_hints_urgent = expect_wm ? 0x00000002u : 0u;
+  wait_urgent(dpy, after_hints_urgent, "post-WM_HINTS attention state");
 
   if (expect_wm || expect_none) {
     activate(dpy, root, target, active);
     activate(dpy, root, anchor, active);
-    after_focus = checksum_window(dpy, bar);
-
-    if (expect_wm && after_focus == initial) {
-      fputs("attention-rule-client: focusing client did not consume WM attention\n",
-            stderr);
-      XCloseDisplay(dpy);
-      return EXIT_FAILURE;
-    }
-    if (expect_none && after_focus != initial) {
-      fputs("attention-rule-client: attention=none produced hidden urgency\n",
-            stderr);
-      XCloseDisplay(dpy);
-      return EXIT_FAILURE;
-    }
+    wait_urgent(dpy, 0u, "post-focus attention state");
   }
 
   XDestroyWindow(dpy, target);
