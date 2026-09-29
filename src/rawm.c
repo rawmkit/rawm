@@ -1522,7 +1522,7 @@ handlecontrolcommand(const RawmControlRequest *request)
       }
       break;
     case RAWM_CONTROL_TOGGLE_FLOATING:
-      togglefloating(NULL);
+      togglefloating(&arg);
       break;
     case RAWM_CONTROL_TAG:
       if (controlargumenttag(request->arg0, &arg, false))
