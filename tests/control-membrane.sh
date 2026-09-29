@@ -167,7 +167,7 @@ for file in "$tmp/window-a" "$tmp/window-b"; do
 done
 window_a=$(cat "$tmp/window-a")
 window_b=$(cat "$tmp/window-b")
-wait_clients "client${tab}${window_a}${tab}0${tab}00000002${tab}0${tab}0${tab}AlphaClass${tab}Alpha%25desk"
+wait_clients "client${tab}${window_a}${tab}0${tab}00000002${tab}1${tab}0${tab}AlphaClass${tab}Alpha%25desk"
 wait_clients "client${tab}${window_b}${tab}0${tab}00000002${tab}1${tab}1${tab}BetaClass${tab}Beta desk"
 "$client" --send _RAWM_CMD_FOCUS_CLIENT "$window_a"
 wait_clients "client${tab}${window_a}${tab}0${tab}00000002${tab}1${tab}1${tab}AlphaClass${tab}Alpha%25desk"
