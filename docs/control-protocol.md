@@ -74,10 +74,11 @@ selected-monitor<TAB>N
 
 `selected-monitor` is `-1` only when no monitor authority exists.
 
-Each admitted monitor then contributes one `monitor` record followed by one
-`tag` record for every configured tag. The monitor record begins with the
-literal `monitor`; all remaining fields below are tab-separated in the listed
-order. A tag record is `tag`, monitor number, one-based tag index, and name.
+Each admitted monitor then contributes one `monitor` record, one `stack`
+record, and one `tag` record for every configured tag. The monitor record begins
+with the literal `monitor`; all remaining fields below are tab-separated in the
+listed order. A tag record is `tag`, monitor number, one-based tag index, and
+name.
 
 Monitor fields are:
 
@@ -91,6 +92,18 @@ Monitor fields are:
 * `focused`: focused client XID as `0x...`, or `0x0`.
 * `nmaster`: current master-client count.
 * `mfact`: current master factor with six decimal places.
+
+The stack record is:
+
+```
+stack<TAB>MONITOR<TAB>FOCUSED-INDEX<TAB>VISIBLE-COUNT
+```
+
+`FOCUSED-INDEX` is the one-based index of the monitor's focused client among
+currently visible clients, or `0` when no visible client is focused.
+`VISIBLE-COUNT` is the number of visible admitted clients on that monitor. The
+record is observational state published by rawm; consumers must not infer rawm's
+full stacking history from these two counts.
 
 Tag `index` is one-based. Tag names are UTF-8. Literal percent, tab, newline,
 and carriage-return bytes are encoded as `%25`, `%09`, `%0A`, and `%0D`
