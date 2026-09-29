@@ -170,6 +170,11 @@ wait_clients "client${tab}${window_b}${tab}0${tab}00000002${tab}1${tab}1${tab}Be
 wait_clients "client${tab}${window_a}${tab}0${tab}00000002${tab}1${tab}1${tab}AlphaClass${tab}Alpha%25desk"
 wait_state "${tab}${window_a}${tab}"
 
+"$client" --set-title "$window_a" 'Alpha renamed%desk'
+wait_clients "client${tab}${window_a}${tab}0${tab}00000002${tab}1${tab}1${tab}AlphaClass${tab}Alpha renamed%25desk"
+"$client" --set-class "$window_a" GammaClass
+wait_clients "client${tab}${window_a}${tab}0${tab}00000002${tab}1${tab}1${tab}GammaClass${tab}Alpha renamed%25desk"
+
 before=$(state)
 "$client" --send _RAWM_CMD_TOGGLE_BAR
 sleep 0.05

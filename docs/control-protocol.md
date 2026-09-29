@@ -135,7 +135,11 @@ client, not merely a monitor-local stack selection. `CLASS` is the admitted
 client's current `WM_CLASS` class component and `TITLE` is rawm's current
 window-title observation. Text fields use the same `%HH` escaping as tag names.
 
-This inventory is the authority boundary for managed-window enumeration.
+This inventory is the authority boundary for managed-window enumeration and for
+rawm's admitted client metadata observation. rawm republishes the inventory when
+an admitted client's title or `WM_CLASS` class component changes, even when no
+monitor/tag/layout state changes. Consumers that present those fields must read
+them from `_RAWM_CLIENTS` rather than independently observing client properties.
 Consumers must not reconstruct rawm's admitted client set from `_NET_CLIENT_LIST`,
 the X window tree, or a combination of EWMH properties.
 

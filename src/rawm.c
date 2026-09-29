@@ -2938,13 +2938,17 @@ propertynotify(XEvent *e)
     }
 
     if (ev->atom == XA_WM_CLASS)
+    {
       updateclass(c);
+      publishcontrolclients();
+    }
 
     if (   ev->atom == XA_WM_NAME
         || ev->atom == netatom[NetWMName]
         )
     {
       updatetitle(c);
+      publishcontrolclients();
     }
 
     if (ev->atom == netatom[NetWMWindowType]) {

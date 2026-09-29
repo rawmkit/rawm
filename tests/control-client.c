@@ -32,6 +32,38 @@ parse_long(const char *text)
   return value;
 }
 
+
+static Window
+parse_window(const char *text)
+{
+  unsigned long value = (unsigned long)parse_long(text);
+
+  if (value == 0 || value > UINT32_MAX)
+    fail("invalid window XID");
+  return (Window)value;
+}
+
+static int
+set_window_title(Display *display, Window window, const char *title)
+{
+  XStoreName(display, window, title);
+  XFlush(display);
+  return EXIT_SUCCESS;
+}
+
+static int
+set_window_class(Display *display, Window window, const char *class_name)
+{
+  XClassHint hint;
+
+  hint.res_name = (char *)"control-client";
+  hint.res_class = (char *)class_name;
+  if (!XSetClassHint(display, window, &hint))
+    return EXIT_FAILURE;
+  XFlush(display);
+  return EXIT_SUCCESS;
+}
+
 static unsigned char *
 get_property(Display *display, Window window, Atom property, Atom type,
              int *format, unsigned long *count)
@@ -317,6 +349,19 @@ main(int argc, char **argv)
   if (!display)
     fail("cannot open display");
   root = DefaultRootWindow(display);
+
+  if (argc == 4 && !strcmp(argv[1], "--set-title"))
+  {
+    result = set_window_title(display, parse_window(argv[2]), argv[3]);
+    XCloseDisplay(display);
+    return result;
+  }
+  if (argc == 4 && !strcmp(argv[1], "--set-class"))
+  {
+    result = set_window_class(display, parse_window(argv[2]), argv[3]);
+    XCloseDisplay(display);
+    return result;
+  }
 
   if (argc == 2 && !strcmp(argv[1], "--version"))
     result = print_version(display, root);
