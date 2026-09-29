@@ -209,6 +209,7 @@ rawm_control_publish_state(RawmControl *control,
   XChangeProperty(control->display, control->window, control->state_atom,
                   control->utf8, 8, PropModeReplace,
                   (const unsigned char *)data, (int)length);
+  XFlush(control->display);
   free(control->last_state);
   control->last_state = copy;
   control->last_state_len = length;
