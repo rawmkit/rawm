@@ -120,6 +120,38 @@ run_case()
   done
 
   read parent dialog <"$tmp/windows"
+
+  tab=$(printf '\t')
+  n=0
+  while :; do
+    inventory=$("$control_client" --clients 2>/dev/null || true)
+    parent_seen=0
+    dialog_seen=0
+    case "$inventory" in
+      *"client${tab}${parent}${tab}"*) parent_seen=1 ;;
+    esac
+    case "$inventory" in
+      *"client${tab}${dialog}${tab}"*) dialog_seen=1 ;;
+    esac
+    [ "$parent_seen" -eq 1 ] && [ "$dialog_seen" -eq 1 ] && break
+
+    n=$((n + 1))
+    [ "$n" -lt 100 ] || {
+      cat "$tmp/client.err" >&2
+      cat "$tmp/rawm.log" >&2
+      fail "clients were not admitted during $mode case"
+    }
+    kill -0 "$wm_pid" 2>/dev/null || {
+      cat "$tmp/rawm.log" >&2
+      fail "rawm exited before admitting clients during $mode case"
+    }
+    kill -0 "$client_pid" 2>/dev/null || {
+      cat "$tmp/client.err" >&2
+      fail "client exited before admission during $mode case"
+    }
+    sleep 0.02
+  done
+
   set -- $(geometry "$parent")
   px=$1; py=$2; pw=$3; ph=$4
   set -- $(geometry "$dialog")

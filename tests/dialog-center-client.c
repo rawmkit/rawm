@@ -17,18 +17,6 @@ set_class(Display *dpy, Window win, const char *name, const char *class_name)
   XSetClassHint(dpy, win, &hint);
 }
 
-static void
-wait_mapped(Display *dpy, Window win)
-{
-  XEvent ev;
-
-  for (;;) {
-    XNextEvent(dpy, &ev);
-    if (ev.type == MapNotify && ev.xmap.window == win)
-      return;
-  }
-}
-
 int
 main(int argc, char **argv)
 {
@@ -55,8 +43,6 @@ main(int argc, char **argv)
   set_class(dpy, parent, "rawm-center-parent", "RawmCenterParent");
   XSelectInput(dpy, parent, StructureNotifyMask);
   XMapWindow(dpy, parent);
-  XFlush(dpy);
-  wait_mapped(dpy, parent);
 
   dialog = XCreateSimpleWindow(dpy, root, 17, 23, 200, 100, 0, 0, 0);
   XStoreName(dpy, dialog, "rawm-center-dialog");
@@ -71,9 +57,8 @@ main(int argc, char **argv)
   XSelectInput(dpy, dialog, StructureNotifyMask);
   XMapWindow(dpy, dialog);
   XFlush(dpy);
-  wait_mapped(dpy, dialog);
 
-  printf("%lu %lu\n", (unsigned long)parent, (unsigned long)dialog);
+  printf("0x%lx 0x%lx\n", (unsigned long)parent, (unsigned long)dialog);
   fflush(stdout);
 
   for (;;) {
