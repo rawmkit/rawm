@@ -28,10 +28,10 @@ Mapped EWMH dock windows remain external surfaces rather than admitted rawm
 clients. Their struts determine usable work areas. Fullscreen clients continue
 to use the complete monitor rectangle.
 
-rawm can present a transient OSD for window-manager state transitions such as
-layout, view, routing, fullscreen, master-area changes, tag naming, and optional
-live floating geometry. The OSD is the only rawm-owned presentation surface; it
-is not admitted as a client and does not reserve work area.
+rawm publishes transient semantic feedback for window-manager state transitions
+such as layout, view, routing, fullscreen, master-area changes, tag naming, and
+live floating geometry. rawm does not render that feedback; independent
+presentation consumers subscribe to the control owner.
 
 # OPTIONS
 
@@ -53,7 +53,8 @@ liveness boundary for the external control/state protocol. If rawm loses its X
 connection, X destroys the owner window and clears the selection.
 
 The owner publishes *\_RAWM\_CONTROL\_VERSION*,
-*\_RAWM\_SUPPORTED\_COMMANDS*, *\_RAWM\_STATE*, and *\_RAWM\_CLIENTS*.
+*\_RAWM\_SUPPORTED\_COMMANDS*, *\_RAWM\_STATE*, *\_RAWM\_CLIENTS*, and
+*\_RAWM\_FEEDBACK*.
 Consumers observe these authoritative snapshots instead of reconstructing rawm
 semantics from EWMH or the root-window client tree.
 
@@ -96,9 +97,9 @@ rawm publishes descriptive private properties on admitted clients:
 *\_RAWM\_MONITOR*
 	CARDINAL monitor number, starting at zero.
 
-The transient OSD additionally publishes *\_RAWM\_SURFACE* with value *osd*
-and advertises *\_NET\_WM\_WINDOW\_TYPE\_DOCK*. These properties are outputs,
-not commands.
+Transient feedback is published on the rawm control owner as *\_RAWM\_FEEDBACK*.
+It is advisory presentation input, not authoritative WM state; see the control
+protocol documentation.
 
 # POINTER POLICY
 

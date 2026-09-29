@@ -30,7 +30,7 @@ Current rawm facilities include:
   * compositor-facing `_RAWM_FLOATING`, `_RAWM_SELECTED`, `_RAWM_LAYOUT`, and
     `_RAWM_MONITOR` client state;
   * pointer-driven client move, resize, and explicit floating control;
-  * a transient rawm-owned OSD for window-manager feedback.
+  * semantic transient-feedback events for independent presentation consumers.
 
 The configuration schema is authority-scoped and fail-closed. Historical
 `status`, `commands`, the historical `input` root, `ui.bar`, and `ui.systray`
@@ -54,15 +54,12 @@ Build time
   * C99 compiler
   * Meson >= 1.6.0
   * `libX11`
-  * `libXft`
-  * `fontconfig`
   * `libconfig`
   * optional `xinerama`
   * `scdoc(1)` for manual pages
 
-`libXft` and `fontconfig` remain rawm dependencies only because the unresolved
-transient OSD is still rawm-owned. There is no ALSA, XEmbed tray, status-worker,
-or global-key runtime dependency in rawm.
+There is no Xft/Fontconfig, ALSA, XEmbed tray, status-worker, or global-key
+runtime dependency in rawm. Presentation is outside the window-manager process.
 
 The test suite additionally uses POSIX `sh(1p)` and optional isolated X11
 fixtures. Meson probes Xvfb at setup time and registers integration tests as
@@ -96,8 +93,7 @@ by exactly `PATH`. `rawm -C` validates the resulting configuration without
 opening X.
 
 Window-management policy includes rules, tags, layouts, gaps, client geometry,
-attention/fullscreen behavior, compositor colors, OSD policy, and client-pointer
-bindings. Global key bindings and program launch commands are external rawkeys
+attention/fullscreen behavior, client border colors, and client-pointer bindings. Global key bindings and program launch commands are external rawkeys
 policy. Persistent panel/status/systray policy is external rawpanel policy.
 
 External panels reserve space through standard `_NET_WM_WINDOW_TYPE_DOCK` plus
@@ -109,8 +105,9 @@ CONTROL MEMBRANE
 ================
 
 rawm owns `_RAWM_CONTROL_SN` per X screen. Its owner window publishes the
-version, supported commands, authoritative window-manager snapshot, and admitted
-client inventory. Commands arrive as `_RAWM_COMMAND` ClientMessage events.
+version, supported commands, authoritative window-manager snapshot, admitted
+client inventory, and advisory `_RAWM_FEEDBACK` events. Commands arrive as
+`_RAWM_COMMAND` ClientMessage events.
 
 Consumers must use that membrane rather than crawling windows or reconstructing
 rawm tag/focus semantics from EWMH. The standalone `rawctl` repository is the

@@ -6,15 +6,15 @@ rawm.conf - rawm window-manager configuration
 
 # DESCRIPTION
 
-*rawm.conf* configures only state owned by *rawm*(1): window-manager
-presentation, transient OSD feedback, client geometry policy, layouts, tags,
-rules, and pointer operations that directly manipulate admitted clients.
+*rawm.conf* configures only state owned by *rawm*(1): managed-client borders,
+client geometry policy, layouts, tags, rules, and pointer operations that
+directly manipulate admitted clients.
 
-Global keyboard bindings, argv execution, persistent panel/status presentation,
-ALSA state, and system-tray ownership are not part of this schema. In a rawmkit
-desktop those authorities normally belong to *rawkeys* and *rawpanel*.
-Extracted settings fail validation instead of being accepted as inert
-compatibility data.
+Global keyboard bindings, argv execution, persistent or transient desktop
+presentation, status collection, ALSA state, and system-tray ownership are not
+part of this schema. In a rawmkit desktop those authorities belong to separate
+components. Extracted settings fail validation instead of being accepted as
+inert compatibility data.
 
 The file uses libconfig syntax. Unknown settings, wrong types, invalid enum
 values, out-of-range values, duplicate pointer bindings, and references to
@@ -55,21 +55,13 @@ The following lists replace the corresponding earlier list when present:
 
 # VALUE REFERENCES
 
-String-valued *ui.font*, color components under *ui.colors*, and entries under
-*layout.symbols* support *${path}* references after all layers have been read.
-References may point to another reference-capable string or to these scalar
+The string values under *ui.colors* support *${path}* references after all
+layers have been read. References may point to another color or to these scalar
 paths:
 
 - *ui.border_width*
 - *ui.snap*
 - *ui.opacity*
-- *ui.osd.show*
-- *ui.osd.position*
-- *ui.osd.geometry*
-- *ui.osd.duration_ms*
-- *ui.osd.padding*
-- *ui.osd.offset*
-- *ui.osd.min_width*
 - *behavior.dialog_center*
 - *behavior.size_hints*
 - *behavior.floating_placement*
@@ -86,12 +78,7 @@ text *${path}*.
 
 # UI
 
-The *ui* group accepts *font*, *border_width*, *snap*, *opacity*, *osd*, and
-*colors*.
-
-*font* = _string_
-	Xft font pattern used by the transient OSD. It must not be empty. The default
-	is *monospace:size=9*.
+The *ui* group accepts *border_width*, *snap*, *opacity*, and *colors*.
 
 *border_width* = _integer_
 	Managed-client border width in pixels, from 0 through 64. Default: 2.
@@ -103,58 +90,24 @@ The *ui* group accepts *font*, *border_width*, *snap*, *opacity*, *osd*, and
 *opacity* = _number_
 	Client opacity projection from 0.0 through 1.0. Default: 1.0.
 
-## OSD
-
-The *ui.osd* group controls rawm's transient feedback surface. The OSD is the
-only presentation surface currently owned by rawm and remains subject to a
-separate authority decision.
-
-*show* = _boolean_
-	Enable transient OSD feedback. Default: false.
-
-*position* = *"top"* | *"bottom"*
-	Place the OSD relative to the selected monitor work area. Default: bottom.
-
-*geometry* = _boolean_
-	Show live geometry while pointer-moving or resizing floating clients.
-	Default: false.
-
-*duration_ms* = _integer_
-	Visibility duration in milliseconds, from 100 through 5000. Default: 800.
-
-*padding* = _integer_
-	Inner OSD padding in pixels, from 0 through 64. Default: 10.
-
-*offset* = _integer_
-	Distance from the selected work-area edge, from 0 through 512. Default: 24.
-
-*min_width* = _integer_
-	Minimum OSD width in pixels, from 0 through 4096. Zero means no extra minimum.
-	Default: 0.
-
 ## Colors
 
-*ui.colors* accepts the schemes *normal*, *selected*, *urgent*, and *floating*. Each scheme may define:
+*ui.colors* accepts four border-color strings:
 
-*border* = _string_
-	Border color.
+*normal*
+	Unselected managed client. Default: *#cccccc*.
 
-*foreground* = _string_
-	Text/foreground color.
+*selected*
+	Selected tiled client. Default: *#0066ff*.
 
-*background* = _string_
-	Background color.
+*urgent*
+	Client with admitted urgency. Default: *#0066ff*.
 
-The stock schemes are:
+*floating*
+	Selected elevated/floating client. Default: *${ui.colors.selected}*.
 
-```
-normal   = #cccccc / #000000 / #cccccc
-selected = #0066ff / #ffffff / #0066ff
-urgent   = #0066ff / #0066ff / #ffffff
-floating = ${ui.colors.selected.*}
-```
-
-The tuple order above is border / foreground / background.
+Font, foreground/background, and OSD settings are presentation policy and are
+not accepted by rawm.
 
 # BEHAVIOR
 
@@ -199,20 +152,8 @@ The *layout* group controls the tiled geometry model.
 *smart* = _boolean_
 	Suppress the outer gap when only one tiled client is present. Default: false.
 
-## Symbols
-
-*layout.symbols* may override the display symbol associated with each stable
-layout name:
-
-- *tile*
-- *floating*
-- *monocle*
-- *bstack*
-- *bstack_horizontal*
-- *grid*
-
-Each symbol is at most 32 bytes. Symbols are currently presentation labels
-consumed by rawm's transient OSD.
+Layout display symbols are presentation policy and are not accepted by rawm.
+Canonical layout names are published by rawm's state membrane.
 
 # TAGS
 
@@ -227,147 +168,43 @@ requires:
 *layout* = _layout-name_
 	Initial layout for the tag. Optional; default: tile.
 
-Example:
+Valid layout names are *tile*, *floating*, *monocle*, *bstack*,
+*bstack_horizontal*, and *grid*.
 
-```
-tags = {
-  default = (
-    { name = "dev"; layout = "tile"; },
-    { name = "web"; layout = "monocle"; }
-  );
-};
-```
-
-*tags.monitors* optionally replaces tag names/layout defaults for specific
-monitor numbers. Each entry requires non-negative integer *monitor* and a *tags*
-list using the same syntax as *tags.default*. Monitor numbers may not be
-duplicated. Every monitor override must contain exactly the same number of tags
-as the effective default tag list.
+Per-monitor overrides in *tags.monitors* contain *monitor* and a complete *tags*
+list with the same number of entries as *tags.default*.
 
 # RULES
 
-*rules* is a list of groups. If present in a later configuration layer, it
-replaces the complete earlier rule list.
-
-A rule may match any combination of these substring fields:
-
-*class*
-	WM_CLASS class.
-
-*instance*
-	WM_CLASS instance.
-
-*title*
-	Current window title at admission.
-
-*role*
-	WM_WINDOW_ROLE.
-
-Every specified matcher must match. Multiple matching rules are processed in
-list order and may cumulatively modify the client.
-
-A rule may set:
-
-*tags* = _(integers)_ | *"all"*
-	Tag numbers are one-based. Omitted means no explicit tag assignment.
-
-*floating* = _boolean_
-	Explicit floating state.
-
-*center* = *"none"* | *"monitor"* | *"parent"*
-	Per-rule centering policy.
-
-*fullscreen* = _boolean_
-	Initial fullscreen request.
-
-*attention* = *"none"* | *"urgent"*
-	Initial attention policy.
-
-*monitor* = _integer_
-	Target monitor number. *-1* means no explicit target; this is the internal
-	default when the setting is omitted.
-
-Example:
-
-```
-rules = (
-  { class = "mpv"; tags = (8); fullscreen = true; },
-  { role = "Progress"; floating = true; center = "monitor"; }
-);
-```
-
-A configured tag number that does not exist in the effective tag list is a
-validation error.
+*rules* is a list of match groups. Match fields are *class*, *instance*,
+*title*, and *role*. Policy fields are *tags*, *floating*, *center*,
+*fullscreen*, *attention*, and *monitor*. Unspecified match fields are
+wildcards; unspecified policy fields leave the corresponding default/admitted
+state unchanged.
 
 # POINTER
 
-The *pointer* group is deliberately narrow. It configures only pointer actions
-whose execution depends directly on admitted-client geometry and active pointer
-grabs. It is not a generic input-binding facility.
+*pointer.bindings* is the complete list of rawm-owned client pointer bindings.
+Each entry accepts:
 
-*pointer.bindings* is a list. Every entry accepts:
-
-*modifiers* = _(strings)_
-	Optional modifier list. Valid names are *Shift*, *Control*, *Mod1*, *Mod2*,
-	*Mod3*, *Mod4*, and *Mod5*.
+*modifiers* = (_strings_)
+	Optional list using *Shift*, *Control*, and *Mod1* through *Mod5*.
 
 *button* = _integer_
-	Required X button number from 1 through 9.
+	X button number, from 1 through 255.
 
-*action* = _string_
-	Required action. The only valid actions are *move*, *toggle_floating*, and
-	*resize*.
+*action* = *"move"* | *"toggle_floating"* | *"resize"*
+	The admitted-client geometry operation.
 
-The same modifier mask and button number may not appear twice.
+The stock bindings are Mod4-Button1 move, Mod4-Button2 floating toggle, and
+Mod4-Button3 resize.
 
-The built-in bindings are:
+# REMOVED AUTHORITY
 
-```
-pointer = {
-  bindings = (
-    { modifiers = ("Mod4"); button = 1; action = "move"; },
-    { modifiers = ("Mod4"); button = 2; action = "toggle_floating"; },
-    { modifiers = ("Mod4"); button = 3; action = "resize"; }
-  );
-};
-```
-
-There is no *click* selector: every binding targets an admitted client. Panel,
-status, root-window, title-area, and layout-widget pointer policy belongs to the
-owner of those surfaces.
-
-# EXTRACTED SETTINGS
-
-The following historical rawm settings are no longer accepted:
-
-- *status*
-- *commands*
-- *input* (including the former *keys* and *buttons* members)
-- *ui.bar*
-- *ui.systray*
-
-They are rejected as unknown settings. This is intentional fail-closed schema
-contraction, not a deprecation alias. Configure global keys/argv execution in
-*rawkeys* and persistent panel/status/systray policy in *rawpanel*.
-
-# VALIDATION
-
-*rawm -C* validates the effective configuration and exits with status 0 on
-success. Validation does not open an X display.
-
-# FILES
-
-_/etc/rawm/rawm.conf_
-	System configuration.
-
-_$XDG_CONFIG_HOME/rawm/rawm.conf_
-	User configuration when *XDG_CONFIG_HOME* is absolute.
-
-_$HOME/.config/rawm/rawm.conf_
-	User fallback when *XDG_CONFIG_HOME* is unset, empty, or non-absolute.
+The following historical roots/settings are rejected: *status*, *commands*,
+*input*, *ui.bar*, *ui.systray*, *ui.font*, *ui.osd*, and *layout.symbols*.
+They belong to other components rather than compatibility state in rawm.
 
 # SEE ALSO
 
-*rawm*(1), *rawctl*(1), *rawkeys*(1), *rawpanel*(1)
-
-; vim: ft=scdoc cc=72 tw=70
+*rawm*(1)

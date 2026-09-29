@@ -12,8 +12,7 @@ rawm is the X11 window-management authority. Its mutable domain is limited to:
 * tiled/free/fullscreen geometry;
 * pointer-driven move, resize, and floating transitions;
 * compositor-facing projections of admitted WM state;
-* the rawm command/state membrane;
-* the transient OSD, pending a separate authority decision.
+* the rawm command/state membrane, including transient semantic feedback publication.
 
 A responsibility with an independent lifecycle, failure domain, public
 interface, or policy authority belongs in another repository. Extraction is
@@ -29,6 +28,7 @@ The rawmkit desktop composes independent repositories:
 * `rawpanel` owns persistent dock presentation, panel pointer policy, XEmbed
   system-tray ownership, native status collection, and ALSA state/control.
 * `rawsession` owns desktop process topology and supervision.
+* transient feedback renderers consume `_RAWM_FEEDBACK`; rawm owns no feedback window or presentation policy.
 * `rawwin` is a stateless composition leaf: rawctl client inventory, rawmenu
   selection, rawctl direct focus.
 * `rawmenu`, `rawclip`, `rawpass`, and `rawlock` retain their independent
@@ -61,13 +61,14 @@ geometry.
 
 ## Presentation boundary
 
-Persistent panel, status, systray, and ALSA presentation/control have been
-extracted to rawpanel. rawm retains only the transient OSD because its final
-boundary has not yet been decided. The OSD must not become justification for
-reintroducing persistent desktop chrome into rawm.
+rawm owns no desktop presentation surface. Persistent panel/status/systray
+presentation is external, and transient feedback is published semantically on
+`_RAWM_FEEDBACK` for an independent renderer. rawm does not own fonts, text
+formatting, OSD geometry, visibility timers, or presentation windows.
 
-`libXft` and Fontconfig therefore remain temporary rawm dependencies for OSD
-rendering only.
+The feedback stream is advisory and event-oriented. Authoritative state remains
+`_RAWM_STATE` and `_RAWM_CLIENTS`; consumers must never reconstruct WM truth
+from feedback records.
 
 ## Input boundary
 
@@ -81,7 +82,7 @@ rawkeys never calls rawm implementation functions or writes rawm-owned X state.
 ## Configuration boundary
 
 rawm configuration describes only rawm-owned state. The schema contains WM
-geometry/policy, tags/layouts/rules, transient OSD policy, and admitted-client
+geometry/policy, tags/layouts/rules, border projection, and admitted-client
 pointer mechanics. Extracted authorities are rejected rather than accepted as
 inert data.
 

@@ -42,6 +42,9 @@ The owner publishes:
   authoritative monitor/tag/layout state snapshot.
 * `_RAWM_CLIENTS`, type `UTF8_STRING`, format 8. This is the complete current
   authoritative admitted-client inventory.
+* `_RAWM_FEEDBACK`, type `UTF8_STRING`, format 8. This is the latest transient
+  semantic feedback event for presentation consumers. It is advisory, not
+  authoritative state.
 
 A consumer that needs change notification selects `PropertyChangeMask` on the
 owner and rereads `_RAWM_STATE` after a `PropertyNotify`. rawm replaces the
@@ -122,6 +125,46 @@ window-title observation. Text fields use the same `%HH` escaping as tag names.
 This inventory is the authority boundary for managed-window enumeration.
 Consumers must not reconstruct rawm's admitted client set from `_NET_CLIENT_LIST`,
 the X window tree, or a combination of EWMH properties.
+
+## Transient feedback version 1
+
+`_RAWM_FEEDBACK` is an event-oriented presentation input. rawm replaces the
+property for every feedback event, including repetitions of the same semantic
+event. Consumers select `PropertyChangeMask` on the control owner and reread the
+property after notification. Missing events are acceptable; consumers must use
+`_RAWM_STATE` and `_RAWM_CLIENTS` whenever correctness depends on current WM
+truth. For events whose presentation depends on tag labels or the selected view,
+rawm publishes the corresponding authoritative snapshot before the feedback
+record.
+
+A version-1 record is one UTF-8 line with tab-separated fields:
+
+```
+rawm-feedback-v1<TAB>SERIAL<TAB>EVENT<TAB>MONITOR<TAB>ARG0<TAB>ARG1
+```
+
+`SERIAL` is a monotonically increasing unsigned process-local event number.
+`MONITOR` is the rawm monitor number. `ARG0` and `ARG1` are signed decimal
+semantic arguments. Version 1 defines these events:
+
+* `monitor`: selected monitor changed; `ARG0` is the selected monitor number.
+* `master-count`: `ARG0` is the current master-client count.
+* `master-factor`: `ARG0` is the current master factor scaled by 1,000,000.
+* `move`: `ARG0`,`ARG1` are client x/y relative to the monitor work area.
+* `resize`: `ARG0`,`ARG1` are client width/height.
+* `view`: `ARG0` is the current viewed tag mask. Consumers may reread state for
+  tag names and the canonical layout name.
+* `layout`: `ARG0` is the layout ID using the command protocol's layout IDs.
+* `floating`: `ARG0` is 0 or 1 for the selected client's resulting elevated
+  state.
+* `fullscreen`: `ARG0` is 0 or 1 for the selected client's resulting state.
+* `tag`: `ARG0` is the selected client's assigned tag mask.
+* `toggle-tag`: `ARG0` is the selected client's resulting tag mask.
+* `tag-monitor`: `ARG0` is the destination monitor number.
+
+Formatting, fonts, colors, visibility duration, placement, and window lifecycle
+are deliberately absent from this contract. Those belong to the presentation
+consumer.
 
 ## Commands
 

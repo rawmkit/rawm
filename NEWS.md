@@ -5,18 +5,22 @@ rawm 7.0.0 — unreleased
 Authority cleanup
 -----------------
 
+* The in-process transient OSD has been extracted from rawm authority. rawm now
+  publishes semantic `_RAWM_FEEDBACK` records and owns no feedback window, font,
+  text rendering, visibility timer, or OSD geometry policy.
+* Xft and Fontconfig are no longer rawm dependencies. `ui.font`, `ui.osd`,
+  `layout.symbols`, and foreground/background presentation colors have been
+  removed from the fail-closed rawm schema.
 * The proven rawkeys/rawpanel cutover is now reflected in rawm itself: global
   key grabs, command spawning, per-window XKB tracking, built-in bar/status,
   native ALSA control, XEmbed systray ownership, and the legacy in-tree
   `rawmctl` implementation have been deleted from the runtime/build graph.
 * Pointer-driven client move, resize, and floating transitions remain rawm
-  authority. Persistent panel/status input is external; the transient OSD
-  remains rawm-owned pending its own boundary decision.
+  authority. Persistent and transient presentation are external.
 * WM action tests now drive the rawm control membrane directly instead of
   depending on the deleted global-key dispatcher. Tests owned solely by the
   extracted panel/status/systray/input authorities have left this repository.
-* rawm no longer links ALSA. Xft and Fontconfig remain only for the transient
-  OSD.
+* rawm no longer links ALSA, Xft, or Fontconfig.
 * The configuration schema now matches runtime authority. Historical `status`,
   `commands`, global-key/general-input, bar, systray, status-click, and native
   volume settings are rejected instead of surviving as inert parser state.
