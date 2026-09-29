@@ -52,8 +52,6 @@ write_valid_config()
   cat >"$tmp/rawm.conf" <<'EOC'
 ui = {
   font = "monospace:size=9";
-  bar = { show = true; position = "bottom"; height = 24; };
-  systray = { show = false; };
 };
 EOC
 }

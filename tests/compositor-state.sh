@@ -54,9 +54,7 @@ test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 cat >"$tmp/rawm.conf" <<EOC
 ui = {
   border_width = 2;
-  bar = { show = false; };
   osd = { show = true; position = "bottom"; geometry = true; duration_ms = 300; padding = 6; offset = 12; min_width = 180; };
-  systray = { show = false; };
 };
 tags = {
   default = (

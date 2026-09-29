@@ -48,8 +48,6 @@ run_case()
   cat >"$tmp/rawm.conf" <<EOC
 ui = {
   font = "monospace:size=9";
-  bar = { show = true; position = "bottom"; height = 24; };
-  systray = { show = false; };
   colors = {
     normal = { border = "#111111"; foreground = "#aaaaaa"; background = "#000000"; };
     selected = { border = "#222222"; foreground = "#ffffff"; background = "#000000"; };

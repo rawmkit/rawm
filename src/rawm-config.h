@@ -34,11 +34,6 @@ typedef enum {
 } RawmFloatingPlacement;
 
 typedef enum {
-  RAWM_TAG_VISIBILITY_OCCUPIED,
-  RAWM_TAG_VISIBILITY_ALL
-} RawmTagVisibility;
-
-typedef enum {
   RAWM_LAYOUT_TILE,
   RAWM_LAYOUT_FLOATING,
   RAWM_LAYOUT_MONOCLE,
@@ -103,15 +98,6 @@ typedef struct {
   unsigned int border_width;
   unsigned int snap;
   double opacity;
-  bool show_bar;
-  bool top_bar;
-  int bar_height;
-  unsigned int bar_padding;
-  unsigned int bar_item_spacing;
-  unsigned int bar_section_spacing;
-  unsigned int bar_cell_margin;
-  unsigned int bar_indicator_size;
-  RawmTagVisibility tag_visibility;
   bool show_osd;
   bool osd_top;
   bool osd_geometry;
@@ -119,9 +105,6 @@ typedef struct {
   unsigned int osd_padding;
   unsigned int osd_offset;
   unsigned int osd_min_width;
-  bool show_systray;
-  unsigned int systray_spacing;
-  unsigned int systray_icon_size;
 
 
   RawmCenterMode dialog_center;

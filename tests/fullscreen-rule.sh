@@ -97,7 +97,7 @@ stop_case()
 # A fullscreen rule may place the client directly on a non-visible tag.  The
 # client keeps fullscreen geometry but showhide() moves it two widths left.
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = { floating_placement = "client"; };
 tags = { default = ({ name = "one"; }, { name = "video"; }); };
 rules = (
@@ -115,7 +115,7 @@ stop_case
 # Leaving rule-requested fullscreen restores the client's underlying floating
 # state, original geometry, and configured border width.
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = { floating_placement = "client"; };
 rules = (
   { class = "RawmFullscreenRule"; floating = true; fullscreen = true; }
@@ -143,7 +143,7 @@ stop_case
 # An explicit false rule suppresses an application's initial fullscreen request
 # without becoming a permanent policy.
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = { floating_placement = "client"; };
 rules = (
   { class = "RawmFullscreenRule"; floating = true; fullscreen = false; }

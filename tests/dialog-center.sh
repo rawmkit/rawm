@@ -52,8 +52,6 @@ write_config()
   cat >"$tmp/rawm.conf" <<EOC
 ui = {
   border_width = 2;
-  bar = { show = false; };
-  systray = { show = false; };
 };
 behavior = {
   dialog_center = "$mode";

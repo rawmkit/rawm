@@ -52,9 +52,7 @@ test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 cat >"$tmp/rawm.conf" <<EOF
 ui = {
   border_width = 2;
-  bar = { show = false; };
   osd = { show = false; };
-  systray = { show = false; };
 };
 layout = {
   master_factor = 0.50;

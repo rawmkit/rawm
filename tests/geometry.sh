@@ -105,7 +105,7 @@ write_config()
 {
   mode=$1
   cat >"$tmp/rawm.conf" <<EOC
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = { size_hints = "$mode"; floating_placement = "client"; };
 tags = { default = ({ name = "one"; layout = "tile"; }); };
 EOC
@@ -205,7 +205,7 @@ stop_case
 # A ConfigureRequest from a client on a non-visible tag may update canonical
 # geometry, but it must not materialize that geometry on the current tag.
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = { size_hints = "never"; floating_placement = "client"; };
 tags = { default = ({ name = "one"; }, { name = "two"; }); };
 rules = (
@@ -232,7 +232,7 @@ stop_case
 # Property-driven recentering follows the same visibility projection. Updating
 # the EWMH window type must not pull a centered tag-2 client onto tag 1.
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = { size_hints = "never"; floating_placement = "client"; };
 tags = { default = ({ name = "one"; }, { name = "two"; }); };
 rules = (
@@ -261,7 +261,7 @@ stop_case
 # request whose content box fits but whose configured border does not must be
 # pulled back inside the monitor rather than leaving the frame clipped.
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = { size_hints = "never"; floating_placement = "client"; };
 rules = (
   { class = "RawmGeometry"; floating = true; }

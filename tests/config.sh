@@ -32,9 +32,7 @@ expect_ok config/rawm.conf
 cat >"$tmp/valid.conf" <<'EOC'
 ui = {
   font = "monospace:size=11";
-  bar = { position = "top"; padding = 6; tags = { visibility = "all"; }; };
   osd = { show = true; geometry = true; duration_ms = 650; };
-  systray = { show = false; spacing = 7; icon_size = 19; };
 };
 behavior = { dialog_center = "parent"; size_hints = "always"; floating_placement = "client"; };
 layout = { master_factor = 0.60; gaps = { inner = 8; outer = 12; smart = true; }; };
@@ -51,6 +49,15 @@ pointer = { bindings = (
 ); };
 EOC
 expect_ok "$tmp/valid.conf"
+
+for legacy_ui in bar systray; do
+  cat >"$tmp/legacy-ui.conf" <<EOC
+ui = { $legacy_ui = {}; };
+EOC
+  expect_fail "$tmp/legacy-ui.conf"
+  grep -q "unknown setting '$legacy_ui'" "$tmp/stderr" ||
+    fail "ui.$legacy_ui authority was not rejected"
+done
 
 for legacy in status commands input; do
   printf '%s = {};\n' "$legacy" >"$tmp/legacy.conf"
@@ -95,10 +102,6 @@ ui = { osd = { duration_ms = 99; }; };
 EOC
 expect_fail "$tmp/osd-duration.conf"
 
-cat >"$tmp/tag-visibility.conf" <<'EOC'
-ui = { bar = { tags = { visibility = "smart"; }; }; };
-EOC
-expect_fail "$tmp/tag-visibility.conf"
 
 cat >"$tmp/size-hints.conf" <<'EOC'
 behavior = { size_hints = "sometimes"; };

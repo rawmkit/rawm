@@ -87,7 +87,7 @@ write_config()
   layout=$1
   smart=$2
   cat >"$tmp/rawm.conf" <<EOC
-ui = { bar = { show = false; }; };
+ui = {};
 layout = {
   master_factor = 0.50;
   master_count = 1;

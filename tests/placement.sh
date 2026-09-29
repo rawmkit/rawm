@@ -103,7 +103,7 @@ write_config()
 {
   policy=$1
   cat >"$tmp/rawm.conf" <<EOC
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = {
   size_hints = "floating";
   floating_placement = "$policy";
@@ -176,7 +176,7 @@ stop_case
 
 # Explicit rawm placement remains higher authority than the default cascade.
 cat >"$tmp/rawm.conf" <<'EOC'
-ui = { border_width = 2; bar = { show = false; }; systray = { show = false; }; };
+ui = { border_width = 2; };
 behavior = { floating_placement = "cascade"; cascade_step = 32; };
 tags = { default = ({ name = "one"; layout = "floating"; }); };
 rules = (

@@ -134,34 +134,6 @@ floating_placement_name(RawmFloatingPlacement mode)
            : NULL;
 }
 
-static const char *
-tag_visibility_name(RawmTagVisibility visibility)
-{
-  static const char *const names[] = { "occupied", "all" };
-
-  return visibility >= RAWM_TAG_VISIBILITY_OCCUPIED &&
-         visibility <= RAWM_TAG_VISIBILITY_ALL
-           ? names[visibility]
-           : NULL;
-}
-
-static int
-parse_tag_visibility(const char *name, RawmTagVisibility *visibility)
-{
-  int i;
-
-  for (i = RAWM_TAG_VISIBILITY_OCCUPIED; i <= RAWM_TAG_VISIBILITY_ALL; ++i)
-  {
-    if (!strcmp(name, tag_visibility_name((RawmTagVisibility)i)))
-    {
-      *visibility = (RawmTagVisibility)i;
-      return 0;
-    }
-  }
-
-  return -1;
-}
-
 static int
 parse_floating_placement(const char *name, RawmFloatingPlacement *mode)
 {
@@ -269,15 +241,6 @@ rawm_config_init(RawmConfig *cfg)
   cfg->border_width = 2;
   cfg->snap = 32;
   cfg->opacity = 1.0;
-  cfg->show_bar = true;
-  cfg->top_bar = false;
-  cfg->bar_height = 0;
-  cfg->bar_padding = 0;
-  cfg->bar_item_spacing = 0;
-  cfg->bar_section_spacing = 0;
-  cfg->bar_cell_margin = 0;
-  cfg->bar_indicator_size = 0;
-  cfg->tag_visibility = RAWM_TAG_VISIBILITY_OCCUPIED;
   cfg->show_osd = false;
   cfg->osd_top = false;
   cfg->osd_geometry = false;
@@ -285,9 +248,6 @@ rawm_config_init(RawmConfig *cfg)
   cfg->osd_padding = 10;
   cfg->osd_offset = 24;
   cfg->osd_min_width = 0;
-  cfg->show_systray = true;
-  cfg->systray_spacing = 2;
-  cfg->systray_icon_size = 0;
   cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->size_hints = RAWM_SIZE_HINTS_FLOATING;
   cfg->floating_placement = RAWM_FLOATING_PLACEMENT_CASCADE;
@@ -488,86 +448,20 @@ static int
 parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 {
   static const char *const allowed[] = {
-    "font", "border_width", "snap", "opacity", "bar", "osd", "systray",
-    "colors"
+    "font", "border_width", "snap", "opacity", "osd", "colors"
   };
-  static const char *const bar_allowed[] = {
-    "show", "position", "height", "padding", "item_spacing",
-    "section_spacing", "cell_margin", "indicator_size", "tags"
+  static const char *const color_allowed[] = {
+    "normal", "selected", "urgent", "error", "floating"
   };
-  static const char *const bar_tags_allowed[] = { "visibility" };
-  static const char *const tray_allowed[] = { "show", "spacing", "icon_size" };
-  static const char *const color_allowed[] = { "normal", "selected", "urgent", "error", "floating" };
   config_setting_t *group;
-  int h;
 
-  if (validate_members(err, ui, allowed, 8) < 0)
+  if (validate_members(err, ui, allowed, 6) < 0)
     return -1;
   if (read_string(err, ui, "font", &cfg->font) < 0 ||
       read_uint_range(err, ui, "border_width", 0, 64, &cfg->border_width) < 0 ||
       read_uint_range(err, ui, "snap", 0, 4096, &cfg->snap) < 0 ||
       read_double_range(err, ui, "opacity", 0.0, 1.0, &cfg->opacity) < 0)
     return -1;
-
-  group = config_setting_get_member(ui, "bar");
-  if (group) {
-    config_setting_t *position;
-    const char *value;
-    if (validate_members(err, group, bar_allowed, 9) < 0 ||
-        read_bool(err, group, "show", &cfg->show_bar) < 0 ||
-        read_uint_range(err, group, "padding", 0, 128, &cfg->bar_padding) < 0 ||
-        read_uint_range(err, group, "item_spacing", 0, 128,
-                        &cfg->bar_item_spacing) < 0 ||
-        read_uint_range(err, group, "section_spacing", 0, 256,
-                        &cfg->bar_section_spacing) < 0 ||
-        read_uint_range(err, group, "cell_margin", 0, 64,
-                        &cfg->bar_cell_margin) < 0 ||
-        read_uint_range(err, group, "indicator_size", 0, 32,
-                        &cfg->bar_indicator_size) < 0)
-      return -1;
-    h = cfg->bar_height;
-    if (read_int_range(err, group, "height", 0, 512, &h) < 0)
-      return -1;
-    cfg->bar_height = h;
-    position = config_setting_get_member(group, "position");
-    if (position) {
-      if (config_setting_type(position) != CONFIG_TYPE_STRING)
-        return cfg_error(err, position, "bar.position must be a string", "bar.position");
-      value = config_setting_get_string(position);
-      if (!strcmp(value, "top"))
-        cfg->top_bar = true;
-      else if (!strcmp(value, "bottom"))
-        cfg->top_bar = false;
-      else
-        return cfg_error(err, position, "invalid bar position '%s'", value);
-    }
-
-    {
-      config_setting_t *tags = config_setting_get_member(group, "tags");
-
-      if (tags)
-      {
-        config_setting_t *visibility;
-
-        if (validate_members(err, tags, bar_tags_allowed, 1) < 0)
-          return -1;
-
-        visibility = config_setting_get_member(tags, "visibility");
-        if (visibility)
-        {
-          if (config_setting_type(visibility) != CONFIG_TYPE_STRING)
-            return cfg_error(err, visibility,
-                             "bar.tags.visibility must be a string",
-                             "bar.tags.visibility");
-
-          value = config_setting_get_string(visibility);
-          if (parse_tag_visibility(value, &cfg->tag_visibility) < 0)
-            return cfg_error(err, visibility,
-                             "invalid tag visibility '%s'", value);
-        }
-      }
-    }
-  }
 
   group = config_setting_get_member(ui, "osd");
   if (group) {
@@ -604,16 +498,6 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
       else
         return cfg_error(err, position, "invalid osd position '%s'", value);
     }
-  }
-
-  group = config_setting_get_member(ui, "systray");
-  if (group) {
-    if (validate_members(err, group, tray_allowed, 3) < 0 ||
-        read_bool(err, group, "show", &cfg->show_systray) < 0 ||
-        read_uint_range(err, group, "spacing", 0, 64, &cfg->systray_spacing) < 0 ||
-        read_uint_range(err, group, "icon_size", 0, 512,
-                        &cfg->systray_icon_size) < 0)
-      return -1;
   }
 
   group = config_setting_get_member(ui, "colors");
@@ -1279,24 +1163,6 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%u", cfg->snap);
   else if (!strcmp(path, "ui.opacity"))
     snprintf(buf, buflen, "%.15g", cfg->opacity);
-  else if (!strcmp(path, "ui.bar.show"))
-    snprintf(buf, buflen, "%s", cfg->show_bar ? "true" : "false");
-  else if (!strcmp(path, "ui.bar.position"))
-    snprintf(buf, buflen, "%s", cfg->top_bar ? "top" : "bottom");
-  else if (!strcmp(path, "ui.bar.height"))
-    snprintf(buf, buflen, "%d", cfg->bar_height);
-  else if (!strcmp(path, "ui.bar.padding"))
-    snprintf(buf, buflen, "%u", cfg->bar_padding);
-  else if (!strcmp(path, "ui.bar.item_spacing"))
-    snprintf(buf, buflen, "%u", cfg->bar_item_spacing);
-  else if (!strcmp(path, "ui.bar.section_spacing"))
-    snprintf(buf, buflen, "%u", cfg->bar_section_spacing);
-  else if (!strcmp(path, "ui.bar.cell_margin"))
-    snprintf(buf, buflen, "%u", cfg->bar_cell_margin);
-  else if (!strcmp(path, "ui.bar.indicator_size"))
-    snprintf(buf, buflen, "%u", cfg->bar_indicator_size);
-  else if (!strcmp(path, "ui.bar.tags.visibility"))
-    snprintf(buf, buflen, "%s", tag_visibility_name(cfg->tag_visibility));
   else if (!strcmp(path, "ui.osd.show"))
     snprintf(buf, buflen, "%s", cfg->show_osd ? "true" : "false");
   else if (!strcmp(path, "ui.osd.position"))
@@ -1311,12 +1177,6 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%u", cfg->osd_offset);
   else if (!strcmp(path, "ui.osd.min_width"))
     snprintf(buf, buflen, "%u", cfg->osd_min_width);
-  else if (!strcmp(path, "ui.systray.show"))
-    snprintf(buf, buflen, "%s", cfg->show_systray ? "true" : "false");
-  else if (!strcmp(path, "ui.systray.spacing"))
-    snprintf(buf, buflen, "%u", cfg->systray_spacing);
-  else if (!strcmp(path, "ui.systray.icon_size"))
-    snprintf(buf, buflen, "%u", cfg->systray_icon_size);
   else if (!strcmp(path, "behavior.dialog_center"))
     snprintf(buf, buflen, "%s", center_mode_name(cfg->dialog_center));
   else if (!strcmp(path, "behavior.size_hints"))
@@ -1583,10 +1443,6 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
   }
   if (!size_hints_mode_name(cfg->size_hints)) {
     fputs("rawm: configuration error: invalid size-hint policy\n", err);
-    return -1;
-  }
-  if (!tag_visibility_name(cfg->tag_visibility)) {
-    fputs("rawm: configuration error: invalid tag-visibility policy\n", err);
     return -1;
   }
   if (!floating_placement_name(cfg->floating_placement)) {

@@ -30,12 +30,8 @@ compare_config(const RawmConfig *a, const RawmConfig *b)
       expect_string("color differs", a->colors[i][j], b->colors[i][j]);
 
   SAME(border_width); SAME(snap); SAME(opacity);
-  SAME(show_bar); SAME(top_bar); SAME(bar_height); SAME(bar_padding);
-  SAME(bar_item_spacing); SAME(bar_section_spacing); SAME(bar_cell_margin);
-  SAME(bar_indicator_size); SAME(tag_visibility);
   SAME(show_osd); SAME(osd_top); SAME(osd_geometry); SAME(osd_duration_ms);
   SAME(osd_padding); SAME(osd_offset); SAME(osd_min_width);
-  SAME(show_systray); SAME(systray_spacing); SAME(systray_icon_size);
   SAME(dialog_center); SAME(size_hints); SAME(floating_placement);
   SAME(cascade_step); SAME(master_factor); SAME(master_count);
   SAME(gap_inner); SAME(gap_outer); SAME(smart_gaps);
