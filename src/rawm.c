@@ -182,7 +182,6 @@ enum {
   SchemeNorm,
   SchemeSel,
   SchemeUrg,
-  SchemeErr,
   SchemeFloating
 };
 

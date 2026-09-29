@@ -72,7 +72,7 @@ main(void)
     fail("recursive/scalar string reference did not resolve");
   if (strcmp(cfg.colors[1][2], "#222222"))
     fail("color alias did not resolve");
-  if (strcmp(cfg.colors[4][0], "#aabbcc"))
+  if (strcmp(cfg.colors[3][0], "#aabbcc"))
     fail("floating color did not inherit selected border");
   if (strcmp(cfg.layout_symbols[RAWM_LAYOUT_TILE], "g7-true"))
     fail("layout scalar references did not resolve");

@@ -52,7 +52,6 @@ ui = {
     normal = { border = "#111111"; foreground = "#aaaaaa"; background = "#000000"; };
     selected = { border = "#222222"; foreground = "#ffffff"; background = "#000000"; };
     urgent = { border = "#ffff00"; foreground = "#ffff00"; background = "#000000"; };
-    error = { border = "#ff0000"; foreground = "#ff0000"; background = "#000000"; };
   };
 };
 tags = { default = ({ name = "one"; }, { name = "video"; }); };

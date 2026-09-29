@@ -226,7 +226,6 @@ rawm_config_init(RawmConfig *cfg)
     { "#cccccc", "#000000", "#cccccc" },
     { "#0066ff", "#ffffff", "#0066ff" },
     { "#0066ff", "#0066ff", "#ffffff" },
-    { "#ff0000", "#ffffff", "#ff0000" },
     { "${ui.colors.selected.border}",
       "${ui.colors.selected.foreground}",
       "${ui.colors.selected.background}" }
@@ -451,7 +450,7 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
     "font", "border_width", "snap", "opacity", "osd", "colors"
   };
   static const char *const color_allowed[] = {
-    "normal", "selected", "urgent", "error", "floating"
+    "normal", "selected", "urgent", "floating"
   };
   config_setting_t *group;
 
@@ -502,12 +501,11 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
 
   group = config_setting_get_member(ui, "colors");
   if (group) {
-    if (validate_members(err, group, color_allowed, 5) < 0 ||
+    if (validate_members(err, group, color_allowed, 4) < 0 ||
         parse_color_scheme(err, cfg, group, "normal", 0) < 0 ||
         parse_color_scheme(err, cfg, group, "selected", 1) < 0 ||
         parse_color_scheme(err, cfg, group, "urgent", 2) < 0 ||
-        parse_color_scheme(err, cfg, group, "error", 3) < 0 ||
-        parse_color_scheme(err, cfg, group, "floating", 4) < 0)
+        parse_color_scheme(err, cfg, group, "floating", 3) < 0)
       return -1;
   }
   return 0;
@@ -1338,7 +1336,7 @@ static int
 resolve_config_references(RawmConfig *cfg, FILE *err)
 {
   static const char *const color_names[] = {
-    "normal", "selected", "urgent", "error", "floating"
+    "normal", "selected", "urgent", "floating"
   };
   static const char *const component_names[] = {
     "border", "foreground", "background"
