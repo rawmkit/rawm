@@ -1,5 +1,5 @@
 rawm_src_include = include_directories('.')
-rawm_config_source = files('rawm-config.c', 'status/config.c')
+rawm_config_source = files('rawm-config.c')
 
 rawm = executable(
   'rawm',

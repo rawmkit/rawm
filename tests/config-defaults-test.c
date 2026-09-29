@@ -144,31 +144,6 @@ compare_config(const RawmConfig *a, const RawmConfig *b)
   SAME(systray_spacing);
   SAME(systray_icon_size);
 
-  SAME(status_enabled);
-  expect_string("status separator differs",
-                a->status_separator, b->status_separator);
-  if (a->status.source_count != b->status.source_count)
-    fail("status source count differs");
-  for (i = 0; i < a->status.source_count; ++i)
-  {
-    const RawmStatusSourceConfig *as = &a->status.sources[i];
-    const RawmStatusSourceConfig *bs = &b->status.sources[i];
-
-    expect_string("status source id differs", as->id, bs->id);
-    if (as->enabled != bs->enabled || as->provider != bs->provider ||
-        as->period_ms != bs->period_ms || as->warning != bs->warning ||
-        as->critical != bs->critical || as->step != bs->step ||
-        as->timeout_ms != bs->timeout_ms || as->argc != bs->argc)
-      fail("status source scalar policy differs");
-    expect_string("status source device differs", as->device, bs->device);
-    expect_string("status source control differs", as->control, bs->control);
-    expect_string("status source format differs", as->format, bs->format);
-    expect_string("status source path differs", as->path, bs->path);
-    expect_string("status source interface differs", as->interface, bs->interface);
-    for (j = 0; j < as->argc; ++j)
-      expect_string("status source command differs", as->argv[j], bs->argv[j]);
-  }
-
   SAME(dialog_center);
   SAME(size_hints);
   SAME(floating_placement);

@@ -37,8 +37,6 @@ main(void)
     "           \"--inner=${layout.gaps.inner}\",\n"
     "           \"--outer=${layout.gaps.outer}\",\n"
     "           \"--smart=${layout.gaps.smart}\",\n"
-    "           \"--status=${status.enabled}\",\n"
-    "           \"--separator=${status.separator}\",\n"
     "           \"--center=${behavior.dialog_center}\",\n"
     "           \"--hints=${behavior.size_hints}\",\n"
     "           \"--placement=${behavior.floating_placement}\",\n"
@@ -64,10 +62,6 @@ main(void)
     "           \"${ui.colors.floating.border}\",\n"
     "           \"$${HOME}\");\n"
     "};\n"
-    "status = { enabled = true; separator = \" :: \"; sources = {\n"
-    "  battery = { provider = \"battery\"; };\n"
-    "  clock = { format = \"%H:%M\"; };\n"
-    "}; };\n"
     "behavior = { dialog_center = \"parent\"; size_hints = \"always\"; floating_placement = \"client\"; cascade_step = 48; };\n"
     "ui = {\n"
     "  font = \"face-${ui.colors.selected.foreground}\";\n"
@@ -89,8 +83,7 @@ main(void)
     "layout = { gaps = { inner = 7; outer = 11; smart = true; }; };\n";
   static const char *const expected[] = {
     "probe", "-fn", "face-#111111", "--opacity=0.85", "--inner=7",
-    "--outer=11", "--smart=true", "--status=true",
-    "--separator= :: ",
+    "--outer=11", "--smart=true",
     "--center=parent", "--hints=always", "--placement=client",
     "--cascade=48", "--bar=top", "--bar-padding=6",
     "--bar-item-spacing=4", "--bar-section-spacing=12",
@@ -130,10 +123,6 @@ main(void)
     fail("color alias did not resolve");
   if (strcmp(cfg.colors[4][0], "#aabbcc"))
     fail("floating color did not inherit selected border");
-  if (cfg.status.source_count != 2 ||
-      strcmp(cfg.status.sources[0].id, "battery") ||
-      strcmp(cfg.status.sources[1].id, "clock"))
-    fail("status source declaration order was not preserved");
 
   cmd = rawm_config_find_command(&cfg, "probe");
   if (!cmd)

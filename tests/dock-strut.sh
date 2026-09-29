@@ -57,7 +57,6 @@ ui = {
   osd = { show = false; };
   systray = { show = false; };
 };
-status = { enabled = false; };
 layout = { gaps = { inner = 0; outer = 0; smart = false; }; };
 tags = { default = ({ name = "one"; layout = "tile"; }); };
 commands = {};

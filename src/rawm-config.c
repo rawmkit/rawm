@@ -1,6 +1,5 @@
 #include "rawm-config.h"
 #include "status.h"
-
 #include <errno.h>
 #include <libconfig.h>
 #include <limits.h>
@@ -53,89 +52,6 @@ replace_string(char **dst, const char *src)
 {
   free(*dst);
   *dst = xstrdup(src);
-}
-
-static int
-valid_utf8(const unsigned char *text, size_t length)
-{
-  size_t i = 0;
-
-  while (i < length) {
-    unsigned char c = text[i++];
-
-    if (c <= 0x7f)
-      continue;
-    if (c >= 0xc2 && c <= 0xdf) {
-      if (i >= length || text[i] < 0x80 || text[i] > 0xbf)
-        return 0;
-      ++i;
-      continue;
-    }
-    if (c == 0xe0) {
-      if (i + 1 >= length || text[i] < 0xa0 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return 0;
-      i += 2;
-      continue;
-    }
-    if ((c >= 0xe1 && c <= 0xec) || (c >= 0xee && c <= 0xef)) {
-      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return 0;
-      i += 2;
-      continue;
-    }
-    if (c == 0xed) {
-      if (i + 1 >= length || text[i] < 0x80 || text[i] > 0x9f ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf)
-        return 0;
-      i += 2;
-      continue;
-    }
-    if (c == 0xf0) {
-      if (i + 2 >= length || text[i] < 0x90 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return 0;
-      i += 3;
-      continue;
-    }
-    if (c >= 0xf1 && c <= 0xf3) {
-      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0xbf ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return 0;
-      i += 3;
-      continue;
-    }
-    if (c == 0xf4) {
-      if (i + 2 >= length || text[i] < 0x80 || text[i] > 0x8f ||
-          text[i + 1] < 0x80 || text[i + 1] > 0xbf ||
-          text[i + 2] < 0x80 || text[i + 2] > 0xbf)
-        return 0;
-      i += 3;
-      continue;
-    }
-    return 0;
-  }
-  return 1;
-}
-
-static int
-status_separator_valid(const char *separator)
-{
-  size_t i, length;
-
-  if (!separator)
-    return 0;
-  length = strlen(separator);
-  if (length > 256 || !valid_utf8((const unsigned char *)separator, length))
-    return 0;
-  for (i = 0; i < length; ++i)
-    if ((unsigned char)separator[i] < 0x20 ||
-        (unsigned char)separator[i] == 0x7f)
-      return 0;
-  return 1;
 }
 
 static void
@@ -495,9 +411,6 @@ rawm_config_init(RawmConfig *cfg)
   cfg->show_systray = true;
   cfg->systray_spacing = 2;
   cfg->systray_icon_size = 0;
-  cfg->status_enabled = true;
-  cfg->status_separator = xstrdup(" | ");
-  rawm_status_config_init(&cfg->status);
   cfg->dialog_center = RAWM_CENTER_NONE;
   cfg->size_hints = RAWM_SIZE_HINTS_FLOATING;
   cfg->floating_placement = RAWM_FLOATING_PLACEMENT_CASCADE;
@@ -630,8 +543,6 @@ rawm_config_destroy(RawmConfig *cfg)
 {
   size_t i, j;
   free(cfg->font);
-  free(cfg->status_separator);
-  rawm_status_config_destroy(&cfg->status);
   for (i = 0; i < RAWM_COLOR_SCHEMES; ++i)
     for (j = 0; j < RAWM_COLOR_COMPONENTS; ++j)
       free(cfg->colors[i][j]);
@@ -937,30 +848,6 @@ parse_ui(FILE *err, RawmConfig *cfg, const config_setting_t *ui)
         parse_color_scheme(err, cfg, group, "floating", 4) < 0)
       return -1;
   }
-  return 0;
-}
-
-static int
-parse_status(FILE *err, RawmConfig *cfg, const config_setting_t *group)
-{
-  static const char *const allowed[] = { "enabled", "separator", "sources" };
-  config_setting_t *setting;
-
-  if (config_setting_type(group) != CONFIG_TYPE_GROUP)
-    return cfg_error(err, group, "status must be a group", "");
-  if (validate_members(err, group, allowed, 3) < 0 ||
-      read_bool(err, group, "enabled", &cfg->status_enabled) < 0)
-    return -1;
-
-  setting = config_setting_get_member(group, "separator");
-  if (setting) {
-    if (config_setting_type(setting) != CONFIG_TYPE_STRING)
-      return cfg_error(err, setting, "status.separator must be a string", "");
-    replace_string(&cfg->status_separator, config_setting_get_string(setting));
-  }
-  setting = config_setting_get_member(group, "sources");
-  if (setting && rawm_status_config_parse_sources(&cfg->status, setting, err) < 0)
-    return -1;
   return 0;
 }
 
@@ -1428,9 +1315,6 @@ parse_action_name(const char *name, RawmAction *action)
     { "toggle_floating", RAWM_ACTION_TOGGLE_FLOATING }, { "tag", RAWM_ACTION_TAG },
     { "toggle_tag", RAWM_ACTION_TOGGLE_TAG }, { "window_view", RAWM_ACTION_WINDOW_VIEW },
     { "toggle_fullscreen", RAWM_ACTION_TOGGLE_FULLSCREEN },
-    { "volume_up", RAWM_ACTION_VOLUME_UP },
-    { "volume_down", RAWM_ACTION_VOLUME_DOWN },
-    { "volume_mute", RAWM_ACTION_VOLUME_MUTE },
     { "focus_monitor", RAWM_ACTION_FOCUS_MONITOR }, { "tag_monitor", RAWM_ACTION_TAG_MONITOR },
     { "quit", RAWM_ACTION_QUIT }, { "move", RAWM_ACTION_MOVE }, { "resize", RAWM_ACTION_RESIZE }
   };
@@ -1678,18 +1562,15 @@ static int
 parse_layer(FILE *err, RawmConfig *cfg, config_t *source)
 {
   static const char *const allowed[] = {
-    "ui", "status", "behavior", "layout", "tags", "rules", "commands", "input"
+    "ui", "behavior", "layout", "tags", "rules", "commands", "input"
   };
   config_setting_t *root = config_root_setting(source);
   config_setting_t *setting;
 
-  if (validate_members(err, root, allowed, 8) < 0)
+  if (validate_members(err, root, allowed, 7) < 0)
     return -1;
   setting = config_setting_get_member(root, "ui");
   if (setting && parse_ui(err, cfg, setting) < 0)
-    return -1;
-  setting = config_setting_get_member(root, "status");
-  if (setting && parse_status(err, cfg, setting) < 0)
     return -1;
   setting = config_setting_get_member(root, "behavior");
   if (setting && parse_behavior(err, cfg, setting) < 0)
@@ -1882,12 +1763,6 @@ format_scalar_reference(RawmReferenceResolver *resolver, const char *path,
     snprintf(buf, buflen, "%u", cfg->systray_spacing);
   else if (!strcmp(path, "ui.systray.icon_size"))
     snprintf(buf, buflen, "%u", cfg->systray_icon_size);
-  else if (!strcmp(path, "status.enabled"))
-    snprintf(buf, buflen, "%s", cfg->status_enabled ? "true" : "false");
-  else if (!strcmp(path, "status.separator")) {
-    *value = cfg->status_separator;
-    return 0;
-  }
   else if (!strcmp(path, "behavior.dialog_center"))
     snprintf(buf, buflen, "%s", center_mode_name(cfg->dialog_center));
   else if (!strcmp(path, "behavior.size_hints"))
@@ -2165,19 +2040,6 @@ binding_has_extra(const RawmBinding *b, bool command, bool layout,
          (!restart && b->restart);
 }
 
-static size_t
-enabled_alsa_source_count(const RawmConfig *cfg)
-{
-  size_t count = 0;
-  size_t i;
-
-  for (i = 0; i < cfg->status.source_count; ++i)
-    if (cfg->status.sources[i].enabled &&
-        cfg->status.sources[i].provider == RAWM_STATUS_PROVIDER_ALSA)
-      ++count;
-  return count;
-}
-
 static int
 validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
                  RawmClick click, FILE *err)
@@ -2295,17 +2157,6 @@ validate_binding(const RawmConfig *cfg, const RawmBinding *b, bool mouse,
       return -1;
     }
     break;
-  case RAWM_ACTION_VOLUME_UP:
-  case RAWM_ACTION_VOLUME_DOWN:
-  case RAWM_ACTION_VOLUME_MUTE:
-    if (binding_has_extra(b, false, false, false, false, false, false))
-      goto extra;
-    if (!cfg->status_enabled || enabled_alsa_source_count(cfg) != 1) {
-      fputs("rawm: configuration error: native volume action requires "
-            "status.enabled and exactly one enabled ALSA status source\n", err);
-      return -1;
-    }
-    break;
   case RAWM_ACTION_QUIT:
     if (binding_has_extra(b, false, false, false, false, false, true))
       goto extra;
@@ -2349,13 +2200,6 @@ rawm_config_validate(const RawmConfig *cfg, FILE *err)
     fputs("rawm: configuration error: invalid floating-placement policy\n", err);
     return -1;
   }
-  if (!status_separator_valid(cfg->status_separator)) {
-    fputs("rawm: configuration error: status.separator must be printable UTF-8 no longer than 256 bytes\n",
-          err);
-    return -1;
-  }
-  if (rawm_status_config_validate(&cfg->status, err) < 0)
-    return -1;
   for (i = 0; i < RAWM_LAYOUT_COUNT; ++i) {
     if (!cfg->layout_symbols[i] ||
         strlen(cfg->layout_symbols[i]) > RAWM_LAYOUT_SYMBOL_MAX) {

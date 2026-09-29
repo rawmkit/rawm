@@ -58,7 +58,6 @@ ui = {
   };
 };
 tags = { default = ({ name = "one"; }, { name = "video"; }); };
-status = { enabled = false; separator = " | "; };
 input = { keys = (); buttons = (); };
 rules = ($rules);
 EOC

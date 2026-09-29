@@ -5,8 +5,6 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#include "status/config.h"
-
 #define RAWM_MAX_TAGS 31
 #define RAWM_TAG_NAME_MAX 22u
 #define RAWM_LAYOUT_SYMBOL_MAX 32u
@@ -70,9 +68,6 @@ typedef enum {
   RAWM_ACTION_TOGGLE_TAG,
   RAWM_ACTION_WINDOW_VIEW,
   RAWM_ACTION_TOGGLE_FULLSCREEN,
-  RAWM_ACTION_VOLUME_UP,
-  RAWM_ACTION_VOLUME_DOWN,
-  RAWM_ACTION_VOLUME_MUTE,
   RAWM_ACTION_FOCUS_MONITOR,
   RAWM_ACTION_TAG_MONITOR,
   RAWM_ACTION_QUIT,
@@ -188,9 +183,6 @@ typedef struct {
   unsigned int systray_spacing;
   unsigned int systray_icon_size;
 
-  bool status_enabled;
-  char *status_separator;
-  RawmStatusConfig status;
 
   RawmCenterMode dialog_center;
   RawmSizeHintsMode size_hints;
