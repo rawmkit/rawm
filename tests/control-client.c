@@ -1,5 +1,6 @@
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 #include <errno.h>
 #include <stdint.h>
@@ -7,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #define CONTROL_VERSION 1u
 
@@ -115,6 +117,55 @@ print_state(Display *display, Window root)
   if (count && fwrite(data, 1, count, stdout) != count)
     fail("cannot write state");
   XFree(data);
+  return EXIT_SUCCESS;
+}
+
+static int
+print_clients(Display *display, Window root)
+{
+  Window owner = control_window(display);
+  Atom property = XInternAtom(display, "_RAWM_CLIENTS", True);
+  Atom utf8 = XInternAtom(display, "UTF8_STRING", True);
+  unsigned long count = 0;
+  int format = 0;
+  unsigned char *data;
+
+  (void)root;
+  if (owner == None || property == None || utf8 == None)
+    return EXIT_FAILURE;
+  data = get_property(display, owner, property, utf8, &format, &count);
+  if (!data || format != 8)
+  {
+    if (data)
+      XFree(data);
+    return EXIT_FAILURE;
+  }
+  if (count && fwrite(data, 1, count, stdout) != count)
+    fail("cannot write client inventory");
+  XFree(data);
+  return EXIT_SUCCESS;
+}
+
+static int
+window_client(Display *display, Window root, const char *class_name,
+              const char *title)
+{
+  XClassHint hint;
+  Window window;
+
+  window = XCreateSimpleWindow(display, root, 40, 40, 240, 120, 0, 0, 0);
+  if (window == None)
+    fail("cannot create test window");
+  hint.res_name = (char *)"control-client";
+  hint.res_class = (char *)class_name;
+  XSetClassHint(display, window, &hint);
+  XStoreName(display, window, title);
+  XMapWindow(display, window);
+  XFlush(display);
+  printf("0x%lx\n", (unsigned long)window);
+  fflush(stdout);
+  for (;;)
+    pause();
   return EXIT_SUCCESS;
 }
 
@@ -245,6 +296,10 @@ main(int argc, char **argv)
     result = print_version(display, root);
   else if (argc == 2 && !strcmp(argv[1], "--state"))
     result = print_state(display, root);
+  else if (argc == 2 && !strcmp(argv[1], "--clients"))
+    result = print_clients(display, root);
+  else if (argc == 4 && !strcmp(argv[1], "--window"))
+    result = window_client(display, root, argv[2], argv[3]);
   else if (argc == 3 && !strcmp(argv[1], "--supports"))
     result = supports(display, root, argv[2]);
   else if ((argc == 3 || argc == 4 || argc == 5 || argc == 6) &&
@@ -256,7 +311,8 @@ main(int argc, char **argv)
     result = send_command(display, root, argv[2], arg0, arg1, text);
   }
   else
-    fail("usage: control-client --version | --state | --supports ATOM | "
+    fail("usage: control-client --version | --state | --clients | "
+         "--window CLASS TITLE | --supports ATOM | "
          "--send ATOM [ARG0 [ARG1 [TEXT]]]");
 
   XCloseDisplay(display);
