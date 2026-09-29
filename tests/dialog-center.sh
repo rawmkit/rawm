@@ -9,6 +9,7 @@ esac
 
 rawm=${1:-./rawm}
 helper=${2:-./tests/dialog-center-client}
+control_client=${3:-./tests/control-client}
 
 tmp=${TMPDIR:-/tmp}/rawm-dialog-center-test.$$
 mkdir -p "$tmp"
@@ -40,6 +41,7 @@ for tool in Xvfb xwininfo awk sed; do
 done
 
 [ -x "$helper" ] || skip "$helper not built"
+[ -x "$control_client" ] || skip "$control_client not built"
 
 test_xvfb_start "$tmp" || skip "Xvfb did not become ready"
 
@@ -86,11 +88,20 @@ run_case()
   write_config "$mode" "$override"
   "$rawm" -c "$tmp/rawm.conf" >"$tmp/rawm.log" 2>&1 &
   wm_pid=$!
-  sleep 0.15
-  kill -0 "$wm_pid" 2>/dev/null || {
-    cat "$tmp/rawm.log" >&2
-    fail "rawm exited during $mode case"
-  }
+
+  n=0
+  while ! "$control_client" --state >/dev/null 2>&1; do
+    n=$((n + 1))
+    [ "$n" -lt 250 ] || {
+      cat "$tmp/rawm.log" >&2
+      fail "rawm did not become ready during $mode case"
+    }
+    kill -0 "$wm_pid" 2>/dev/null || {
+      cat "$tmp/rawm.log" >&2
+      fail "rawm exited during $mode case"
+    }
+    sleep 0.02
+  done
 
   if [ -n "$helper_arg" ]; then
     "$helper" "$helper_arg" >"$tmp/windows" 2>"$tmp/client.err" &

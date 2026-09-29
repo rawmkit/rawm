@@ -320,7 +320,7 @@ if dialog_center_missing.length() == 0
   test(
     'dialog-center',
     dialog_center_test,
-    args: [rawm, dialog_center_client],
+    args: [rawm, dialog_center_client, control_client],
     workdir: test_workdir,
   )
 else
