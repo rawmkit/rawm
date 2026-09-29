@@ -547,12 +547,23 @@ input = { keys = (
 EOC
 expect_fail "$tmp/duplicate.conf"
 
+# Global key interpretation is rawkeys authority. During the migration window
+# rawm preserves non-empty key names as opaque configuration data.
 cat >"$tmp/keysym.conf" <<'EOC'
 input = { keys = (
   { key = "DefinitelyNotAnXKeysym"; action = "toggle_bar"; }
 ); };
 EOC
-expect_fail "$tmp/keysym.conf"
+expect_ok "$tmp/keysym.conf"
+
+cat >"$tmp/empty-key.conf" <<'EOC'
+input = { keys = (
+  { key = ""; action = "toggle_bar"; }
+); };
+EOC
+expect_fail "$tmp/empty-key.conf"
+grep -q "key name must not be empty" "$tmp/stderr" ||
+  fail "empty key-name diagnostic missing"
 
 cat >"$tmp/tag.conf" <<'EOC'
 tags = { default = (

@@ -12,9 +12,8 @@ Configuration changes therefore do not require recompiling rawm.
 The configuration is deliberately split into groups for user-interface
 settings, behavior, layouts, tags, application rules, commands, and input
 bindings. Unknown setting names, wrong types, invalid ranges, unresolved
-commands or value references, invalid key symbols, duplicate bindings, and
-references to tags or layouts which do not exist are fatal configuration
-errors.
+commands or value references, duplicate bindings, and references to tags or
+layouts which do not exist are fatal configuration errors.
 
 Use *rawm -C* to validate the effective configuration without opening the X
 display.
@@ -28,9 +27,10 @@ renders those settings. Their authorities are *rawkeys* and *rawpanel*.
 
 Only admitted-client pointer bindings remain active under *input.buttons*. In
 the current runtime, rawm accepts client bindings for move, resize, and
-explicit floating toggle. The extracted schema will be removed rather than
-kept as a compatibility interface once the integration-policy migration is
-complete.
+explicit floating toggle. Legacy *input.keys[].key* values are retained only
+as non-empty opaque strings; rawm does not resolve them as X keysyms. The
+extracted schema will be removed rather than kept as a compatibility interface
+once the integration-policy migration is complete.
 
 # FILES AND PRECEDENCE
 
@@ -776,8 +776,9 @@ Each *input.keys* entry requires:
 	Optional modifier list. Omission is equivalent to an empty list.
 
 *key* = string
-	An X keysym name understood by *XStringToKeysym*(3), such as *"Return"*,
-	*"space"*, *"1"*, or *"XF86AudioMute"*.
+	Legacy migration field. rawm requires a non-empty string but does not
+	interpret it as an X keysym. Standalone *rawkeys* owns key-name resolution
+	and global keyboard policy.
 
 *action* = string
 	Action name described below.
@@ -801,7 +802,8 @@ input.keys = (
 );
 ```
 
-Duplicate resolved modifier/keysym pairs are rejected.
+Duplicate modifier/key-string pairs are rejected by the transitional parser.
+Runtime keysym resolution and any aliases belong to *rawkeys*.
 
 ## Mouse bindings
 
