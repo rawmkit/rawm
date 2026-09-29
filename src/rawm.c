@@ -435,8 +435,6 @@ static void           drawutf8(XftDraw *draw, XftColor *color,
                                const char *text, size_t len);
 static size_t         utf8decode(const char *text, size_t len,
                                  FcChar32 *codepoint);
-static size_t         textfitprefix(const char *text, size_t len,
-                                    int max_width);
 static void           killclient(const Arg *arg);
 static void           manage(Window w, XWindowAttributes *wa);
 static void           mappingnotify(XEvent *e);
@@ -1914,57 +1912,6 @@ utf8decode(const char *text, size_t len, FcChar32 *codepoint)
   }
 
   return (size_t)consumed;
-}
-
-static size_t
-textfitprefix(const char *text, size_t len, int max_width)
-{
-  size_t *boundaries;
-  size_t count = 1;
-  size_t high, low = 0;
-  size_t pos = 0;
-  size_t best = 0;
-
-  if (!text || !len || max_width <= 0)
-    return 0;
-
-  if (!(boundaries = malloc((len + 1) * sizeof(*boundaries))))
-    die("fatal: could not malloc() %lu bytes\n",
-        (unsigned long)((len + 1) * sizeof(*boundaries)));
-
-  boundaries[0] = 0;
-  while (pos < len)
-  {
-    FcChar32 codepoint;
-    size_t consumed = utf8decode(text + pos, len - pos, &codepoint);
-
-    if (!consumed)
-      break;
-    pos += consumed;
-    boundaries[count++] = pos;
-  }
-
-  high = count - 1;
-  while (low <= high)
-  {
-    size_t mid = low + (high - low) / 2;
-    size_t bytes = boundaries[mid];
-
-    if (textnw(text, (unsigned int)bytes) <= max_width)
-    {
-      best = bytes;
-      low = mid + 1;
-    }
-    else
-    {
-      if (!mid)
-        break;
-      high = mid - 1;
-    }
-  }
-
-  free(boundaries);
-  return best;
 }
 
 static void
