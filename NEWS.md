@@ -1,9 +1,25 @@
-* The rawm control membrane now publishes `_RAWM_CLIENTS` as an authoritative
-  admitted-client inventory and accepts `_RAWM_CMD_FOCUS_CLIENT`. External
-  selectors no longer need to reconstruct rawm client authority from EWMH.
-
 rawm 7.0.0 — unreleased
 ======================
+
+
+Authority cleanup
+-----------------
+
+* The proven rawkeys/rawpanel cutover is now reflected in rawm itself: global
+  key grabs, command spawning, per-window XKB tracking, built-in bar/status,
+  native ALSA control, XEmbed systray ownership, and the legacy in-tree
+  `rawmctl` implementation have been deleted from the runtime/build graph.
+* Pointer-driven client move, resize, and floating transitions remain rawm
+  authority. Persistent panel/status input is external; the transient OSD
+  remains rawm-owned pending its own boundary decision.
+* WM action tests now drive the rawm control membrane directly instead of
+  depending on the deleted global-key dispatcher. Tests owned solely by the
+  extracted panel/status/systray/input authorities have left this repository.
+* rawm no longer links ALSA. Xft and Fontconfig remain only for the transient
+  OSD.
+* The legacy extracted configuration grammar is temporarily parser-only while
+  the exact integration configuration is migrated; it has no rawm runtime
+  authority and is not a compatibility commitment.
 
 
 Input authority cutover
@@ -16,6 +32,9 @@ Input authority cutover
 Window-manager authority membrane
 ---------------------------------
 
+* The rawm control membrane publishes `_RAWM_CLIENTS` as an authoritative
+  admitted-client inventory and accepts `_RAWM_CMD_FOCUS_CLIENT`. External
+  selectors no longer need to reconstruct rawm client authority from EWMH.
 * rawm now owns an explicit versioned X11 control/state membrane for its
   window-management authority. Consumers discover a per-screen selection owner
   rather than reconstructing rawm semantics from EWMH or the client tree.
@@ -45,31 +64,16 @@ Session authority extraction
   rawm: one primary process defines session lifetime, sidecars have bounded
   restart policy, and session reload/shutdown remain rawsession concerns.
 
-Unified status ownership
-------------------------
+Panel and status authority extraction
+-------------------------------------
 
-* Status collection is now an internal rawm subsystem. rawm is the sole
-  configuration and lifecycle authority; the standalone `rawmstat` executable,
-  configuration file, manuals, and rawmsession sidecar are retired.
-* Native status sources run in a fault-isolated child process supervised by
-  rawm and communicate through an anonymous `SOCK_SEQPACKET` socket. No status
-  X root property, public socket, PID file, or second configuration parser
-  remains.
-* Status source policy lives under `status.sources` in `rawm.conf`. Native CPU,
-  memory, filesystem, network, battery, and clock providers retain in-process
-  sampling state; `exec` remains an explicitly bounded extension provider.
-* Worker loss marks existing values stale without terminating the window
-  manager. rawm reaps and restarts the worker with bounded backoff.
-* `rawm --status-debug` runs the same collector path in the foreground for
-  configuration and source diagnostics without opening the X display.
-* Native ALSA playback-volume status replaces the last command-polled desktop
-  measurement. While healthy it is event-driven through libasound mixer poll
-  descriptors; the configured period is used only for reconnect attempts.
-* Status source declaration order is authoritative across layered configuration,
-  so the effective snapshot/bar order follows the most recent declarations.
-* Native `volume_up`, `volume_down`, and `volume_mute` actions control the single
-  configured ALSA source through the same private status worker; no second mixer
-  authority or `amixer` subprocess is required.
+* Persistent dock presentation, XEmbed systray ownership, native status
+  collection, and ALSA state/control are standalone rawpanel authority. rawm
+  communicates no private panel lifecycle and derives work areas only from
+  standard EWMH dock struts.
+* The native status work developed during the transition moved with rawpanel;
+  rawm retains no collector process, provider implementation, or ALSA control
+  path.
 
 rawm 6.5.0 — 2026-09-26
 =========================

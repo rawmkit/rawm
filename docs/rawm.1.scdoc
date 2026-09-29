@@ -10,428 +10,142 @@ rawm - Ra window manager for X
 
 # DESCRIPTION
 
-*rawm* is a dynamic tiling window manager for X, derived from *dwm*
-version 6.0.  It manages windows in tiled, monocle bottom stack,
-bottom stack horizontal and floating layouts.  Either layout can be
-applied dynamically, optimising the environment for the application in
-use and the task performed.
+*rawm* is a dynamic X11 window manager derived from *dwm* 6.0. It owns client
+admission, monitor and tag state, layouts, focus, geometry, external-dock work
+areas, pointer-driven client manipulation, and the rawm control/state membrane.
 
-In tiled layouts windows are managed in a master and stacking area.
-The master area contains the window which currently needs most
-attention, whereas the stacking area contains all other windows.
+Global keyboard policy, program launching, persistent desktop chrome, status
+collection, volume control, system-tray ownership, and session lifecycle are
+separate authorities. In a rawmkit desktop those responsibilities are normally
+provided by *rawkeys*, *rawpanel*, and *rawsession*.
 
-```
-tile  ([]= nmaster)
-+---------+-------+     Tiled layout is default, but can be
-|         |   2   |     selected manually by *Meta-t*.
-|         |       |
-|    1    +-------+     The "nmaster" indicates the number of
-|         |   3   |     clients in master area, and can be
-|         |       |     increased/decreased by *Meta-i* / *Meta-d*.
-+---------+-------+
-master    stacking
-area       area
-```
+rawm provides tile, floating, monocle, bottom-stack, horizontal bottom-stack,
+and grid layouts. Per-tag state includes layout, master count, and master
+factor. Windows can carry one or more tags, and each monitor independently owns
+its selected view and layout state.
 
-Gapless grid layout arranges the windows in a grid.
+Mapped EWMH dock windows remain external surfaces rather than admitted rawm
+clients. Their struts determine usable work areas. Fullscreen clients continue
+to use the complete monitor rectangle.
 
-```
-gaplessgrid   (###)
-+-----+-----+-----+     NO MASTER AREA!
-|  1  |  3  |  5  |
-|     |     +-----+     Layout can be selected by *Meta-g*.
-+-----+-----|  6  |
-|  2  |  4  +-----+
-|     |     |  7  |
-+-----+-----+-----+
-```
+rawm can present a transient OSD for window-manager state transitions such as
+layout, view, routing, fullscreen, master-area changes, tag naming, and optional
+live floating geometry. The OSD is the only rawm-owned presentation surface; it
+is not admitted as a client and does not reserve work area.
 
-In monocle layout all windows are maximised to the screen size.
-
-```
-monocle     ([1/4])
-+-----------------+     NO MASTER AREA!
-|                 |
-|                 |     1/4 shows currently selected vs. total
-|   1,2,3,4,...   |     number of available windows.
-|                 |
-|                 |     Layout can be selected by Meta-m.
-+-----------------+
-```
-
-Bottom stack (TTT) and bottom stack horizontal (===) are two stack
-layouts for *rawm*.
-
-```
-bstack (TTT nmaster)          bstackhoriz (=== nmaster)
-+-----------------+                 +-----------------+
-|                 |     master      |                 |
-|        1        |   <- area ->    |        1        |
-|                 |                 |                 |
-+-----+-----+-----+                 +-----------------+
-|  2  |  3  |  4  |    stacking     +--------2--------+
-|     |     |     |   <- area ->    +--------3--------+
-+-----+-----+-----+                 +--------4--------+
-```
-
-Layouts can be selected by *Meta-s* (bstack) and *Meta-h*
-(bstackhoriz).
-
-In floating layout windows can be resized and moved freely.  Dialog
-windows are always managed floating, regardless of the layout applied.
-
-```
-float       (<1/3>)
-+-----------------+     NO MASTER AREA!
-| +-----+ +-----+ |
-| |  1  | |  2  | |     1/3 shows currently selected vs total
-| +-----+ +-----+ |     number of available windows.
-|    +-------+    |
-|    |   3   |    |
-|    +-------+    |     Layout can be selected by *Meta-f*.
-+-----------------+
-```
-
-Windows are grouped by tags.  Each window can be tagged with one or
-multiple tags.  Selecting certain tags displays all windows with these
-tags.
-
-Each screen contains a small status bar which displays all used tags,
-the layout, the title (when built with *-Dwindow_title=true*) of the focused
-window, and semantic status segments collected by its private status worker
-on the focused screen.
-
-The bar is a semantic rail. Viewed tags use the selected authority color as
-a filled cell, urgent tags use the urgent authority color, and the layout is
-drawn as a neutral mode cell. The focused window title is centered in the
-remaining title area and receives a compact border-colored marker on the
-workspace-facing edge. Floating focus therefore differs by authority color,
-not by a legacy square glyph.
-
-Normal status segments remain quiet. Warning and critical segments become
-semantic cells using the urgent and error schemes.
-
-Configured panel actions are discoverable without adding persistent chrome:
-interactive tags, layout/title regions, and status segments use the hand
-cursor while hovered. Quiet regions receive a short workspace-facing marker;
-the focused-title marker widens while the title region is interactive.
-
-When enabled, rawm also presents a transient OSD for interactive state
-changes: views and tag assignments, monitor navigation, layout and
-master-area changes, floating/fullscreen state, bar visibility, and tag
-renaming. The OSD is a rawm-owned compositor surface and never enters normal
-client management. Its text is centered within a stable configured minimum
-width. Workspace, routing, layout, master-area, and ordinary window-state
-feedback use the selected scheme; elevated/floating feedback uses the
-floating scheme. When *ui.osd.geometry* is enabled, interactive floating move
-and resize operations additionally show throttled live geometry from rawm's
-admitted client state rather than raw pointer deltas.
-
-*rawm* draws a small border around windows to indicate the focus state.
-
-The options are as follows:
+# OPTIONS
 
 *-c* _path_, *--config* _path_
-	Load the built-in defaults followed by exactly _path_, bypassing the
-	standard system and user configuration files.
+	Load the built-in defaults followed by exactly _path_, bypassing the standard
+	system and user configuration files.
 
 *-C*, *--check-config*
-	Validate the effective configuration and exit without opening the X
-	display.
-
-*--status-debug*
-	Run the configured status collector in the foreground and print each changed
-	private snapshot to standard output. This diagnostic mode does not open X.
+	Validate the effective configuration and exit without opening the X display.
 
 *-v*, *--version*
-	Print version and exit.
+	Print the version and exit.
 
-# USAGE
+# CONTROL AND STATE INTERFACE
 
-## Status bar
-
-When *status.enabled* is true, rawm starts a private collector worker from the
-validated *status.sources* configuration. The worker owns sampling state while
-rawm owns rendering, colors, separators, hit testing, and status-specific mouse
-bindings.
-
-The worker is an implementation process, not a separately installed service.
-It communicates with rawm over an anonymous packet socket. Unexpected worker
-death marks current segments stale and schedules a bounded restart without
-terminating the window manager.
-
-Each segment carries a stable identifier, text, and one of *normal*, *warning*,
-*critical*, or *stale*. The root *WM_NAME* property is not used for status, and
-rawm exports no status property for external producers. See *rawm.conf*(5) for
-source configuration.
-
-## Control and state interface
-
-rawm owns the per-screen X selection *\_RAWM\_CONTROL\_SN*, where _N_ is the
-X screen number. The selection owner is an unmapped rawm-owned window and is the
+rawm owns the per-screen X selection *\_RAWM\_CONTROL\_SN*, where _N_ is the X
+screen number. The selection owner is an unmapped rawm-owned window and is the
 liveness boundary for the external control/state protocol. If rawm loses its X
-connection, X destroys that owner window and clears the selection.
+connection, X destroys the owner window and clears the selection.
 
 The owner publishes *\_RAWM\_CONTROL\_VERSION*,
-*\_RAWM\_SUPPORTED\_COMMANDS*, and the complete authoritative
-*\_RAWM\_STATE* snapshot. Consumers that need change notification select
-*PropertyChangeMask* on the owner and reread the complete snapshot after state
-changes rather than reconstructing rawm tag/layout/focus semantics from EWMH or
-the client tree.
+*\_RAWM\_SUPPORTED\_COMMANDS*, *\_RAWM\_STATE*, and *\_RAWM\_CLIENTS*.
+Consumers observe these authoritative snapshots instead of reconstructing rawm
+semantics from EWMH or the root-window client tree.
 
-Commands are versioned *ClientMessage* events of type *\_RAWM\_COMMAND* sent
-directly to the selection owner. The advertised command set contains only
-window-management operations. Program spawning, panel visibility, status,
-volume, global-key/XKB policy, and session lifecycle are intentionally outside
-this interface.
+Commands are versioned ClientMessage events of type *\_RAWM\_COMMAND* sent to
+the owner window. The command surface contains window-management operations
+only. Program spawning, panel visibility, status, volume, global-key/XKB policy,
+and session lifecycle are intentionally outside the rawm membrane.
 
-The exact version-1 record grammar, command atoms, and argument semantics are
-documented in the source-tree *docs/control-protocol.md* contract.
+The exact version-1 state, client-inventory, command, and argument grammar is
+documented in _docs/control-protocol.md_ in the source tree. The standalone
+*rawctl* utility is the normal command-line client for this contract.
 
-## Compositor integration
+# EXTERNAL DOCKS AND WORK AREA
 
-rawm publishes private per-client properties describing window-manager state
-that a compositor cannot reliably infer from generic ICCCM/EWMH properties.
-They are descriptive outputs only; clients and compositors must not write them
-as commands back to rawm.
-
-*\_RAWM\_FLOATING*
-	CARDINAL 0 or 1. One means the client is effectively on the floating
-	presentation plane, either because the client itself is floating or because
-	the monitor currently uses the floating layout. Fullscreen clients also
-	report one; compositors should give standard fullscreen state precedence.
-
-*\_RAWM\_SELECTED*
-	CARDINAL 0 or 1. One only for the globally selected client on the selected
-	monitor. This is rawm's compositor-facing focus authority.
-
-*\_RAWM\_LAYOUT*
-	UTF8_STRING naming the selected monitor layout. Stable values are *tile*,
-	*floating*, *monocle*, *bstack*, *bstack_horizontal*, and *grid*.
-
-*\_RAWM\_MONITOR*
-	CARDINAL monitor number, starting at zero. The same property is also
-	published on rawm-owned compositor surfaces.
-
-rawm-owned non-client surfaces additionally publish:
-
-*\_RAWM\_SURFACE*
-	UTF8_STRING describing the surface role. Stable values are *bar*,
-	*systray*, and *osd*. Their WM_CLASS instances are *rawm-bar*,
-	*rawm-systray*, and *rawm-osd* respectively; all use *rawm* as the class
-	and advertise *\_NET\_WM\_WINDOW\_TYPE\_DOCK*. This lets compositors
-	distinguish desktop chrome and transient rawm feedback from ordinary clients
-	without title or geometry heuristics. The systray surface is unmapped while
-	empty, while the selected monitor's bar is hidden, or while a visible
-	fullscreen client owns that monitor.
-
-The client properties are removed when rawm releases a surviving client.
-Private rawm protocol atoms are intentionally not advertised through
-*\_NET\_SUPPORTED*, which is reserved for EWMH atoms.
-
-## External docks and work area
-
-rawm treats windows advertising *\_NET\_WM\_WINDOW\_TYPE\_DOCK* as desktop
-chrome rather than managed clients. A mapped dock that publishes
+rawm treats windows advertising *\_NET\_WM\_WINDOW\_TYPE\_DOCK* as external
+desktop surfaces rather than managed clients. A mapped dock that publishes
 *\_NET\_WM\_STRUT\_PARTIAL* reserves the corresponding root-screen edge;
 legacy *\_NET\_WM\_STRUT* is also accepted.
 
-Reservations are observed when docks map or unmap, when the strut or window
-type property changes, and when a dock disappears. rawm then recomputes each
-monitor's usable work area and rearranges tiled clients. Fullscreen geometry
-continues to use the complete monitor rectangle.
+Reservations are reevaluated when docks map or unmap, when a strut or window
+type changes, and when a dock disappears. rawm recomputes monitor work areas
+and rearranges tiled clients accordingly. The contract is standard EWMH and
+contains no rawpanel-specific lifecycle or configuration dependency.
 
-The interface is intentionally standard EWMH rather than a rawm-specific panel
-control path. A standalone panel can therefore appear, disappear, or restart
-without becoming part of rawm's lifecycle authority.
+# COMPOSITOR INTEGRATION
 
-## Keyboard commands
+rawm publishes descriptive private properties on admitted clients:
 
-These are the built-in bindings. An *input.keys* list in *rawm.conf*(5)
-replaces them.
+*\_RAWM\_FLOATING*
+	CARDINAL 0 or 1 describing the effective floating/elevated presentation
+	plane.
 
-*Meta-r*
-	Start the configured *launcher* command.
+*\_RAWM\_SELECTED*
+	CARDINAL 0 or 1. One only for the globally selected admitted client.
 
-*Meta-Shift-Return*
-	Start the configured *terminal* command.
+*\_RAWM\_LAYOUT*
+	UTF8_STRING naming the selected layout: *tile*, *floating*, *monocle*,
+	*bstack*, *bstack_horizontal*, or *grid*.
 
-*Meta-,*
-	Focus previous screen, if any.
+*\_RAWM\_MONITOR*
+	CARDINAL monitor number, starting at zero.
 
-*Meta-.*
-	Focus next screen, if any.
+The transient OSD additionally publishes *\_RAWM\_SURFACE* with value *osd*
+and advertises *\_NET\_WM\_WINDOW\_TYPE\_DOCK*. These properties are outputs,
+not commands.
 
-*Meta-Shift-,*
-	Send focused window to previous screen, if any.
+# POINTER POLICY
 
-*Meta-Shift-.*
-	Send focused window to next screen, if any.
+rawm retains pointer-driven client manipulation because it depends directly on
+admitted client geometry and active pointer grabs. The stock client bindings
+are:
 
-*Meta-b*
-	Toggles bar on and off.
+*Meta-Button1*
+	Move the focused client while dragging. A tiled client becomes floating after
+	movement exceeds the snap threshold.
 
-*Meta-t*
-	Sets tiled layout.
+*Meta-Button2*
+	Toggle the focused client between explicit floating and tiled state.
 
-*Meta-f*
-	Sets floating layout.
+*Meta-Button3*
+	Resize the focused client while dragging. A tiled client becomes floating
+	after resizing exceeds the snap threshold.
 
-*Meta-m*
-	Sets monocle layout.
-
-*Meta-s*
-	Sets bstack layout.
-
-*Meta-h*
-	Sets horizontal bstack layout.
-
-*Meta-g*
-	Sets grid layout.
-
-*Meta-space*
-	Toggles between current and previous layout.
-
-*Meta-j*
-	Focus next window.
-
-*Meta-k*
-	Focus previous window.
-
-*Meta-i*
-	Increase clients in master area.
-
-*Meta-d*
-	Decrease clients in master area.
-
-*Meta-Shift-l*
-	Increase master area size.
-
-*Meta-Shift-h*
-	Decrease master area size.
-
-*Meta-Return*
-	Zooms/cycles focused window to/from master area (tiled layouts
-	only).
-
-*Meta-n*
-	Set the current tag name using the configured *tag_rename* command.
-
-*Meta-w*
-	Select a managed window using the configured *window_select* command.
-
-*Meta-v*
-	Open clipboard history using the configured *clipboard_history* command.
-	The stock policy runs *rawclip menu*. rawm owns the global key binding but
-	does not own clipboard-history capture, exclusion, or retention policy.
-
-*Control-Alt-Delete*
-	Invoke the configured *lock* command. In the stock policy this runs
-	*rawlock*(1); rawm does not supervise the locker or participate in
-	authentication.
-
-*Meta-c*
-	Close focused window.
-
-*Meta-Shift-space*
-	Toggle focused window between tiled and floating state.
-
-*Meta-Shift-f*
-	Toggle focused window between fullscreen and its previous tiled or
-	floating state.
-
-*Meta-Tab*
-	Toggles to the previously selected tags.
-
-*Meta-Shift-[1..n]*
-	Apply nth tag to focused window.
-
-*Meta-Shift-0*
-	Apply all tags to focused window.
-
-*Meta-Control-Shift-[1..n]*
-	Add/remove nth tag to/from focused window.
-
-*Meta-[1..n]*
-	View all windows with nth tag.
-
-*Meta-0*
-	View all windows with any tag.
-
-*Meta-o*
-	Switch the current view to the focused window's tag set.
-
-*Meta-Control-[1..n]*
-	Add/remove all windows with nth tag to/from the view.
-
-*Meta-Shift-q*
-	Quit *rawm*.
-
-*Meta-Control-Shift-q*
-	Restart *rawm*.
-
-## Mouse commands
-
-These are the built-in mouse bindings. An *input.buttons* list in
-*rawm.conf*(5) replaces them.
-
-*Button1* on tags
-	View the clicked tag.
-
-*Button3* on tags
-	Add/remove the clicked tag from the current view.
-
-*Button4*, *Button5* on tags
-	Cycle backward or forward through configured single-tag views.
-
-*Meta-Button1* on tags
-	Assign the clicked tag to the focused window.
-
-*Meta-Button3* on tags
-	Add/remove the clicked tag on the focused window.
-
-*Button1* on layout
-	Toggle between the current and previous layout.
-
-*Button3* on layout
-	Select monocle.
-
-*Button4*, *Button5* on layout
-	Cycle backward or forward through the stable layout set.
-
-*Button2* on status
-	Start the configured *terminal* command.
-
-*Meta-Button1* on client
-	Move the focused window while dragging. Tiled windows become
-	floating after movement exceeds the snap threshold.
-
-*Meta-Button2* on client
-	Toggle the focused window between floating and tiled state.
-
-*Meta-Button3* on client
-	Resize the focused window while dragging. Tiled windows become
-	floating after resizing exceeds the snap threshold.
+Global keyboard bindings are not rawm authority. Use *rawkeys* or another
+external key-binding authority to invoke rawm commands through the control
+membrane.
 
 # CONFIGURATION
 
-*rawm* loads runtime policy from *rawm.conf*(5). The default search order is
-built-in defaults, _/etc/rawm/rawm.conf_, then the XDG user file. Lists such
-as rules and input bindings have explicit replacement semantics; named
-commands merge by name. String settings and command arguments may reuse final
-scalar values with *${path}* references. Use *rawm -C* before restarting after
-an edit.
+*rawm* loads window-management policy from *rawm.conf*(5). The normal search
+order is built-in defaults, _/etc/rawm/rawm.conf_, then the XDG user file. An
+explicit *-c* path replaces the standard system/user file search after built-in
+defaults.
+
+During the extraction transition the parser still accepts several deprecated
+panel/status/global-key settings so existing layered configurations can be
+migrated without a runtime authority rollback. rawm no longer executes those
+settings. They will be removed from the schema together with the corresponding
+integration-policy migration.
+
+Use *rawm -C* before restarting after an edit.
 
 # SIGNALS
 
-*SIGHUP* (1)
-	Restart the *rawm* process.
+*SIGHUP*
+	Restart rawm in place using the original argv.
 
-*SIGTERM* (15)
-	Cleanly terminate the *rawm* process.
+*SIGTERM*, *SIGINT*
+	Cleanly terminate rawm.
 
 # SEE ALSO
 
-*rawm.conf*(5), *rawmctl*(1), *rawsession*(1), *rawmenu*(1), *rawlock*(1)
+*rawm.conf*(5), *rawctl*(1), *rawkeys*(1), *rawpanel*(1), *rawsession*(1)
 
 ; vim: ft=scdoc cc=72 tw=70

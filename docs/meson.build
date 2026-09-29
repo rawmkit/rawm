@@ -21,14 +21,3 @@ custom_target(
   install: true,
   install_dir: join_paths(get_option('mandir'), 'man5'),
 )
-
-custom_target(
-  'rawmctl.1',
-  input: 'rawmctl.1.scdoc',
-  output: 'rawmctl.1',
-  command: [scdoc],
-  feed: true,
-  capture: true,
-  install: true,
-  install_dir: join_paths(get_option('mandir'), 'man1'),
-)

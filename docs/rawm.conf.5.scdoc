@@ -19,6 +19,19 @@ errors.
 Use *rawm -C* to validate the effective configuration without opening the X
 display.
 
+## TRANSITIONAL EXTRACTED SETTINGS
+
+The current parser still accepts the legacy *commands*, *input.keys*, *ui.bar*,
+*ui.systray*, and *status* schema so layered configurations can be migrated in
+lockstep with the rawmkit integration repository. rawm no longer executes or
+renders those settings. Their authorities are *rawkeys* and *rawpanel*.
+
+Only admitted-client pointer bindings remain active under *input.buttons*. In
+the current runtime, rawm accepts client bindings for move, resize, and
+explicit floating toggle. The extracted schema will be removed rather than
+kept as a compatibility interface once the integration-policy migration is
+complete.
+
 # FILES AND PRECEDENCE
 
 Without *-c*, rawm starts from its compiled-in conservative defaults and then

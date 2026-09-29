@@ -1,143 +1,111 @@
 # rawm repository architecture
 
-## Repository authority
+## Authority
 
-The repository is currently in a decomposition transition. The target rule is
-one authority and one independently releasable failure domain per repository.
-No new subsystem should be added to this repository merely because rawm can
-currently call it directly.
+rawm is the X11 window-management authority. Its mutable domain is limited to:
 
-`rawm` itself is the window-management authority: client admission, monitor and
-tag state, layouts, focus, geometry, and pointer-driven window manipulation.
-The first extraction prerequisite is now an explicit control/state membrane; see
-`control-protocol.md`. External components command rawm through that membrane
-and consume rawm-published state instead of reconstructing rawm truth from EWMH
-or the X window tree.
+* admitted clients and their authoritative state;
+* monitor topology and external-dock work areas;
+* tags and views;
+* layouts and per-tag layout state;
+* focus and stacking;
+* tiled/free/fullscreen geometry;
+* pointer-driven move, resize, and floating transitions;
+* compositor-facing projections of admitted WM state;
+* the rawm command/state membrane;
+* the transient OSD, pending a separate authority decision.
 
-The current tree still contains transitional responsibilities that are planned
-for extraction rather than further integration:
+A responsibility with an independent lifecycle, failure domain, public
+interface, or policy authority belongs in another repository. Extraction is
+complete only when rawm no longer carries a dormant implementation copy.
 
-* the legacy in-tree `rawmctl` still mixes EWMH window operations and XKB
-  keyboard control. It is not the authority or specification for the rawm
-  membrane. The standalone `rawctl` repository already consumes that membrane
-  without reconstruction, and `rawwin` composes client selection through
-  `rawctl` plus `rawmenu`. The in-tree legacy utility remains only until its
-  obsolete implementation is deleted.
-* session lifecycle has been extracted to the standalone `rawsession`
-  repository; rawm no longer builds, installs, tests, or configures it.
-* the standalone `rawpanel` repository now owns the persistent dock, systray,
-  status providers, ALSA state/control, and panel pointer policy. The equivalent
-  built-in rawm implementations remain temporarily in this tree only for the
-  controlled live cutover and are disabled by integration policy before
-  deletion. OSD remains a separate unresolved presentation boundary and is not
-  assigned to rawpanel merely because both draw X11 surfaces.
-* global keyboard grabs, command dispatch, and per-window XKB policy belong to
-  the standalone `rawkeys` authority. The legacy compiled per-window XKB path is
-  now opt-in rather than a rawm default. Pointer-driven move/resize remains in
-  rawm because that mechanism depends directly on admitted client geometry and
-  pointer grabs.
+## External authorities
 
-The standalone rawpanel implementation contains the native status worker and
-providers. The duplicate rawm status implementation is transitional dead weight
-once the external panel cutover is proven; it must be deleted rather than kept
-as a compatibility fallback.
+The rawmkit desktop composes independent repositories:
 
-Session supervision is outside both rawm's runtime and repository authority.
-The standalone `rawsession` process supervises desktop process topology; rawm
-does not start or restart independent desktop sidecars.
+* `rawctl` consumes the rawm membrane as a command-line client.
+* `rawkeys` owns global passive grabs, key routing, argv execution, and
+  per-window XKB state.
+* `rawpanel` owns persistent dock presentation, panel pointer policy, XEmbed
+  system-tray ownership, native status collection, and ALSA state/control.
+* `rawsession` owns desktop process topology and supervision.
+* `rawwin` is a stateless composition leaf: rawctl client inventory, rawmenu
+  selection, rawctl direct focus.
+* `rawmenu`, `rawclip`, `rawpass`, and `rawlock` retain their independent
+  authority boundaries.
+
+Dependency direction is toward rawm's declared membrane. rawm does not depend
+back on these consumers and does not reconstruct their state.
+
+## Control/state membrane
+
+rawm owns the per-screen `_RAWM_CONTROL_SN` X selection. The selection-owner
+window is the liveness boundary. It publishes complete authoritative WM state
+and admitted-client inventory, advertises supported window-manager commands,
+and receives versioned command ClientMessages.
+
+Consumers may observe rawm truth, but may mutate it only through this declared
+interface. They must not derive tag/focus/layout authority by crawling the X
+client tree or generic EWMH state.
+
+See `control-protocol.md` for the wire contract.
 
 ## Dock/work-area boundary
 
-Usable monitor geometry is window-manager authority, but panel geometry is not.
-External desktop chrome publishes `_NET_WM_WINDOW_TYPE_DOCK` together with
-`_NET_WM_STRUT_PARTIAL` (or legacy `_NET_WM_STRUT`). rawm observes those
-standard reservations and derives its work areas from them. It does not require
-a panel-specific command, socket, PID, or configuration reference.
+Panel geometry is not rawm authority. External desktop chrome advertises
+`_NET_WM_WINDOW_TYPE_DOCK` and `_NET_WM_STRUT_PARTIAL` or `_NET_WM_STRUT`.
+rawm observes those standard reservations and derives usable monitor geometry.
+Mapping, unmapping, destroying, or changing a dock reservation recomputes work
+areas and rearranges tiled clients. Fullscreen remains based on full monitor
+geometry.
 
-This boundary is deliberately generic: rawm must react correctly to any
-standards-conforming dock, whether or not it is rawpanel. Mapping, unmapping,
-destroying, or changing a dock reservation recomputes work areas and rearranges
-tiled clients. Full monitor geometry remains authoritative for fullscreen
-clients.
+## Presentation boundary
 
-## Private libraries
+Persistent panel, status, systray, and ALSA presentation/control have been
+extracted to rawpanel. rawm retains only the transient OSD because its final
+boundary has not yet been decided. The OSD must not become justification for
+reintroducing persistent desktop chrome into rawm.
 
-A library is introduced only when two components need one semantic authority.
-It is not a destination for generic helpers merely because code can be shared.
+`libXft` and Fontconfig therefore remain temporary rawm dependencies for OSD
+rendering only.
 
-`lib/status` owns only the private status snapshot semantics:
+## Input boundary
 
-* state vocabulary;
-* segment identifier grammar and byte limits;
-* printable UTF-8 validation;
-* snapshot encoding and decoding;
-* the 4096-byte payload limit.
+Global keyboard policy is rawkeys authority. rawm retains only client-pointer
+mechanics that require admitted geometry and active pointer grabs. In the stock
+policy those are move, resize, and explicit floating toggle.
 
-It does not own X11, rendering, scheduling, subprocess execution, configuration
-policy, or presentation. The library is private, statically linked,
-non-installed, and has no public ABI commitment.
+Window-manager operations invoked from rawkeys travel through the rawm membrane;
+rawkeys never calls rawm implementation functions or writes rawm-owned X state.
 
-Do not create catch-all libraries such as `librawmutil` or `librawmx11` without
-a similarly specific authority boundary.
+## Transitional parser surface
 
-## External repository boundaries
+The runtime implementations for global keys, commands, panel, status, ALSA,
+systray, and the legacy in-tree rawmctl have been deleted. The configuration
+parser still accepts their extracted schema temporarily so the exact integration
+configuration can be migrated transactionally. Those accepted settings have no
+runtime authority in rawm and will be removed in the schema-contraction tranche.
 
-`rawmenu` remains a separate repository. It has independent dmenu provenance,
-independent release usefulness, and a Pinentry/secret-entry protocol and
-security lifecycle that should not become part of the window-manager release
-authority.
-
-`rawclip` remains a separate repository. Clipboard capture, exclusion, history
-retention, selection ownership, and rawmenu-backed history presentation form a
-separate runtime authority. The current rawm tree may still launch `rawclip menu`
-through transitional key policy; the target owner of that global key is
-`rawkeys`. rawclip must not absorb global-key or window-manager policy.
-
-`rawsession` is a separate repository. It owns desktop process topology: one
-primary process, long-lived supervised sidecars, bounded restart policy, and
-orderly shutdown. rawm is merely the stock primary and does not depend on
-rawsession at build or runtime.
-
-`rawlock` remains a separate repository. Screen locking and authentication form
-a privileged security boundary with materially different failure, review, and
-release requirements from the non-privileged desktop control plane. The current
-rawm key policy may still invoke it during transition; the target invocation
-owner is `rawkeys`. Neither rawm nor rawsession absorbs rawlock authentication
-or long-lived lifecycle authority.
-
-`rawin` and `rawkb` are migration sources, not long-term architecture. The
-legacy in-tree `rawmctl` absorbed parts of both, but the replacement boundaries
-are now explicit: standalone `rawctl` speaks only the rawm membrane,
-`rawkeys` owns XKB/global-key policy, and `rawwin` owns the stateless interactive
-window-selection composition. Historical repositories remain provenance rather
-than compatibility ghosts.
-
-## History and licensing
-
-The rawmstat repository was merged without squashing. Its original head is a
-real second parent of the import commit, so historical commit identities remain
-reachable even though the current files were subsequently moved into the rawm
-layout.
-
-The current source tree carries the MIT/X license. The imported rawmstat history
-remains reachable as provenance and its historical revisions retain their
-original ISC notices. Current status files carry the current tree's MIT/X
-licensing; see `LICENSES/README.md` for the provenance boundary.
+This is migration state, not a compatibility commitment.
 
 ## Change discipline
 
-Cross-component changes follow authority rather than repository convenience:
+1. Define producer-owned truth and commands before extracting consumers.
+2. Create a separate repository when authority/lifecycle/failure ownership is
+   independent.
+3. Delete extracted implementations from the source repository; do not keep
+   fallback copies.
+4. Keep producer contract tests with producers and consumer behavior tests with
+   consumers.
+5. Put cross-repository composition in the integration-policy repository.
+6. Introduce shared libraries only after independent consumers prove a stable,
+   authority-neutral semantic boundary.
+7. Never reconstruct another authority's truth from observations when the owner
+   can publish it directly.
 
-1. define a producer-owned contract before extracting a consumer;
-2. create an independent repository as soon as the extracted subsystem has its
-   own authority, lifecycle, public interface, or failure domain;
-3. delete extracted implementation from the source repository instead of
-   keeping compatibility copies or dormant fallback authority;
-4. keep producer contract tests with the producer and consumer behavior tests
-   with the consumer; cross-repository composition belongs in the integration
-   configuration repository;
-5. introduce a shared library only after multiple independent consumers prove a
-   stable reusable semantic boundary.
+## History and licensing
 
-Repository integration is therefore a control mechanism, not an objective by
-itself.
+The rawmstat history remains reachable through Git provenance, including the
+historical notices that applied to those revisions. Current rawm implementation
+files use the repository's MIT/X license. See `LICENSES/README.md` for the
+historical boundary.
