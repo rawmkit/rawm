@@ -16,5 +16,3 @@ rawm = executable(
 
 
 subdir('rawmctl')
-
-subdir('rawmsession')

@@ -32,25 +32,3 @@ custom_target(
   install: true,
   install_dir: join_paths(get_option('mandir'), 'man1'),
 )
-
-custom_target(
-  'rawmsession.1',
-  input: 'rawmsession.1.scdoc',
-  output: 'rawmsession.1',
-  command: [scdoc],
-  feed: true,
-  capture: true,
-  install: true,
-  install_dir: join_paths(get_option('mandir'), 'man1'),
-)
-
-custom_target(
-  'rawmsession.conf.5',
-  input: 'rawmsession.conf.5.scdoc',
-  output: 'rawmsession.conf.5',
-  command: [scdoc],
-  feed: true,
-  capture: true,
-  install: true,
-  install_dir: join_paths(get_option('mandir'), 'man5'),
-)

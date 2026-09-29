@@ -1,24 +1,3 @@
-rawmsession_config_test = executable(
-  'rawmsession-config-test',
-  'rawmsession-config-test.c',
-  rawmsession_config_source,
-  include_directories: rawmsession_include,
-  dependencies: libconfig_dep,
-  build_by_default: false,
-)
-
-test(
-  'rawmsession-config-defaults',
-  rawmsession_config_test,
-  args: [join_paths(meson.project_source_root(), 'config', 'rawmsession.conf')],
-)
-
-test(
-  'rawmsession-version',
-  rawmsession,
-  args: ['-v'],
-)
-
 cc = meson.get_compiler('c')
 
 config_reference_test = executable(
@@ -617,21 +596,3 @@ else
 endif
 
 subdir('unit')
-
-rawmsession_config_script = find_program('rawmsession-config.sh')
-rawmsession_lifecycle_script = find_program('rawmsession-lifecycle.sh')
-
-test(
-  'rawmsession-config',
-  rawmsession_config_script,
-  args: [rawmsession],
-  workdir: test_workdir,
-)
-
-test(
-  'rawmsession-lifecycle',
-  rawmsession_lifecycle_script,
-  args: [rawmsession],
-  workdir: test_workdir,
-  timeout: 30,
-)
