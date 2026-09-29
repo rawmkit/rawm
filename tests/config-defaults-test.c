@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static void
 fail(const char *what)
@@ -61,14 +62,38 @@ compare_config(const RawmConfig *a, const RawmConfig *b)
 int
 main(int argc, char **argv)
 {
+  char empty_path[] = "/tmp/rawm-config-defaults.XXXXXX";
   RawmConfig defaults, shipped;
+  int fd;
 
   if (argc != 2)
     fail("expected path to canonical rawm.conf");
+
+  fd = mkstemp(empty_path);
+  if (fd < 0)
+    fail("cannot create empty configuration layer");
+  if (close(fd) < 0) {
+    unlink(empty_path);
+    fail("cannot close empty configuration layer");
+  }
+
   rawm_config_init(&defaults);
   rawm_config_init(&shipped);
-  if (rawm_config_load(&shipped, argv[1], stderr) < 0)
+
+  /* Resolve references in compiled defaults without changing their policy. */
+  if (rawm_config_load(&defaults, empty_path, stderr) < 0) {
+    unlink(empty_path);
+    rawm_config_destroy(&shipped);
+    rawm_config_destroy(&defaults);
+    fail("built-in defaults did not resolve");
+  }
+  unlink(empty_path);
+
+  if (rawm_config_load(&shipped, argv[1], stderr) < 0) {
+    rawm_config_destroy(&shipped);
+    rawm_config_destroy(&defaults);
     fail("canonical rawm.conf did not load");
+  }
   compare_config(&defaults, &shipped);
   rawm_config_destroy(&shipped);
   rawm_config_destroy(&defaults);
