@@ -78,15 +78,16 @@ policy those are move, resize, and explicit floating toggle.
 Window-manager operations invoked from rawkeys travel through the rawm membrane;
 rawkeys never calls rawm implementation functions or writes rawm-owned X state.
 
-## Transitional parser surface
+## Configuration boundary
 
-The runtime implementations for global keys, commands, panel, status, ALSA,
-systray, and the legacy in-tree rawmctl have been deleted. The configuration
-parser still accepts their extracted schema temporarily so the exact integration
-configuration can be migrated transactionally. Those accepted settings have no
-runtime authority in rawm and will be removed in the schema-contraction tranche.
+rawm configuration describes only rawm-owned state. The schema contains WM
+geometry/policy, tags/layouts/rules, transient OSD policy, and admitted-client
+pointer mechanics. Extracted authorities are rejected rather than accepted as
+inert data.
 
-This is migration state, not a compatibility commitment.
+Global keys and argv execution belong to rawkeys. Persistent panel, status,
+systray, and ALSA configuration belong to rawpanel. Cross-repository composition
+belongs in integration policy, not in a compatibility parser inside rawm.
 
 ## Change discipline
 

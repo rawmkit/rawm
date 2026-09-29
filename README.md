@@ -32,11 +32,9 @@ Current rawm facilities include:
   * pointer-driven client move, resize, and explicit floating control;
   * a transient rawm-owned OSD for window-manager feedback.
 
-The current parser temporarily still accepts the extracted panel/status/global-
-key schema so layered integration policy can be migrated without restoring those
-runtime authorities. That compatibility surface is transitional parser state,
-not executable ownership, and is scheduled for removal with the matching
-integration configuration update.
+The configuration schema is authority-scoped and fail-closed. Historical
+`status`, `commands`, the historical `input` root, `ui.bar`, and `ui.systray`
+settings are rejected rather than retained as inert compatibility state.
 
 The original `dwm` 6.0 sources remain the historical base:
 

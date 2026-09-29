@@ -17,9 +17,13 @@ Authority cleanup
   extracted panel/status/systray/input authorities have left this repository.
 * rawm no longer links ALSA. Xft and Fontconfig remain only for the transient
   OSD.
-* The legacy extracted configuration grammar is temporarily parser-only while
-  the exact integration configuration is migrated; it has no rawm runtime
-  authority and is not a compatibility commitment.
+* The configuration schema now matches runtime authority. Historical `status`,
+  `commands`, global-key/general-input, bar, systray, status-click, and native
+  volume settings are rejected instead of surviving as inert parser state.
+* Client pointer policy is expressed by the narrow `pointer.bindings` schema;
+  only move, resize, and explicit floating toggle remain configurable there.
+* The obsolete private status codec and status configuration parser have been
+  deleted from the build graph.
 
 
 Input authority cutover

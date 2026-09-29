@@ -106,14 +106,14 @@ rawm retains pointer-driven client manipulation because it depends directly on
 admitted client geometry and active pointer grabs. The stock client bindings
 are:
 
-*Meta-Button1*
+*Mod4-Button1*
 	Move the focused client while dragging. A tiled client becomes floating after
 	movement exceeds the snap threshold.
 
-*Meta-Button2*
+*Mod4-Button2*
 	Toggle the focused client between explicit floating and tiled state.
 
-*Meta-Button3*
+*Mod4-Button3*
 	Resize the focused client while dragging. A tiled client becomes floating
 	after resizing exceeds the snap threshold.
 
@@ -128,11 +128,8 @@ order is built-in defaults, _/etc/rawm/rawm.conf_, then the XDG user file. An
 explicit *-c* path replaces the standard system/user file search after built-in
 defaults.
 
-During the extraction transition the parser still accepts several deprecated
-panel/status/global-key settings so existing layered configurations can be
-migrated without a runtime authority rollback. rawm no longer executes those
-settings. They will be removed from the schema together with the corresponding
-integration-policy migration.
+The schema is authority-scoped: extracted panel/status/global-key settings are
+rejected rather than accepted as ignored compatibility data.
 
 Use *rawm -C* before restarting after an edit.
 
