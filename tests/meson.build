@@ -1,5 +1,23 @@
 cc = meson.get_compiler('c')
 
+color_pixel_test = executable(
+  'color-pixel-test',
+  'color-pixel-test.c',
+  rawm_color_source,
+  include_directories: rawm_src_include,
+  dependencies: [x11_dep, xrender_dep],
+  build_by_default: false,
+)
+
+color_visual_test = executable(
+  'color-visual-test',
+  'color-visual-test.c',
+  rawm_color_source,
+  include_directories: rawm_src_include,
+  dependencies: [x11_dep, xrender_dep],
+  build_by_default: false,
+)
+
 config_reference_test = executable(
   'config-reference-test',
   'config-reference-test.c',
@@ -104,6 +122,7 @@ endif
 
 
 config_test = find_program('config.sh')
+color_visual_script = find_program('color-visual.sh')
 gaps_test = find_program('gaps.sh')
 dialog_center_test = find_program('dialog-center.sh')
 fullscreen_rule_test = find_program('fullscreen-rule.sh')
@@ -203,6 +222,26 @@ if xvfb_program.found() and xwininfo_program.found() and not xvfb_runtime_ok
 endif
 
 test_workdir = meson.project_source_root()
+
+test(
+  'color-pixel',
+  color_pixel_test,
+)
+
+if x11_missing.length() == 0
+  test(
+    'color-visual',
+    color_visual_script,
+    args: [color_visual_test],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'color-visual',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(x11_missing))],
+  )
+endif
 
 config_missing = []
 if not grep_program.found()
