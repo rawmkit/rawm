@@ -15,9 +15,10 @@ admission, monitor and tag state, layouts, focus, geometry, external-dock work
 areas, pointer-driven client manipulation, and the rawm control/state membrane.
 
 Global keyboard policy, program launching, persistent desktop chrome, status
-collection, volume control, system-tray ownership, and session lifecycle are
-separate authorities. In a rawmkit desktop those responsibilities are normally
-provided by *rawkeys*, *rawpanel*, and *rawsession*.
+collection, volume control, system-tray ownership, transient presentation, and
+session lifecycle are separate authorities. In a rawmkit desktop those
+responsibilities are normally provided by *rawkeys*, *rawpanel*, *rawosd*, and
+*rawsession*.
 
 rawm provides tile, floating, monocle, bottom-stack, horizontal bottom-stack,
 and grid layouts. Per-tag state includes layout, master count, and master
@@ -31,7 +32,7 @@ to use the complete monitor rectangle.
 rawm publishes transient semantic feedback for window-manager state transitions
 such as layout, view, routing, fullscreen, master-area changes, tag naming, and
 live floating geometry. rawm does not render that feedback; independent
-presentation consumers subscribe to the control owner.
+presentation consumers such as *rawosd*(1) subscribe to the control owner.
 
 # OPTIONS
 
@@ -144,6 +145,7 @@ Use *rawm -C* before restarting after an edit.
 
 # SEE ALSO
 
-*rawm.conf*(5), *rawctl*(1), *rawkeys*(1), *rawpanel*(1), *rawsession*(1)
+*rawm.conf*(5), *rawctl*(1), *rawkeys*(1), *rawpanel*(1), *rawosd*(1),
+*rawsession*(1)
 
 ; vim: ft=scdoc cc=72 tw=70

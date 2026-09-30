@@ -43,6 +43,8 @@ Window-manager authority membrane
 * The rawm control membrane publishes `_RAWM_CLIENTS` as an authoritative
   admitted-client inventory and accepts `_RAWM_CMD_FOCUS_CLIENT`. External
   selectors no longer need to reconstruct rawm client authority from EWMH.
+* Changes to admitted client title/class metadata republish `_RAWM_CLIENTS`, so
+  membrane consumers do not need to read client properties behind rawm's back.
 * rawm now owns an explicit versioned X11 control/state membrane for its
   window-management authority. Consumers discover a per-screen selection owner
   rather than reconstructing rawm semantics from EWMH or the client tree.

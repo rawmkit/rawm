@@ -27,10 +27,11 @@ The rawmkit desktop composes independent repositories:
   per-window XKB state.
 * `rawpanel` owns persistent dock presentation, panel pointer policy, XEmbed
   system-tray ownership, native status collection, and ALSA state/control.
+* `rawosd` owns transient feedback presentation and consumes `_RAWM_FEEDBACK`
+  together with authoritative state snapshots.
 * `rawsession` owns desktop process topology and supervision.
-* transient feedback renderers consume `_RAWM_FEEDBACK`; rawm owns no feedback window or presentation policy.
-* `rawwin` is a stateless composition leaf: rawctl client inventory, rawmenu
-  selection, rawctl direct focus.
+* `rawwin` is a stateless composition leaf: rawctl's validated `client-list`
+  projection, rawmenu selection, and rawctl direct focus.
 * `rawmenu`, `rawclip`, `rawpass`, and `rawlock` retain their independent
   authority boundaries.
 
@@ -63,8 +64,10 @@ geometry.
 
 rawm owns no desktop presentation surface. Persistent panel/status/systray
 presentation is external, and transient feedback is published semantically on
-`_RAWM_FEEDBACK` for an independent renderer. rawm does not own fonts, text
-formatting, OSD geometry, visibility timers, or presentation windows.
+`_RAWM_FEEDBACK` for an independent renderer. The shipped rawmkit renderer is
+`rawosd`; other consumers may implement the same public contract. rawm does not
+own fonts, text formatting, OSD geometry, visibility timers, or presentation
+windows.
 
 The feedback stream is advisory and event-oriented. Authoritative state remains
 `_RAWM_STATE` and `_RAWM_CLIENTS`; consumers must never reconstruct WM truth

@@ -12,6 +12,7 @@ repositories:
   * `rawctl` is the command-line client for the rawm membrane;
   * `rawkeys` owns global keyboard policy and per-window XKB state;
   * `rawpanel` owns persistent desktop chrome, systray, status, and ALSA state;
+  * `rawosd` owns transient feedback presentation;
   * `rawsession` owns session process topology;
   * `rawwin` composes interactive window selection through rawctl and rawmenu.
 
@@ -126,7 +127,8 @@ Session lifecycle is outside this repository. A typical rawmkit X session is:
     exec rawsession
 
 `rawsession` normally supervises rawm together with independent sidecars such as
-rawkeys, rawpanel, rawclipd, and Picom.
+rawkeys, rawpanel, rawosd, rawclipd, and Picom. Which sidecars make up a
+particular desktop remains integration policy rather than rawm configuration.
 
 
 RELEASE VERIFICATION
@@ -143,7 +145,8 @@ Before tagging:
 
 The staged rawm package should contain the `rawm` binary, rawm manual pages, and
 rawm configuration only. It must not install rawctl, rawkeys, rawpanel,
-rawsession, rawwin, status workers, systray utilities, or session entries.
+rawosd, rawsession, rawwin, status workers, systray utilities, or session
+entries.
 
 
 LICENSE
