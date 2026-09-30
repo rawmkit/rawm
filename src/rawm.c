@@ -393,7 +393,7 @@ static Monitor       *recttomon(int x, int y, int w, int h);
 static void           resize(Client *c, int x, int y, int w, int h,
                              bool interact);
 static void           resizeclient(Client *c, int x, int y, int w, int h);
-static void           raiseclient(Client *c);
+static void           raiseclient(Client *c, bool cover_docks);
 static bool           clientisfree(const Client *c);
 static int            clientdisplayx(const Client *c);
 static void           placefreeclient(Client *c);
@@ -2692,7 +2692,7 @@ manage(Window w, XWindowAttributes *wa)
     c->wm_urgent = true;
 
   if (c->isfloating)
-    raiseclient(c);
+    raiseclient(c, c->isfullscreen);
 
   attach(c);
   attachstack(c);
@@ -3327,50 +3327,70 @@ resizemouse(__attribute__((unused)) const Arg *arg)
 
 
 static void
-raiseclient(Client *c)
+raiseclient(Client *c, bool cover_docks)
 {
   Window root_return, parent_return, *children = NULL;
   Window ceiling = None;
   unsigned int count = 0, i;
-  bool above_client = false;
+  int client_index = -1;
+  int ceiling_index = -1;
 
   if (!c)
     return;
 
   /*
-   * Preserve external transient surfaces that are already above this
-   * admitted client. An absolute XRaiseWindow() would cross
-   * override-redirect OSD, popup-menu, tooltip, lock, and similar
-   * presentation windows whose stacking rawm does not own. Docks are
-   * deliberately excluded: fullscreen keeps its historical ability to
-   * cover desktop chrome.
-   *
-   * XQueryTree() returns root children from bottom to top. The first
-   * mapped, non-dock override-redirect sibling above c is therefore the
-   * ceiling for this raise. Putting c immediately below that sibling
-   * raises it above every managed client below the ceiling without
-   * disturbing the external surface itself.
+   * Non-dock override-redirect presentation that is already above the client
+   * remains a ceiling. Mapped docks are a stronger desktop-chrome boundary:
+   * ordinary selected clients are placed below the lowest one even when a
+   * prior fullscreen transition left that dock underneath them. Selected
+   * fullscreen clients may cross docks.
    */
   if (XQueryTree(dpy, root, &root_return, &parent_return,
                  &children, &count))
   {
     for (i = 0; i < count; ++i)
     {
-      XWindowAttributes wa;
-
       if (children[i] == c->win)
       {
-        above_client = true;
-        continue;
+        client_index = (int)i;
+        break;
       }
-      if (!above_client ||
-          !XGetWindowAttributes(dpy, children[i], &wa) ||
-          wa.map_state != IsViewable || !wa.override_redirect ||
-          windowisdock(children[i]))
-        continue;
+    }
 
-      ceiling = children[i];
-      break;
+    if (!cover_docks)
+    {
+      for (i = 0; i < count; ++i)
+      {
+        XWindowAttributes wa;
+
+        if (!XGetWindowAttributes(dpy, children[i], &wa) ||
+            wa.map_state != IsViewable || !windowisdock(children[i]))
+          continue;
+
+        ceiling = children[i];
+        ceiling_index = (int)i;
+        break;
+      }
+    }
+
+    if (client_index >= 0)
+    {
+      for (i = (unsigned int)client_index + 1u; i < count; ++i)
+      {
+        XWindowAttributes wa;
+
+        if (!XGetWindowAttributes(dpy, children[i], &wa) ||
+            wa.map_state != IsViewable || windowisdock(children[i]) ||
+            !wa.override_redirect)
+          continue;
+
+        if (ceiling_index < 0 || (int)i < ceiling_index)
+        {
+          ceiling = children[i];
+          ceiling_index = (int)i;
+        }
+        break;
+      }
     }
   }
 
@@ -3396,17 +3416,35 @@ restack(Monitor *m)
 {
   Client *c;
   XEvent ev;
+  bool selected_needs_raise;
 
   if (!m->sel)
     return;
+
+  selected_needs_raise = m->sel->isfloating || !m->lt[m->sellt]->arrange;
+
+  /*
+   * Fullscreen is selected-client elevation, not a permanent stacking
+   * ceiling. Once focus moves to another visible managed client, demote the
+   * old fullscreen peer before placing the new selection. This prevents a
+   * focused tiled client from remaining active but completely obscured.
+   */
+  for (c = m->stack; c; c = c->snext)
+  {
+    if (c != m->sel && c->isfullscreen && ISVISIBLE(c))
+    {
+      XLowerWindow(dpy, c->win);
+      selected_needs_raise = true;
+    }
+  }
 
   if (m->lt[m->sellt]->arrange)
     for (c = m->stack; c; c = c->snext)
       if (!c->isfloating && ISVISIBLE(c))
         XLowerWindow(dpy, c->win);
 
-  if (m->sel->isfloating || !m->lt[m->sellt]->arrange)
-    raiseclient(m->sel);
+  if (selected_needs_raise)
+    raiseclient(m->sel, m->sel->isfullscreen);
 
   XSync(dpy, false);
   while (XCheckMaskEvent(dpy, EnterWindowMask, &ev))
@@ -3602,7 +3640,8 @@ setfullscreen(Client *c, bool fullscreen)
     c->isfloating   = true;
 
     resizeclient(c, c->mon->mx, c->mon->my, c->mon->mw, c->mon->mh);
-    raiseclient(c);
+    if (c->mon->sel == c && ISVISIBLE(c))
+      raiseclient(c, true);
   }
   else
   {

@@ -7,10 +7,17 @@ rawm 7.0.0 — unreleased
   transparent focus borders without Firefox, GTK, CSD, or other application
   exceptions. Client colormap changes refresh indexed fallback colors.
 
-* Managed-client raises now preserve mapped non-dock override-redirect surfaces
+* Managed-client selection now remains visible across fullscreen/tag churn. A
+  selected fullscreen client is re-elevated above dock chrome when its tag is
+  revisited, while moving focus to another managed client demotes the old
+  fullscreen stacking ceiling and places the new selection above it but below
+  docks.
+
+* Managed-client raises preserve mapped non-dock override-redirect surfaces
   already above the client, so floating/fullscreen/layout restacks do not jump
   over OSD, popup-menu, tray-menu, lock, or similar transient presentation.
-  Docks remain outside that ceiling so fullscreen can still cover desktop chrome.
+  Ordinary selected clients stop below dock chrome; selected fullscreen clients
+  may cross docks.
 
 * `_RAWM_STATE` advances to version 2 and publishes authoritative monitor work-area geometry (`wx/wy/ww/wh`) beside full monitor rectangles so external presentation can respect dock reservations without reconstructing struts.
 

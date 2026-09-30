@@ -69,13 +69,15 @@ presentation is external, and transient feedback is published semantically on
 own fonts, text formatting, OSD geometry, visibility timers, or presentation
 windows.
 
-Managed-client stacking is also bounded at this interface. When rawm raises a
-managed client, it preserves mapped non-dock override-redirect surfaces already
-above that client instead of jumping across notifications, popup menus, tray
-menus, locks, or similar external presentation. Docks are not a transient
-stacking ceiling, so fullscreen retains its historical ability to cover desktop
-chrome. External surfaces remain responsible for their own mapping and relative
-stacking.
+Managed-client stacking is also bounded at this interface. Selection is the
+authoritative managed stacking edge: a visible fullscreen client is elevated
+across dock chrome only while it is selected, and another selected managed
+client is placed above that fullscreen peer rather than remaining focused but
+obscured. Ordinary selected clients stop below mapped docks. When rawm raises a
+managed client, it also preserves mapped non-dock override-redirect surfaces
+already above it instead of jumping across notifications, popup menus, tray
+menus, locks, or similar external presentation. External surfaces remain
+responsible for their own mapping and relative stacking.
 
 The feedback stream is advisory and event-oriented. Authoritative state remains
 `_RAWM_STATE` and `_RAWM_CLIENTS`; consumers must never reconstruct WM truth
