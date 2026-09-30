@@ -52,17 +52,17 @@ property only when the serialized authoritative state changes. Consumers must
 always treat the property as a complete snapshot rather than an incremental
 event stream.
 
-## State version 1
+## State version 2
 
 The first line is exactly:
 
 ```
-rawm-state-v1
+rawm-state-v2
 ```
 
 Consumers must reject snapshots with another version marker. Records are
 newline-terminated and fields are separated by a single horizontal tab. Within
-version 1, an unknown record kind or an incorrect field count is malformed and
+version 2, an unknown record kind or an incorrect field count is malformed and
 must be rejected rather than silently ignored.
 
 The snapshot starts with:
@@ -85,6 +85,9 @@ Monitor fields are:
 * `number`: rawm monitor number.
 * `selected`: `0` or `1`.
 * `mx`, `my`, `mw`, `mh`: full monitor geometry in X coordinates.
+* `wx`, `wy`, `ww`, `wh`: rawm-authoritative work-area geometry after external
+  dock/strut reservations. Consumers that place desktop presentation surfaces
+  must use this geometry rather than reconstructing work areas from EWMH.
 * `viewed`, `occupied`, `urgent`: eight-digit hexadecimal tag masks without a
   prefix.
 * `layout`: one of `tile`, `floating`, `monocle`, `bstack`,

@@ -1,6 +1,7 @@
 rawm 7.0.0 — unreleased
 ======================
 
+* `_RAWM_STATE` advances to version 2 and publishes authoritative monitor work-area geometry (`wx/wy/ww/wh`) beside full monitor rectangles so external presentation can respect dock reservations without reconstructing struts.
 
 Authority cleanup
 -----------------

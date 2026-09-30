@@ -103,7 +103,7 @@ wait_state()
 }
 
 initial=$(state)
-printf '%s\n' "$initial" | grep -Fx 'rawm-state-v1' >/dev/null ||
+printf '%s\n' "$initial" | grep -Fx 'rawm-state-v2' >/dev/null ||
   fail "state version marker missing"
 printf '%s\n' "$initial" | grep -F "selected-monitor	0" >/dev/null ||
   fail "selected monitor missing"

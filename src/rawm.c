@@ -1254,7 +1254,7 @@ publishcontrolstate(void)
     return;
   }
 
-  fprintf(stream, "rawm-state-v1\n");
+  fprintf(stream, "rawm-state-v2\n");
   fprintf(stream, "tag-count\t%zu\n", config.tag_count);
   fprintf(stream, "selected-monitor\t%d\n", selmon ? selmon->num : -1);
 
@@ -1266,9 +1266,10 @@ publishcontrolstate(void)
     size_t i;
 
     fprintf(stream,
-            "monitor\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%s\t0x%lx\t%d\t%.6f\n",
+            "monitor\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%08x\t%08x\t%08x\t%s\t0x%lx\t%d\t%.6f\n",
             m->num, m == selmon ? 1 : 0,
             m->mx, m->my, m->mw, m->mh,
+            m->wx, m->wy, m->ww, m->wh,
             state.viewed, state.occupied, state.urgent,
             layout ? layout : "unknown",
             m->sel ? (unsigned long)m->sel->win : 0ul,

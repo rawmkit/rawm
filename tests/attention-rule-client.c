@@ -145,20 +145,25 @@ selected_monitor_urgent(Display *dpy, unsigned int *urgent)
   line = state;
   while (*line) {
     char *next = strchr(line, '\n');
-    int monitor, selected, mx, my, mw, mh;
+    int monitor, selected, mx, my, mw, mh, wx, wy, ww, wh;
     unsigned int viewed, occupied, current_urgent;
 
     if (next)
       *next = '\0';
     if (sscanf(line,
-               "monitor\t%d\t%d\t%d\t%d\t%d\t%d\t%x\t%x\t%x",
+               "monitor\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%x\t%x\t%x",
                &monitor, &selected, &mx, &my, &mw, &mh,
-               &viewed, &occupied, &current_urgent) == 9 && selected) {
+               &wx, &wy, &ww, &wh,
+               &viewed, &occupied, &current_urgent) == 13 && selected) {
       (void)monitor;
       (void)mx;
       (void)my;
       (void)mw;
       (void)mh;
+      (void)wx;
+      (void)wy;
+      (void)ww;
+      (void)wh;
       (void)viewed;
       (void)occupied;
       *urgent = current_urgent;
