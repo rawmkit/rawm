@@ -19,16 +19,17 @@ mkdir -p "$tmp"
 wm_pid=
 a_pid=
 b_pid=
+focus_pid=
 dock_pid=
 surface1_pid=
 surface2_pid=
 
 cleanup()
 {
-  for pid in "$surface2_pid" "$surface1_pid" "$dock_pid" "$b_pid" "$a_pid" "$wm_pid"; do
+  for pid in "$surface2_pid" "$surface1_pid" "$dock_pid" "$focus_pid" "$b_pid" "$a_pid" "$wm_pid"; do
     [ -z "$pid" ] || kill "$pid" 2>/dev/null || true
   done
-  for pid in "$surface2_pid" "$surface1_pid" "$dock_pid" "$b_pid" "$a_pid" "$wm_pid"; do
+  for pid in "$surface2_pid" "$surface1_pid" "$dock_pid" "$focus_pid" "$b_pid" "$a_pid" "$wm_pid"; do
     [ -z "$pid" ] || wait "$pid" 2>/dev/null || true
   done
   test_xvfb_stop
@@ -65,7 +66,8 @@ ui = {
 };
 tags = {
   default = (
-    { name = "one"; layout = "tile"; }
+    { name = "one"; layout = "tile"; },
+    { name = "two"; layout = "tile"; }
   );
 };
 EOC
@@ -141,7 +143,48 @@ assert_above "$dock_win" "$a_win" \
   "fullscreen did not retain its ability to cover dock chrome"
 assert_above "$a_win" "$surface1_win" \
   "fullscreen raise crossed the external presentation layer"
+
+# Fullscreen elevation is selected-client state, not a permanent managed-client
+# ceiling. Returning to a tag must reassert selected fullscreen above docks; if
+# another managed client becomes selected on that tag, it must remain visible
+# above the fullscreen client while ordinary dock chrome stays above it.
+send_command _RAWM_CMD_TAG 2
+send_command _RAWM_CMD_VIEW 2
+send_command _RAWM_CMD_VIEW 1
+send_command _RAWM_CMD_VIEW 2
+assert_above "$dock_win" "$a_win" \
+  "fullscreen did not recover above dock after leaving and returning to its tag"
+assert_above "$a_win" "$surface1_win" \
+  "tag return raised fullscreen across the external presentation layer"
+
+"$client" client StackFocus >"$tmp/focus.out" 2>"$tmp/focus.err" &
+focus_pid=$!
+focus_win=$(wait_xid "$tmp/focus.out")
+wait_admitted "$focus_win"
+assert_above "$a_win" "$focus_win" \
+  "newly selected client remained behind visible fullscreen client"
+assert_above "$focus_win" "$dock_win" \
+  "ordinary selected client crossed dock chrome"
+
+send_command _RAWM_CMD_FOCUS_STACK 1
+assert_above "$dock_win" "$a_win" \
+  "refocused fullscreen client did not recover above dock chrome"
+assert_above "$a_win" "$surface1_win" \
+  "refocused fullscreen client crossed the external presentation layer"
+
+send_command _RAWM_CMD_FOCUS_STACK -1
+assert_above "$a_win" "$focus_win" \
+  "focus traversal selected a client that remained hidden behind fullscreen"
+assert_above "$focus_win" "$dock_win" \
+  "focus traversal raised ordinary client across dock chrome"
+
+kill "$focus_pid" 2>/dev/null || true
+wait "$focus_pid" 2>/dev/null || true
+focus_pid=
+sleep 0.08
 send_command _RAWM_CMD_TOGGLE_FULLSCREEN
+send_command _RAWM_CMD_TAG 1
+send_command _RAWM_CMD_VIEW 1
 
 "$client" client StackB >"$tmp/b.out" 2>"$tmp/b.err" &
 b_pid=$!
