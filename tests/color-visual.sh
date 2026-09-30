@@ -36,5 +36,5 @@ set +e
 "$client"
 rc=$?
 set -e
-[ "$rc" -ne 77 ] || skip "Xvfb exposes no alpha TrueColor visual"
+[ "$rc" -ne 77 ] || skip "X server exposes no alpha-bearing TrueColor visual"
 [ "$rc" -eq 0 ] || exit "$rc"

@@ -25,7 +25,7 @@ main(void)
   if (!display)
   {
     fputs("color-visual-test: cannot open display\n", stderr);
-    return 77;
+    return EXIT_FAILURE;
   }
 
   template.screen = DefaultScreen(display);
@@ -34,7 +34,7 @@ main(void)
   {
     XCloseDisplay(display);
     fputs("color-visual-test: no visuals\n", stderr);
-    return 77;
+    return EXIT_FAILURE;
   }
 
   for (i = 0; i < count; ++i)
@@ -88,6 +88,5 @@ main(void)
 
   XFree(visuals);
   XCloseDisplay(display);
-  puts("color visual tests: skipped (no alpha TrueColor visual)");
   return 77;
 }
