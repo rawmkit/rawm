@@ -332,11 +332,15 @@ if not wc_program.found()
   geometry_missing += ['wc']
 endif
 if geometry_missing.length() == 0
+  # geometry repeatedly starts rawm/client cases and is the heaviest Xvfb
+  # integration fixture.  Keep it isolated from concurrent Xvfb load rather
+  # than weakening its timeout or serializing the rest of the suite.
   test(
     'geometry',
     geometry_test,
     args: [rawm, geometry_client, control_client],
     workdir: test_workdir,
+    is_parallel: false,
   )
 else
   test(
