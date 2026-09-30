@@ -107,7 +107,7 @@ printf '%s\n' "$initial" | grep -Fx 'rawm-state-v2' >/dev/null ||
   fail "state version marker missing"
 printf '%s\n' "$initial" | grep -F "selected-monitor	0" >/dev/null ||
   fail "selected monitor missing"
-printf '%s\n' "$initial" | grep -F "monitor	0	1	0	0	800	600	00000001" >/dev/null ||
+printf '%s\n' "$initial" | grep -F "monitor	0	1	0	0	800	600	0	0	800	600	00000001" >/dev/null ||
   fail "initial monitor authority is incorrect"
 printf '%s\n' "$initial" | grep -F "stack	0	0	0" >/dev/null ||
   fail "initial admitted stack authority is incorrect"
@@ -117,7 +117,7 @@ printf '%s\n' "$initial" | grep -F "tag	0	2	two" >/dev/null ||
   fail "tag two authority missing"
 
 "$client" --send _RAWM_CMD_VIEW 2
-wait_state "monitor	0	1	0	0	800	600	00000002"
+wait_state "monitor	0	1	0	0	800	600	0	0	800	600	00000002"
 
 "$client" --send _RAWM_CMD_SET_LAYOUT 2
 wait_state "	monocle	"
