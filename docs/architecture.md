@@ -81,6 +81,12 @@ The feedback stream is advisory and event-oriented. Authoritative state remains
 `_RAWM_STATE` and `_RAWM_CLIENTS`; consumers must never reconstruct WM truth
 from feedback records.
 
+Managed-client borders remain rawm-owned presentation at the admission boundary.
+Configured colors are logical RGB values and are projected into each client's
+actual X visual. Direct alpha-bearing visuals are encoded with opaque alpha;
+rawm does not infer toolkits, CSD state, application names, or compositor policy
+to decide how a border should look.
+
 ## Input boundary
 
 Global keyboard policy is rawkeys authority. rawm retains only client-pointer

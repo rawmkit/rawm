@@ -34,6 +34,11 @@ such as layout, view, routing, fullscreen, master-area changes, tag naming, and
 live floating geometry. rawm does not render that feedback; independent
 presentation consumers such as *rawosd*(1) subscribe to the control owner.
 
+Managed-client borders are rawm-owned and are resolved for each client's actual
+X visual. Alpha-bearing direct visuals receive opaque border pixels, so focus and
+attention borders do not depend on whether the client uses an ordinary RGB
+visual or ARGB client-side decoration.
+
 # OPTIONS
 
 *-c* _path_, *--config* _path_

@@ -1,6 +1,12 @@
 rawm 7.0.0 — unreleased
 ======================
 
+* Managed-client border colors are now resolved in each client's actual X
+  visual instead of reusing root/default-colormap pixels. XRender direct formats
+  keep alpha-bearing ARGB borders fully opaque, eliminating compositor-visible
+  transparent focus borders without Firefox, GTK, CSD, or other application
+  exceptions. Client colormap changes refresh indexed fallback colors.
+
 * Managed-client raises now preserve mapped non-dock override-redirect surfaces
   already above the client, so floating/fullscreen/layout restacks do not jump
   over OSD, popup-menu, tray-menu, lock, or similar transient presentation.

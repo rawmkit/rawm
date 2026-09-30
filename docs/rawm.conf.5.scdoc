@@ -106,6 +106,12 @@ The *ui* group accepts *border_width*, *snap*, *opacity*, and *colors*.
 *floating*
 	Selected elevated/floating client. Default: *${ui.colors.selected}*.
 
+Colors are logical RGB values, not root-window pixel values. rawm resolves each
+scheme against the visual of every admitted client. Alpha-bearing direct visuals
+receive fully opaque border pixels, so the same configured border remains
+visible for ordinary and ARGB/CSD clients without application-specific rules.
+Client colormap changes refresh the resolved pixels.
+
 Font, foreground/background, and OSD settings are presentation policy and are
 not accepted by rawm.
 

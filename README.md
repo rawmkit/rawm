@@ -25,6 +25,8 @@ Current rawm facilities include:
     layouts with per-tag state and configurable gaps;
   * explicit free-window geometry, size-hint, centering, fullscreen, attention,
     and cascading-placement policies;
+  * visual-correct managed-client border projection, including opaque borders
+    on alpha-bearing ARGB visuals;
   * authoritative monitor/tag/layout/focus and admitted-client snapshots through
     a versioned X selection membrane;
   * standard EWMH dock/strut observation for external work-area reservations;
@@ -55,6 +57,7 @@ Build time
   * C99 compiler
   * Meson >= 1.6.0
   * `libX11`
+  * `libXrender`
   * `libconfig`
   * optional `xinerama`
   * `scdoc(1)` for manual pages
