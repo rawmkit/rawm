@@ -69,6 +69,14 @@ dock_strut_client = executable(
 )
 
 
+stacking_client = executable(
+  'stacking-client',
+  'stacking-client.c',
+  dependencies: x11_dep,
+  build_by_default: false,
+)
+
+
 dl_dep = cc.find_library('dl', required: false)
 send_pointer_deps = [x11_dep]
 if dl_dep.found()
@@ -104,6 +112,7 @@ geometry_test = find_program('geometry.sh')
 compositor_state_test = find_program('compositor-state.sh')
 control_membrane_test = find_program('control-membrane.sh')
 dock_strut_test = find_program('dock-strut.sh')
+stacking_boundary_test = find_program('stacking-boundary.sh')
 focus_index_test = find_program('focus-index.sh')
 window_view_test = find_program('window-view.sh')
 actions_test = find_program('actions.sh')
@@ -397,6 +406,28 @@ else
     'dock-strut',
     skip_test,
     args: ['missing test dependencies: @0@'.format(', '.join(dock_strut_missing))],
+  )
+endif
+
+stacking_boundary_missing = x11_missing
+if not grep_program.found()
+  stacking_boundary_missing += ['grep']
+endif
+if not sed_program.found()
+  stacking_boundary_missing += ['sed']
+endif
+if stacking_boundary_missing.length() == 0
+  test(
+    'stacking-boundary',
+    stacking_boundary_test,
+    args: [rawm, stacking_client, control_client],
+    workdir: test_workdir,
+  )
+else
+  test(
+    'stacking-boundary',
+    skip_test,
+    args: ['missing test dependencies: @0@'.format(', '.join(stacking_boundary_missing))],
   )
 endif
 
