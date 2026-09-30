@@ -19,10 +19,12 @@ add_project_arguments(
 )
 
 x11_dep = dependency('x11')
+xrender_dep = dependency('xrender')
 libconfig_dep = dependency('libconfig')
 
 rawm_deps = [
   x11_dep,
+  xrender_dep,
   libconfig_dep,
 ]
 rawm_c_args = []

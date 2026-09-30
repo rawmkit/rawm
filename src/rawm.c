@@ -44,6 +44,7 @@
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 
+#include "rawm-color.h"
 #include "rawm-config.h"
 #include "rawm-control.h"
 
@@ -157,12 +158,6 @@ enum {
   CurLast    /**< Sentinel value for the last cursor type. */
 };
 
-/** Color definitions for drawing. */
-enum {
-  ColBorder,
-  ColLast
-};
-
 /** Configured color schemes. */
 enum {
   SchemeNorm,
@@ -268,15 +263,10 @@ struct Client {
   Client *snext;        /**< Next client in the stack list for the monitor (focus history). */
   Monitor *mon;         /**< Pointer to the monitor the client is on. */
   Window win;           /**< X window ID. */
+  Colormap border_colormap; /**< Colormap used for allocated border pixels. */
+  unsigned long border_pixels[MAXCOLORS]; /**< Visual-native border pixels. */
+  bool border_allocated[MAXCOLORS]; /**< Whether a pixel owns a color cell. */
 };
-
-/**
- * @brief Drawing context for window-manager border colors.
- */
-typedef struct {
-  unsigned long colors[MAXCOLORS][ColLast];
-  GC gc;
-} DC;
 
 /**
  * @brief Layout definition.
@@ -333,6 +323,7 @@ static void           buttonpress(XEvent *e);
 static void           checkotherwm(void);
 static void           cleanup(void);
 static void           cleanupmon(Monitor *mon);
+static void           colormapnotify(XEvent *e);
 static void           centerclient(Client *c, RawmCenterMode mode);
 static void           clearurgent(Client *c);
 static bool           clienturgent(const Client *c);
@@ -370,11 +361,14 @@ static bool           getdockstrut(Window w, unsigned long strut[12]);
 static void           setatomlistmember(Window w, Atom prop, Atom atom, bool present);
 static bool           clientiselevated(const Client *c);
 static int            clientselectedscheme(const Client *c);
+static int            clientborderscheme(const Client *c);
+static void           setclientborder(Client *c, int scheme);
+static bool           resolveclientbordercolors(Client *c, const XWindowAttributes *wa);
+static void           releaseclientbordercolors(Client *c);
 static void           clearclientcomposition(Client *c);
 static void           updateclientcomposition(Client *c);
 
 
-static unsigned long  getcolor(const char *colstr);
 static bool           getrootptr(int *x, int *y);
 static Atom           getatomprop(Client *c, Atom prop);
 static long           getstate(Window w);
@@ -473,6 +467,7 @@ static unsigned int   numlockmask = 0;
 static void          (*handler[LASTEvent]) (XEvent *) = {
   [ButtonPress]       = buttonpress,
   [ClientMessage]     = clientmessage,
+  [ColormapNotify]    = colormapnotify,
   [ConfigureRequest]  = configurerequest,
   [ConfigureNotify]   = configurenotify,
   [DestroyNotify]     = destroynotify,
@@ -494,7 +489,7 @@ static volatile sig_atomic_t running = 1;
 static int            signalpipe[2] = { -1, -1 };
 static Cursor         cursor[CurLast];
 static Display       *dpy;
-static DC             dc;
+static RawmColor      bordercolors[MAXCOLORS];
 static Monitor       *mons = NULL, *selmon = NULL;
 static Window         root;
 
@@ -832,8 +827,7 @@ arrangemon(Monitor *m)
     }
 
     if (m == selmon && m->sel == c)
-      XSetWindowBorder(dpy, c->win,
-                       dc.colors[clientselectedscheme(c)][ColBorder]);
+      setclientborder(c, clientselectedscheme(c));
   }
 
   if (m->lt[m->sellt]->arrange)
@@ -1592,6 +1586,27 @@ configurenotify(XEvent *e)
 }
 
 static void
+colormapnotify(XEvent *e)
+{
+  XColormapEvent *ev = &e->xcolormap;
+  XWindowAttributes wa;
+  Client *c;
+
+  if (!ev->new || !(c = wintoclient(ev->window)))
+    return;
+  if (!XGetWindowAttributes(dpy, c->win, &wa))
+    return;
+
+  releaseclientbordercolors(c);
+  if (!resolveclientbordercolors(c, &wa))
+    fprintf(stderr,
+            "rawm: warning: window 0x%lx could not resolve every border color "
+            "after colormap change; using pixel 0 for unavailable schemes\n",
+            (unsigned long)c->win);
+  setclientborder(c, clientborderscheme(c));
+}
+
+static void
 configurerequest(XEvent *e)
 {
   Client                 *c;
@@ -1896,8 +1911,7 @@ focus(Client *c)
     detachstack(c);
     attachstack(c);
     grabbuttons(c, true);
-    XSetWindowBorder(dpy, c->win,
-                     dc.colors[clientselectedscheme(c)][ColBorder]);
+    setclientborder(c, clientselectedscheme(c));
     setfocus(c);
   }
   else
@@ -2210,18 +2224,6 @@ setatomlistmember(Window w, Atom prop, Atom atom, bool present)
 }
 
 
-static unsigned long
-getcolor(const char *colstr)
-{
-  Colormap cmap = DefaultColormap(dpy, screen);
-  XColor color, exact;
-
-  if (!XAllocNamedColor(dpy, cmap, colstr, &color, &exact))
-    die("error, cannot allocate color '%s'\n", colstr);
-
-  return color.pixel;
-}
-
 static Atom
 getatomprop(Client *c, Atom prop)
 {
@@ -2323,6 +2325,87 @@ static int
 clientselectedscheme(const Client *c)
 {
   return clientiselevated(c) ? SchemeFloating : SchemeSel;
+}
+
+static int
+clientborderscheme(const Client *c)
+{
+  if (c && c->mon == selmon && c->mon->sel == c)
+    return clientselectedscheme(c);
+  if (clienturgent(c))
+    return SchemeUrg;
+  return SchemeNorm;
+}
+
+static void
+setclientborder(Client *c, int scheme)
+{
+  if (!c)
+    return;
+  if (scheme < 0 || scheme >= MAXCOLORS)
+    scheme = SchemeNorm;
+
+  XSetWindowBorder(dpy, c->win, c->border_pixels[scheme]);
+}
+
+static void
+releaseclientbordercolors(Client *c)
+{
+  bool allocated = false;
+  int i;
+
+  if (!c || c->border_colormap == None)
+    return;
+
+  for (i = 0; i < MAXCOLORS; ++i)
+    allocated = allocated || c->border_allocated[i];
+
+  if (allocated)
+  {
+    XSync(dpy, false);
+    XSetErrorHandler(xerrordummy);
+    for (i = 0; i < MAXCOLORS; ++i)
+    {
+      if (!c->border_allocated[i])
+        continue;
+      XFreeColors(dpy, c->border_colormap, &c->border_pixels[i], 1, 0);
+      c->border_allocated[i] = false;
+    }
+    XSync(dpy, false);
+    XSetErrorHandler(xerror);
+  }
+
+  c->border_colormap = None;
+}
+
+static bool
+resolveclientbordercolors(Client *c, const XWindowAttributes *wa)
+{
+  bool complete = true;
+  int i;
+
+  if (!c || !wa)
+    return false;
+
+  c->border_colormap = wa->colormap;
+  for (i = 0; i < MAXCOLORS; ++i)
+  {
+    RawmColorPixel resolved = {0};
+
+    if (!rawm_color_resolve(dpy, wa->visual, wa->colormap,
+                            &bordercolors[i], &resolved))
+    {
+      c->border_pixels[i] = 0;
+      c->border_allocated[i] = false;
+      complete = false;
+      continue;
+    }
+
+    c->border_pixels[i] = resolved.pixel;
+    c->border_allocated[i] = resolved.allocated;
+  }
+
+  return complete;
 }
 
 static void
@@ -2562,8 +2645,14 @@ manage(Window w, XWindowAttributes *wa)
 
   wc.border_width = c->bw;
 
+  if (!resolveclientbordercolors(c, wa))
+    fprintf(stderr,
+            "rawm: warning: window 0x%lx could not resolve every border color; "
+            "using pixel 0 for unavailable schemes\n",
+            (unsigned long)c->win);
+
   XConfigureWindow(dpy, w, CWBorderWidth, &wc);
-  XSetWindowBorder(dpy, w, dc.colors[0][ColBorder]);
+  setclientborder(c, SchemeNorm);
 
   configure(c); /* propagates border_width, if size doesn't change */
   updatewindowtype(c);
@@ -2583,6 +2672,7 @@ manage(Window w, XWindowAttributes *wa)
                  EnterWindowMask
                | FocusChangeMask
                | PropertyChangeMask
+               | ColormapChangeMask
                | StructureNotifyMask
                );
   grabbuttons(c, false);
@@ -2932,7 +3022,7 @@ propertynotify(XEvent *e)
           if (clienturgent(c))
       {
         /* Set urgent/warning border color (from config.colors[2]) */
-        XSetWindowBorder(dpy, c->win, dc.colors[SchemeUrg][ColBorder]);
+        setclientborder(c, SchemeUrg);
       }
       break;
     default:
@@ -3636,10 +3726,11 @@ setup(void)
   cursor[CurMove] = XCreateFontCursor(dpy, XC_fleur);
 
   for (int i = 0; i < RAWM_COLOR_SCHEMES; ++i)
-    dc.colors[i][ColBorder] = getcolor(config.colors[i]);
-
-  dc.gc = XCreateGC(dpy, root, 0, NULL);
-  XSetLineAttributes(dpy, dc.gc, 1, LineSolid, CapButt, JoinMiter);
+  {
+    if (!rawm_color_parse(dpy, DefaultColormap(dpy, screen), config.colors[i],
+                          &bordercolors[i]))
+      die("error, cannot parse border color '%s'\n", config.colors[i]);
+  }
 
   XChangeProperty(dpy, root, netatom[NetSupported], XA_ATOM, 32,
                   PropModeReplace, (unsigned char *)netatom, NetLast);
@@ -3942,7 +4033,7 @@ unfocus(Client *c, bool setfocus)
 
 
   grabbuttons(c, false);
-  XSetWindowBorder(dpy, c->win, dc.colors[0][ColBorder]);
+  setclientborder(c, SchemeNorm);
   setcardinalproperty(c->win, rawmatom[RawmAtomSelected], 0);
 
   if (setfocus)
@@ -3979,6 +4070,7 @@ unmanage(Client *c, bool destroyed)
     XSetErrorHandler(xerror);
     XUngrabServer(dpy);
   }
+  releaseclientbordercolors(c);
   free(c);
   focus(NULL);
   updateclientlist();
