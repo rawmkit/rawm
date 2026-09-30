@@ -131,6 +131,9 @@ wait_state "	1	0.650000"
 "$client" --send _RAWM_CMD_RENAME_TAG 0 0 'desk%work'
 wait_state "tag	0	2	2/desk%25work"
 
+"$client" --send _RAWM_CMD_RENAME_TAG 0 0 ''
+wait_state "tag	0	2	2"
+
 clients()
 {
   "$client" --clients
