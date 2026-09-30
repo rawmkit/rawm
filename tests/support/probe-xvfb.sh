@@ -23,7 +23,10 @@ cleanup()
   test_xvfb_stop
   rm -rf "$tmp"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if test_xvfb_start "$tmp"; then
   exit 0
