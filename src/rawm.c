@@ -399,6 +399,7 @@ static Monitor       *recttomon(int x, int y, int w, int h);
 static void           resize(Client *c, int x, int y, int w, int h,
                              bool interact);
 static void           resizeclient(Client *c, int x, int y, int w, int h);
+static void           raiseclient(Client *c);
 static bool           clientisfree(const Client *c);
 static int            clientdisplayx(const Client *c);
 static void           placefreeclient(Client *c);
@@ -2601,7 +2602,7 @@ manage(Window w, XWindowAttributes *wa)
     c->wm_urgent = true;
 
   if (c->isfloating)
-    XRaiseWindow(dpy, c->win);
+    raiseclient(c);
 
   attach(c);
   attachstack(c);
@@ -3236,6 +3237,71 @@ resizemouse(__attribute__((unused)) const Arg *arg)
 
 
 static void
+raiseclient(Client *c)
+{
+  Window root_return, parent_return, *children = NULL;
+  Window ceiling = None;
+  unsigned int count = 0, i;
+  bool above_client = false;
+
+  if (!c)
+    return;
+
+  /*
+   * Preserve external transient surfaces that are already above this
+   * admitted client. An absolute XRaiseWindow() would cross
+   * override-redirect OSD, popup-menu, tooltip, lock, and similar
+   * presentation windows whose stacking rawm does not own. Docks are
+   * deliberately excluded: fullscreen keeps its historical ability to
+   * cover desktop chrome.
+   *
+   * XQueryTree() returns root children from bottom to top. The first
+   * mapped, non-dock override-redirect sibling above c is therefore the
+   * ceiling for this raise. Putting c immediately below that sibling
+   * raises it above every managed client below the ceiling without
+   * disturbing the external surface itself.
+   */
+  if (XQueryTree(dpy, root, &root_return, &parent_return,
+                 &children, &count))
+  {
+    for (i = 0; i < count; ++i)
+    {
+      XWindowAttributes wa;
+
+      if (children[i] == c->win)
+      {
+        above_client = true;
+        continue;
+      }
+      if (!above_client ||
+          !XGetWindowAttributes(dpy, children[i], &wa) ||
+          wa.map_state != IsViewable || !wa.override_redirect ||
+          windowisdock(children[i]))
+        continue;
+
+      ceiling = children[i];
+      break;
+    }
+  }
+
+  if (children)
+    XFree(children);
+
+  if (ceiling != None)
+  {
+    XWindowChanges changes;
+
+    memset(&changes, 0, sizeof(changes));
+    changes.sibling = ceiling;
+    changes.stack_mode = Below;
+    XConfigureWindow(dpy, c->win, CWSibling | CWStackMode, &changes);
+  }
+  else
+    XRaiseWindow(dpy, c->win);
+}
+
+
+static void
 restack(Monitor *m)
 {
   Client *c;
@@ -3250,7 +3316,7 @@ restack(Monitor *m)
         XLowerWindow(dpy, c->win);
 
   if (m->sel->isfloating || !m->lt[m->sellt]->arrange)
-    XRaiseWindow(dpy, m->sel->win);
+    raiseclient(m->sel);
 
   XSync(dpy, false);
   while (XCheckMaskEvent(dpy, EnterWindowMask, &ev))
@@ -3446,7 +3512,7 @@ setfullscreen(Client *c, bool fullscreen)
     c->isfloating   = true;
 
     resizeclient(c, c->mon->mx, c->mon->my, c->mon->mw, c->mon->mh);
-    XRaiseWindow(dpy, c->win);
+    raiseclient(c);
   }
   else
   {

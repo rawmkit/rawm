@@ -1,6 +1,11 @@
 rawm 7.0.0 — unreleased
 ======================
 
+* Managed-client raises now preserve mapped non-dock override-redirect surfaces
+  already above the client, so floating/fullscreen/layout restacks do not jump
+  over OSD, popup-menu, tray-menu, lock, or similar transient presentation.
+  Docks remain outside that ceiling so fullscreen can still cover desktop chrome.
+
 * `_RAWM_STATE` advances to version 2 and publishes authoritative monitor work-area geometry (`wx/wy/ww/wh`) beside full monitor rectangles so external presentation can respect dock reservations without reconstructing struts.
 
 Authority cleanup
